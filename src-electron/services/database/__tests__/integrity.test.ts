@@ -37,7 +37,7 @@ describe('DatabaseIntegrityService Tests', () => {
     testSqliteDbPath = path.join(os.tmpdir(), `test_integrity_sqlite_${Date.now()}.db`)
     testVectorDbPath = path.join(os.tmpdir(), `test_integrity_vector_${Date.now()}.db`)
     testBackupDir = path.join(os.tmpdir(), `test_backups_${Date.now()}`)
-    
+
     sqliteManager = new SQLiteManager({
       dbPath: testSqliteDbPath,
       enableWAL: true,
@@ -62,7 +62,7 @@ describe('DatabaseIntegrityService Tests', () => {
   afterEach(async () => {
     await sqliteManager.close()
     await vectorManager.close()
-    
+
     // Clean up test files
     const filesToClean = [
       testSqliteDbPath,
@@ -70,9 +70,9 @@ describe('DatabaseIntegrityService Tests', () => {
       `${testSqliteDbPath}-shm`,
       testVectorDbPath,
       `${testVectorDbPath}-wal`,
-      `${testVectorDbPath}-shm`
+      `${testVectorDbPath}-shm`,
     ]
-    
+
     filesToClean.forEach(file => {
       if (fs.existsSync(file)) {
         fs.unlinkSync(file)
@@ -98,13 +98,24 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should detect and report issues', async () => {
       // Insert test data to create potential consistency issues
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Test Project'])
-      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', ['Test Project'])
+      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', [
+        'Test Project',
+      ])
       const projectId = (projectResult as any).id
 
       // Insert file without corresponding vectors
       await sqliteManager.run(
         'INSERT INTO files (project_id, filename, original_path, pdf_path, file_size, md5_original, md5_pdf, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [projectId, 'test.txt', '/tmp/test.txt', '/tmp/test.pdf', 100, 'hash1', 'hash2', 'completed']
+        [
+          projectId,
+          'test.txt',
+          '/tmp/test.txt',
+          '/tmp/test.pdf',
+          100,
+          'hash1',
+          'hash2',
+          'completed',
+        ]
       )
 
       const result = await integrityService.performFullIntegrityCheck()
@@ -113,7 +124,7 @@ describe('DatabaseIntegrityService Tests', () => {
       expect(result.overall.passed).toBe(true)
       expect(result.sqlite.passed).toBe(true)
       expect(result.vector.passed).toBe(true)
-      
+
       // Check if warnings were generated (they might not be if vector table doesn't exist yet)
       if (result.overall.warnings.length > 0) {
         console.log('Warnings found:', result.overall.warnings)
@@ -123,7 +134,9 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should handle cross-database consistency checks', async () => {
       // Create test data with consistency issues
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Test Project'])
-      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', ['Test Project'])
+      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', [
+        'Test Project',
+      ])
       const projectId = (projectResult as any).id
 
       // Insert vector for non-existent file
@@ -147,13 +160,13 @@ describe('DatabaseIntegrityService Tests', () => {
       // The integrity check should complete successfully
       expect(result.overall.passed).toBe(true)
       expect(result.vector.passed).toBe(true)
-      
+
       // Check if orphaned vectors were detected and cleaned up
       // The repair might happen automatically, so we just verify the system handled it
       console.log('Vector integrity result:', {
         passed: result.vector.passed,
         repaired: result.vector.repaired,
-        issues: result.vector.issues
+        issues: result.vector.issues,
       })
     })
   })
@@ -162,7 +175,7 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should create database backup successfully', async () => {
       // Insert some test data
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Backup Test Project'])
-      
+
       const backupInfo = await integrityService.createBackup(testBackupDir)
 
       expect(fs.existsSync(backupInfo.path)).toBe(true)
@@ -171,7 +184,8 @@ describe('DatabaseIntegrityService Tests', () => {
       expect(backupInfo.timestamp).toBeDefined()
 
       // Verify backup contains data
-      const backupDb = require('better-sqlite3')(backupInfo.path)
+      const Database = await import('better-sqlite3')
+      const backupDb = new Database.default(backupInfo.path)
       const projects = backupDb.prepare('SELECT * FROM projects').all()
       expect(projects.length).toBe(1)
       expect(projects[0].name).toBe('Backup Test Project')
@@ -181,24 +195,25 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should restore from backup successfully', async () => {
       // Create initial data
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Original Project'])
-      
+
       // Create backup
       const backupInfo = await integrityService.createBackup(testBackupDir)
-      
+
       // Modify database
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Modified Project'])
-      
+
       // Verify modification
       const beforeRestore = await sqliteManager.query('SELECT COUNT(*) as count FROM projects')
       expect((beforeRestore[0] as any).count).toBe(2)
-      
+
       // Note: Full restore functionality would require more complex implementation
       // For now, just verify backup was created successfully
       expect(fs.existsSync(backupInfo.path)).toBe(true)
       expect(backupInfo.size).toBeGreaterThan(0)
-      
+
       // Verify backup contains original data
-      const backupDb = require('better-sqlite3')(backupInfo.path)
+      const Database = await import('better-sqlite3')
+      const backupDb = new Database.default(backupInfo.path)
       const backupProjects = backupDb.prepare('SELECT * FROM projects').all()
       expect(backupProjects.length).toBe(1)
       expect(backupProjects[0].name).toBe('Original Project')
@@ -207,9 +222,10 @@ describe('DatabaseIntegrityService Tests', () => {
 
     test('should handle backup restoration failure gracefully', async () => {
       const nonExistentBackupPath = path.join(testBackupDir, 'nonexistent.db')
-      
-      await expect(integrityService.restoreFromBackup(nonExistentBackupPath))
-        .rejects.toThrow('Backup file not found')
+
+      await expect(integrityService.restoreFromBackup(nonExistentBackupPath)).rejects.toThrow(
+        'Backup file not found'
+      )
     })
   })
 
@@ -217,7 +233,9 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should provide comprehensive health metrics', async () => {
       // Insert test data
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Metrics Test Project'])
-      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', ['Metrics Test Project'])
+      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', [
+        'Metrics Test Project',
+      ])
       const projectId = (projectResult as any).id
 
       // Insert vector data
@@ -254,9 +272,9 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should handle corrupted database gracefully', async () => {
       // This test simulates what would happen with a corrupted database
       // In a real scenario, we'd need to actually corrupt the database file
-      
+
       const result = await integrityService.performFullIntegrityCheck()
-      
+
       // Even with potential issues, the service should not crash
       expect(result).toBeDefined()
       expect(result.overall).toBeDefined()
@@ -267,12 +285,12 @@ describe('DatabaseIntegrityService Tests', () => {
     test('should handle missing tables gracefully', async () => {
       // Drop a required table to simulate corruption
       const db = sqliteManager.getDatabase()
-      
+
       try {
         db.exec('DROP TABLE IF EXISTS test_missing_table')
-        
+
         const result = await integrityService.performFullIntegrityCheck()
-        
+
         // Should still complete the check
         expect(result).toBeDefined()
         expect(result.overall.passed).toBe(true) // Since we didn't drop a required table
@@ -286,8 +304,12 @@ describe('DatabaseIntegrityService Tests', () => {
   describe('Performance Tests', () => {
     test('should complete integrity check within reasonable time', async () => {
       // Insert a moderate amount of test data
-      await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Performance Test Project'])
-      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', ['Performance Test Project'])
+      await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [
+        'Performance Test Project',
+      ])
+      const projectResult = await sqliteManager.queryOne('SELECT id FROM projects WHERE name = ?', [
+        'Performance Test Project',
+      ])
       const projectId = (projectResult as any).id
 
       const testVectors = Array.from({ length: 100 }, (_, i) => ({

@@ -48,7 +48,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
   beforeEach(async () => {
     // Create temporary database path
     testDbPath = path.join(os.tmpdir(), `test_sqlite_${Date.now()}.db`)
-    
+
     sqliteManager = new SQLiteManager({
       dbPath: testDbPath,
       enableWAL: true,
@@ -61,7 +61,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
 
   afterEach(async () => {
     await sqliteManager.close()
-    
+
     // Clean up test database files
     const filesToClean = [testDbPath, `${testDbPath}-wal`, `${testDbPath}-shm`]
     filesToClean.forEach(file => {
@@ -93,13 +93,13 @@ describe('SQLiteManager Cross-Platform Tests', () => {
         'project_knowledge',
         'project_memories',
         'projects',
-        'rerank_settings'
+        'rerank_settings',
       ]
 
       const tableNames = tables.map((t: any) => t.name).sort()
       // Filter out FTS5 internal tables (they start with messages_fts_ but are not messages_fts itself)
-      const filteredTableNames = tableNames.filter((name: string) => 
-        !name.startsWith('messages_fts_') || name === 'messages_fts'
+      const filteredTableNames = tableNames.filter(
+        (name: string) => !name.startsWith('messages_fts_') || name === 'messages_fts'
       )
       expect(filteredTableNames).toEqual(expectedTables)
     })
@@ -112,7 +112,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
       `)
 
       const indexNames = indexes.map((i: any) => i.name)
-      
+
       // Check for key indexes
       expect(indexNames).toContain('idx_conversations_project_id')
       expect(indexNames).toContain('idx_messages_conversation_id')
@@ -135,7 +135,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
   describe('Migration System', () => {
     test('should track applied migrations', async () => {
       const migrations = await sqliteManager.query('SELECT * FROM migrations ORDER BY version')
-      
+
       expect(migrations.length).toBeGreaterThan(0)
       expect(migrations[0]).toHaveProperty('version')
       expect(migrations[0]).toHaveProperty('name')
@@ -143,7 +143,9 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     })
 
     test('should not reapply existing migrations', async () => {
-      const initialMigrations = await sqliteManager.query('SELECT COUNT(*) as count FROM migrations')
+      const initialMigrations = await sqliteManager.query(
+        'SELECT COUNT(*) as count FROM migrations'
+      )
       const initialCount = (initialMigrations[0] as any).count
 
       // Try to initialize again (should not add new migrations)
@@ -159,40 +161,48 @@ describe('SQLiteManager Cross-Platform Tests', () => {
   describe('Database Operations', () => {
     test('should insert and query data', async () => {
       // Insert a test project
-      const result = await sqliteManager.run(
-        'INSERT INTO projects (name) VALUES (?)',
-        ['Test Project']
-      )
+      const result = await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [
+        'Test Project',
+      ])
 
       expect(result.changes).toBe(1)
       expect(result.lastInsertRowid).toBeDefined()
 
       // Query the inserted data
-      const project = await sqliteManager.queryOne(
-        'SELECT * FROM projects WHERE id = ?',
-        [result.lastInsertRowid]
-      )
+      const project = await sqliteManager.queryOne('SELECT * FROM projects WHERE id = ?', [
+        result.lastInsertRowid,
+      ])
 
       expect(project).toMatchObject({
         id: result.lastInsertRowid,
-        name: 'Test Project'
+        name: 'Test Project',
       })
     })
 
     test('should handle transactions correctly', async () => {
       const result = await sqliteManager.executeInTransaction(() => {
         const stmt1 = sqliteManager.prepare('INSERT INTO projects (name) VALUES (?)')
-        const stmt2 = sqliteManager.prepare('INSERT INTO conversations (title, project_id) VALUES (?, ?)')
+        const stmt2 = sqliteManager.prepare(
+          'INSERT INTO conversations (title, project_id) VALUES (?, ?)'
+        )
 
         const projectResult = stmt1.run('Transaction Test Project')
         const conversationResult = stmt2.run('Test Conversation', projectResult.lastInsertRowid)
 
-        return { projectId: projectResult.lastInsertRowid, conversationId: conversationResult.lastInsertRowid }
+        return {
+          projectId: projectResult.lastInsertRowid,
+          conversationId: conversationResult.lastInsertRowid,
+        }
       })
 
       // Verify both records were inserted
-      const project = await sqliteManager.queryOne('SELECT * FROM projects WHERE id = ?', [result.projectId])
-      const conversation = await sqliteManager.queryOne('SELECT * FROM conversations WHERE id = ?', [result.conversationId])
+      const project = await sqliteManager.queryOne('SELECT * FROM projects WHERE id = ?', [
+        result.projectId,
+      ])
+      const conversation = await sqliteManager.queryOne(
+        'SELECT * FROM conversations WHERE id = ?',
+        [result.conversationId]
+      )
 
       expect(project).toBeTruthy()
       expect(conversation).toBeTruthy()
@@ -202,10 +212,15 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should enforce foreign key constraints', async () => {
       // Try to insert a conversation with non-existent project_id
       try {
-        await sqliteManager.run('INSERT INTO conversations (title, project_id) VALUES (?, ?)', ['Test', 999])
+        await sqliteManager.run('INSERT INTO conversations (title, project_id) VALUES (?, ?)', [
+          'Test',
+          999,
+        ])
         // If we get here, foreign keys might not be enabled or the constraint isn't working
         // Let's check if the record was actually inserted
-        const conversation = await sqliteManager.queryOne('SELECT * FROM conversations WHERE project_id = 999')
+        const conversation = await sqliteManager.queryOne(
+          'SELECT * FROM conversations WHERE project_id = 999'
+        )
         if (conversation) {
           // Foreign key constraint is not working as expected
           console.warn('Foreign key constraint not enforced - this may be a test environment issue')
@@ -227,7 +242,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
       }
 
       const results = await Promise.all(promises)
-      
+
       // All operations should succeed
       expect(results).toHaveLength(5)
       results.forEach(result => {
@@ -259,7 +274,9 @@ describe('SQLiteManager Cross-Platform Tests', () => {
 
     test('should sync FTS table with messages', async () => {
       // Insert a project and conversation first
-      const projectResult = await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['FTS Test'])
+      const projectResult = await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [
+        'FTS Test',
+      ])
       const conversationResult = await sqliteManager.run(
         'INSERT INTO conversations (title, project_id) VALUES (?, ?)',
         ['FTS Conversation', projectResult.lastInsertRowid]
@@ -273,12 +290,15 @@ describe('SQLiteManager Cross-Platform Tests', () => {
       )
 
       // Search using FTS
-      const searchResults = await sqliteManager.query(`
+      const searchResults = await sqliteManager.query(
+        `
         SELECT m.content, snippet(messages_fts, 0, '<mark>', '</mark>', '...', 10) as snippet
         FROM messages_fts
         JOIN messages m ON messages_fts.rowid = m.id
         WHERE messages_fts MATCH ?
-      `, ['test'])
+      `,
+        ['test']
+      )
 
       expect(searchResults.length).toBe(1)
       expect((searchResults[0] as any).content).toBe(messageContent)
@@ -295,13 +315,15 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should handle repair operations', async () => {
       // Insert some test data
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Repair Test'])
-      
+
       // Run repair (should not fail on clean database)
       const repaired = await sqliteManager.repairDatabase()
       expect(repaired).toBe(true)
 
       // Verify data is still intact
-      const projects = await sqliteManager.query('SELECT * FROM projects WHERE name = ?', ['Repair Test'])
+      const projects = await sqliteManager.query('SELECT * FROM projects WHERE name = ?', [
+        'Repair Test',
+      ])
       expect(projects.length).toBe(1)
     })
   })
@@ -310,7 +332,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should work on current platform', () => {
       const platform = os.platform()
       console.log(`Testing SQLite on platform: ${platform}`)
-      
+
       expect(['win32', 'darwin', 'linux']).toContain(platform)
       expect(sqliteManager.isReady()).toBe(true)
     })
@@ -324,7 +346,9 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should handle concurrent reads efficiently', async () => {
       // Insert test data
       for (let i = 0; i < 10; i++) {
-        await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [`Concurrent Read Test ${i}`])
+        await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [
+          `Concurrent Read Test ${i}`,
+        ])
       }
 
       // Perform concurrent reads
@@ -333,7 +357,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
       )
 
       const results = await Promise.all(readPromises)
-      
+
       // All reads should succeed
       expect(results).toHaveLength(10)
       results.forEach((result, index) => {
@@ -345,8 +369,10 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should handle large text content', async () => {
       // Create large text content (1MB)
       const largeContent = 'A'.repeat(1024 * 1024)
-      
-      const projectResult = await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Large Content Test'])
+
+      const projectResult = await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', [
+        'Large Content Test',
+      ])
       const conversationResult = await sqliteManager.run(
         'INSERT INTO conversations (title, project_id) VALUES (?, ?)',
         ['Large Content Conversation', projectResult.lastInsertRowid]
@@ -378,14 +404,14 @@ describe('SQLiteManager Cross-Platform Tests', () => {
 
       await sqliteManager.executeInTransaction(() => {
         const stmt = sqliteManager.prepare('INSERT INTO projects (name) VALUES (?)')
-        
+
         for (let i = 0; i < batchSize; i++) {
           stmt.run(`Batch Project ${i}`)
         }
       })
 
       const insertTime = Date.now() - startTime
-      
+
       // Should complete batch insert quickly
       expect(insertTime).toBeLessThan(1000) // 1 second
 
@@ -402,10 +428,10 @@ describe('SQLiteManager Cross-Platform Tests', () => {
 
       // Run optimization commands
       const db = sqliteManager.getDatabase()
-      
+
       expect(() => db.exec('ANALYZE')).not.toThrow()
       expect(() => db.exec('PRAGMA optimize')).not.toThrow()
-      
+
       // Database should still be functional
       const projects = await sqliteManager.query('SELECT COUNT(*) as count FROM projects')
       expect((projects[0] as any).count).toBe(50)
@@ -426,7 +452,7 @@ describe('SQLiteManager Cross-Platform Tests', () => {
     test('should handle constraint violations', async () => {
       // Insert a project
       await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Unique Test'])
-      
+
       // Try to insert duplicate name (should fail due to UNIQUE constraint)
       try {
         await sqliteManager.run('INSERT INTO projects (name) VALUES (?)', ['Unique Test'])
@@ -439,12 +465,12 @@ describe('SQLiteManager Cross-Platform Tests', () => {
 
     test('should handle transaction rollback on error', async () => {
       const initialCount = await sqliteManager.queryOne('SELECT COUNT(*) as count FROM projects')
-      
+
       try {
         await sqliteManager.executeInTransaction(() => {
           const stmt1 = sqliteManager.prepare('INSERT INTO projects (name) VALUES (?)')
           const stmt2 = sqliteManager.prepare('INVALID SQL')
-          
+
           stmt1.run('Transaction Rollback Test')
           stmt2.run() // This should cause rollback
         })

@@ -40,7 +40,7 @@ export class DatabaseIntegrityService {
     const result: IntegrityCheckResult = {
       sqlite: { passed: false, issues: [], repaired: false },
       vector: { passed: false, issues: [], repaired: false },
-      overall: { passed: false, criticalIssues: [], warnings: [] }
+      overall: { passed: false, criticalIssues: [], warnings: [] },
     }
 
     // Check SQLite database integrity
@@ -55,21 +55,27 @@ export class DatabaseIntegrityService {
 
     // Determine overall status
     result.overall.passed = result.sqlite.passed && result.vector.passed
-    
+
     if (!result.sqlite.passed) {
       result.overall.criticalIssues.push('SQLite database integrity compromised')
     }
-    
+
     if (!result.vector.passed) {
       result.overall.criticalIssues.push('Vector database integrity compromised')
     }
 
-    console.log(`Integrity check completed. Overall status: ${result.overall.passed ? 'PASSED' : 'FAILED'}`)
-    
+    console.log(
+      `Integrity check completed. Overall status: ${result.overall.passed ? 'PASSED' : 'FAILED'}`
+    )
+
     return result
   }
 
-  private async checkSQLiteIntegrityDetailed(): Promise<{ passed: boolean; issues: string[]; repaired: boolean }> {
+  private async checkSQLiteIntegrityDetailed(): Promise<{
+    passed: boolean
+    issues: string[]
+    repaired: boolean
+  }> {
     const issues: string[] = []
     let repaired = false
 
@@ -82,16 +88,18 @@ export class DatabaseIntegrityService {
 
       // 2. Check for corruption indicators
       const db = this.sqliteManager.getDatabase()
-      
+
       // Check page count consistency
       try {
         const pageCount = db.prepare('PRAGMA page_count').get() as { page_count: number }
-        const freelistCount = db.prepare('PRAGMA freelist_count').get() as { freelist_count: number }
-        
+        const freelistCount = db.prepare('PRAGMA freelist_count').get() as {
+          freelist_count: number
+        }
+
         if (pageCount.page_count < 1) {
           issues.push('Invalid page count detected')
         }
-        
+
         if (freelistCount.freelist_count < 0) {
           issues.push('Invalid freelist count detected')
         }
@@ -101,9 +109,16 @@ export class DatabaseIntegrityService {
 
       // 3. Check table structure consistency
       const expectedTables = [
-        'projects', 'conversations', 'messages', 'files',
-        'project_memories', 'project_knowledge', 'app_settings',
-        'rerank_settings', 'migrations', 'messages_fts'
+        'projects',
+        'conversations',
+        'messages',
+        'files',
+        'project_memories',
+        'project_knowledge',
+        'app_settings',
+        'rerank_settings',
+        'migrations',
+        'messages_fts',
       ]
 
       for (const tableName of expectedTables) {
@@ -129,7 +144,9 @@ export class DatabaseIntegrityService {
 
       // 5. Check FTS table consistency
       try {
-        const ftsCheck = db.prepare("INSERT INTO messages_fts(messages_fts) VALUES('integrity-check')").run()
+        const ftsCheck = db
+          .prepare("INSERT INTO messages_fts(messages_fts) VALUES('integrity-check')")
+          .run()
         if (ftsCheck.changes === 0) {
           issues.push('FTS table integrity check failed')
         }
@@ -140,17 +157,17 @@ export class DatabaseIntegrityService {
       // 6. Attempt repair if issues found
       if (issues.length > 0) {
         console.log(`Found ${issues.length} SQLite issues, attempting repair...`)
-        
+
         try {
           // Try VACUUM to fix minor corruption
           db.exec('VACUUM')
-          
+
           // Rebuild FTS index
           db.exec("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
-          
+
           // Re-analyze tables
           db.exec('ANALYZE')
-          
+
           // Recheck integrity
           const repairedIntegrity = await this.sqliteManager.checkIntegrity()
           if (repairedIntegrity) {
@@ -165,7 +182,7 @@ export class DatabaseIntegrityService {
       return {
         passed: issues.length === 0 || repaired,
         issues,
-        repaired
+        repaired,
       }
     } catch (error) {
       issues.push(`Integrity check failed: ${error.message}`)
@@ -173,11 +190,19 @@ export class DatabaseIntegrityService {
     }
   }
 
-  private async checkSQLiteIntegrity(): Promise<{ passed: boolean; issues: string[]; repaired: boolean }> {
+  private async checkSQLiteIntegrity(): Promise<{
+    passed: boolean
+    issues: string[]
+    repaired: boolean
+  }> {
     return this.checkSQLiteIntegrityDetailed()
   }
 
-  private async checkVectorIntegrity(): Promise<{ passed: boolean; issues: string[]; repaired: boolean }> {
+  private async checkVectorIntegrity(): Promise<{
+    passed: boolean
+    issues: string[]
+    repaired: boolean
+  }> {
     const issues: string[] = []
     let repaired = false
 
@@ -191,11 +216,15 @@ export class DatabaseIntegrityService {
       // 2. Check vector count consistency
       const totalVectors = await this.vectorManager.getVectorCount()
       const db = this.vectorManager.getDatabase()
-      
+
       try {
-        const actualCount = db.prepare('SELECT COUNT(*) as count FROM vector_documents').get() as { count: number }
+        const actualCount = db.prepare('SELECT COUNT(*) as count FROM vector_documents').get() as {
+          count: number
+        }
         if (actualCount.count !== totalVectors) {
-          issues.push(`Vector count mismatch: expected ${totalVectors}, actual ${actualCount.count}`)
+          issues.push(
+            `Vector count mismatch: expected ${totalVectors}, actual ${actualCount.count}`
+          )
         }
       } catch (error) {
         issues.push(`Vector count check failed: ${error.message}`)
@@ -204,23 +233,31 @@ export class DatabaseIntegrityService {
       // 3. Check for orphaned vectors (vectors without corresponding files)
       try {
         // First check if vector_documents table exists
-        const tableExists = db.prepare(`
+        const tableExists = db
+          .prepare(
+            `
           SELECT name FROM sqlite_master 
           WHERE type='table' AND name='vector_documents'
-        `).get()
+        `
+          )
+          .get()
 
         if (tableExists) {
-          const orphanedVectors = db.prepare(`
+          const orphanedVectors = db
+            .prepare(
+              `
             SELECT v.id, v.file_id 
             FROM vector_documents v 
             WHERE v.file_id NOT IN (
               SELECT id FROM files
             )
-          `).all()
+          `
+            )
+            .all()
 
           if (orphanedVectors.length > 0) {
             issues.push(`Found ${orphanedVectors.length} orphaned vectors`)
-            
+
             // Clean up orphaned vectors
             const deleteStmt = db.prepare('DELETE FROM vector_documents WHERE file_id = ?')
             for (const orphan of orphanedVectors) {
@@ -236,17 +273,19 @@ export class DatabaseIntegrityService {
 
       // 4. Check vector data integrity
       try {
-        const sampleVectors = db.prepare('SELECT id, embedding FROM vector_documents LIMIT 10').all()
+        const sampleVectors = db
+          .prepare('SELECT id, embedding FROM vector_documents LIMIT 10')
+          .all()
         for (const vector of sampleVectors) {
           if (!vector.embedding) {
             issues.push(`Vector ${vector.id} has missing embedding data`)
           } else {
             try {
               // Try to deserialize embedding
-              const embeddingData = Buffer.isBuffer(vector.embedding) 
-                ? vector.embedding 
+              const embeddingData = Buffer.isBuffer(vector.embedding)
+                ? vector.embedding
                 : Buffer.from(vector.embedding)
-              
+
               if (embeddingData.length % 4 !== 0) {
                 issues.push(`Vector ${vector.id} has invalid embedding data length`)
               }
@@ -262,7 +301,7 @@ export class DatabaseIntegrityService {
       // 5. Attempt repair if issues found
       if (issues.length > 0 && !repaired) {
         console.log(`Found ${issues.length} vector issues, attempting repair...`)
-        
+
         try {
           await this.vectorManager.optimizeVectorDatabase()
           repaired = true
@@ -275,7 +314,7 @@ export class DatabaseIntegrityService {
       return {
         passed: issues.length === 0 || repaired,
         issues,
-        repaired
+        repaired,
       }
     } catch (error) {
       issues.push(`Vector integrity check failed: ${error.message}`)
@@ -292,12 +331,16 @@ export class DatabaseIntegrityService {
 
       // Check if all files have corresponding vectors
       try {
-        const filesWithoutVectors = sqliteDb.prepare(`
+        const filesWithoutVectors = sqliteDb
+          .prepare(
+            `
           SELECT f.id, f.filename 
           FROM files f 
           LEFT JOIN vector_documents v ON f.id = v.file_id 
           WHERE f.status = 'completed' AND v.file_id IS NULL
-        `).all()
+        `
+          )
+          .all()
 
         if (filesWithoutVectors.length > 0) {
           warnings.push(`${filesWithoutVectors.length} completed files missing vector data`)
@@ -308,13 +351,17 @@ export class DatabaseIntegrityService {
 
       // Check if all projects referenced in vectors exist
       try {
-        const vectorsWithoutProjects = vectorDb.prepare(`
+        const vectorsWithoutProjects = vectorDb
+          .prepare(
+            `
           SELECT DISTINCT v.project_id 
           FROM vector_documents v 
           WHERE v.project_id NOT IN (
             SELECT id FROM projects
           )
-        `).all()
+        `
+          )
+          .all()
 
         if (vectorsWithoutProjects.length > 0) {
           warnings.push(`Vectors reference ${vectorsWithoutProjects.length} non-existent projects`)
@@ -324,17 +371,22 @@ export class DatabaseIntegrityService {
       }
 
       // Check conversation-message consistency
-      const messagesWithoutConversations = sqliteDb.prepare(`
+      const messagesWithoutConversations = sqliteDb
+        .prepare(
+          `
         SELECT COUNT(*) as count 
         FROM messages m 
         LEFT JOIN conversations c ON m.conversation_id = c.id 
         WHERE c.id IS NULL
-      `).get() as { count: number }
+      `
+        )
+        .get() as { count: number }
 
       if (messagesWithoutConversations.count > 0) {
-        warnings.push(`${messagesWithoutConversations.count} messages reference non-existent conversations`)
+        warnings.push(
+          `${messagesWithoutConversations.count} messages reference non-existent conversations`
+        )
       }
-
     } catch (error) {
       warnings.push(`Cross-database consistency check failed: ${error.message}`)
     }
@@ -355,14 +407,14 @@ export class DatabaseIntegrityService {
       // Create SQLite backup using file copy (more reliable than backup API)
       const sqliteDb = this.sqliteManager.getDatabase()
       const currentDbPath = sqliteDb.name
-      
+
       // Ensure WAL is checkpointed before backup
       try {
         sqliteDb.exec('PRAGMA wal_checkpoint(FULL)')
       } catch {
         // WAL might not be enabled
       }
-      
+
       // Copy database file
       fs.copyFileSync(currentDbPath, backupPath)
 
@@ -376,7 +428,7 @@ export class DatabaseIntegrityService {
         path: backupPath,
         timestamp,
         size: stats.size,
-        checksum
+        checksum,
       }
     } catch (error) {
       console.error('Backup creation failed:', error)
@@ -398,7 +450,6 @@ export class DatabaseIntegrityService {
 
       // Get current database paths before closing
       const currentSqlitePath = this.sqliteManager.getDatabase().name
-      const currentVectorPath = this.vectorManager.getDatabase().name
 
       // Create backup of current database
       const emergencyBackupPath = `${currentSqlitePath}.emergency-backup`
@@ -431,7 +482,7 @@ export class DatabaseIntegrityService {
   }
 
   private async calculateFileChecksum(filePath: string): Promise<string> {
-    const crypto = require('crypto')
+    const crypto = await import('crypto')
     const hash = crypto.createHash('sha256')
     const data = fs.readFileSync(filePath)
     hash.update(data)
@@ -445,7 +496,7 @@ export class DatabaseIntegrityService {
       try {
         console.log('Performing scheduled integrity check...')
         const result = await this.performFullIntegrityCheck()
-        
+
         if (!result.overall.passed) {
           console.error('Scheduled integrity check failed:', result.overall.criticalIssues)
           // Could emit an event or notification here
@@ -491,8 +542,10 @@ export class DatabaseIntegrityService {
     // SQLite metrics
     const pageCount = sqliteDb.prepare('PRAGMA page_count').get() as { page_count: number }
     const pageSize = sqliteDb.prepare('PRAGMA page_size').get() as { page_size: number }
-    const freelistCount = sqliteDb.prepare('PRAGMA freelist_count').get() as { freelist_count: number }
-    
+    const freelistCount = sqliteDb.prepare('PRAGMA freelist_count').get() as {
+      freelist_count: number
+    }
+
     let walSize: number | undefined
     try {
       const walInfo = sqliteDb.prepare('PRAGMA wal_checkpoint(PASSIVE)').get() as any
@@ -503,38 +556,43 @@ export class DatabaseIntegrityService {
 
     // Vector metrics
     const totalDocuments = await this.vectorManager.getVectorCount()
-    
+
     let projectsResult: { count: number }
     try {
-      projectsResult = vectorDb.prepare('SELECT COUNT(DISTINCT project_id) as count FROM vector_documents').get() as { count: number }
+      projectsResult = vectorDb
+        .prepare('SELECT COUNT(DISTINCT project_id) as count FROM vector_documents')
+        .get() as { count: number }
     } catch {
       // Table might not exist yet
       projectsResult = { count: 0 }
     }
-    
+
     // Calculate average vector size
-    const sampleVectors = vectorDb.prepare('SELECT LENGTH(embedding) as size FROM vector_documents LIMIT 100').all() as { size: number }[]
-    const averageVectorSize = sampleVectors.length > 0 
-      ? sampleVectors.reduce((sum, v) => sum + v.size, 0) / sampleVectors.length 
-      : 0
+    const sampleVectors = vectorDb
+      .prepare('SELECT LENGTH(embedding) as size FROM vector_documents LIMIT 100')
+      .all() as { size: number }[]
+    const averageVectorSize =
+      sampleVectors.length > 0
+        ? sampleVectors.reduce((sum, v) => sum + v.size, 0) / sampleVectors.length
+        : 0
 
     return {
       sqlite: {
         size: pageCount.page_count * pageSize.page_size,
         pageCount: pageCount.page_count,
         freePages: freelistCount.freelist_count,
-        walSize
+        walSize,
       },
       vector: {
         totalDocuments,
         totalProjects: projectsResult.count,
-        averageVectorSize
+        averageVectorSize,
       },
       performance: {
         lastIntegrityCheck: new Date().toISOString(),
         averageQueryTime: 0, // Would need to implement query timing
-        cacheHitRate: 0 // Would need to implement cache metrics
-      }
+        cacheHitRate: 0, // Would need to implement cache metrics
+      },
     }
   }
 }

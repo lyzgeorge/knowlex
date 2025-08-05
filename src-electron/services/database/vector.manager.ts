@@ -89,7 +89,7 @@ export class VectorManager {
 
     // Enable WAL mode for better concurrency
     this.db.pragma('journal_mode = WAL')
-    
+
     // Optimize for vector operations
     this.db.pragma('synchronous = NORMAL')
     this.db.pragma('cache_size = -128000') // 128MB cache for vectors
@@ -133,11 +133,11 @@ export class VectorManager {
           embedding(${this.config.dimension})
         );
       `)
-      
+
       console.log('HNSW vector table created successfully')
     } catch (error) {
       console.warn('HNSW table creation failed, creating fallback table:', error)
-      
+
       // Fallback to regular table with manual vector operations
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS vector_documents (
@@ -195,7 +195,7 @@ export class VectorManager {
         }
 
         const embeddingBlob = this.serializeEmbedding(doc.embedding)
-        
+
         stmt.run(
           doc.id,
           doc.file_id,
@@ -213,10 +213,10 @@ export class VectorManager {
 
     try {
       transaction(documents)
-      
+
       // Update partition info
       await this.updatePartitionInfo(documents[0].project_id)
-      
+
       console.log(`Inserted ${documents.length} vector documents`)
     } catch (error) {
       console.error('Failed to insert vector documents:', error)
@@ -302,7 +302,7 @@ export class VectorManager {
     for (const row of rows) {
       const embedding = this.deserializeEmbedding(row.embedding)
       const similarity = this.cosineSimilarity(queryVector, embedding)
-      
+
       if (similarity >= threshold) {
         results.push({
           id: row.id,
@@ -320,9 +320,7 @@ export class VectorManager {
     }
 
     // Sort by similarity and return top K
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
+    return results.sort((a, b) => b.score - a.score).slice(0, topK)
   }
 
   async deleteByFileId(fileId: number): Promise<void> {
@@ -330,9 +328,9 @@ export class VectorManager {
 
     const stmt = this.db.prepare('DELETE FROM vector_documents WHERE file_id = ?')
     const result = stmt.run(fileId)
-    
+
     console.log(`Deleted ${result.changes} vector documents for file ${fileId}`)
-    
+
     // Update partition info
     const projectId = await this.getProjectIdByFileId(fileId)
     if (projectId) {
@@ -345,9 +343,9 @@ export class VectorManager {
 
     const stmt = this.db.prepare('DELETE FROM vector_documents WHERE project_id = ?')
     const result = stmt.run(projectId)
-    
+
     console.log(`Deleted ${result.changes} vector documents for project ${projectId}`)
-    
+
     // Clean up partition info
     const partitionStmt = this.db.prepare('DELETE FROM vector_partitions WHERE project_id = ?')
     partitionStmt.run(projectId)
@@ -374,7 +372,7 @@ export class VectorManager {
     try {
       // Check basic database integrity
       const result = this.db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
-      
+
       if (result.integrity_check !== 'ok') {
         console.error('Vector database integrity check failed:', result.integrity_check)
         return false
@@ -400,16 +398,16 @@ export class VectorManager {
 
     try {
       console.log('Optimizing vector database...')
-      
+
       // Run VACUUM to reclaim space
       this.db.exec('VACUUM')
-      
+
       // Analyze tables for better query planning
       this.db.exec('ANALYZE')
-      
+
       // Rebuild partitions if needed
       await this.rebuildPartitions()
-      
+
       console.log('Vector database optimization completed')
     } catch (error) {
       console.error('Vector database optimization failed:', error)
@@ -429,7 +427,7 @@ export class VectorManager {
       INSERT OR REPLACE INTO vector_partitions (project_id, partition_name, vector_count)
       VALUES (?, ?, ?)
     `)
-    
+
     upsertStmt.run(projectId, `project_${projectId}`, result.count)
   }
 
@@ -437,16 +435,16 @@ export class VectorManager {
     if (!this.db) throw new Error('Vector database not initialized')
 
     const partitions = this.db.prepare('SELECT * FROM vector_partitions').all() as any[]
-    
+
     for (const partition of partitions) {
-      const actualCount = this.db.prepare(
-        'SELECT COUNT(*) as count FROM vector_documents WHERE project_id = ?'
-      ).get(partition.project_id) as { count: number }
+      const actualCount = this.db
+        .prepare('SELECT COUNT(*) as count FROM vector_documents WHERE project_id = ?')
+        .get(partition.project_id) as { count: number }
 
       if (actualCount.count !== partition.vector_count) {
         console.warn(
           `Partition mismatch for project ${partition.project_id}: ` +
-          `expected ${partition.vector_count}, actual ${actualCount.count}`
+            `expected ${partition.vector_count}, actual ${actualCount.count}`
         )
         await this.updatePartitionInfo(partition.project_id)
       }
@@ -460,9 +458,9 @@ export class VectorManager {
     this.db.prepare('DELETE FROM vector_partitions').run()
 
     // Rebuild from actual data
-    const projects = this.db.prepare(
-      'SELECT DISTINCT project_id FROM vector_documents'
-    ).all() as { project_id: number }[]
+    const projects = this.db.prepare('SELECT DISTINCT project_id FROM vector_documents').all() as {
+      project_id: number
+    }[]
 
     for (const project of projects) {
       await this.updatePartitionInfo(project.project_id)
@@ -472,9 +470,9 @@ export class VectorManager {
   private async getProjectIdByFileId(fileId: number): Promise<number | null> {
     if (!this.db) throw new Error('Vector database not initialized')
 
-    const result = this.db.prepare(
-      'SELECT project_id FROM vector_documents WHERE file_id = ? LIMIT 1'
-    ).get(fileId) as { project_id: number } | undefined
+    const result = this.db
+      .prepare('SELECT project_id FROM vector_documents WHERE file_id = ? LIMIT 1')
+      .get(fileId) as { project_id: number } | undefined
 
     return result?.project_id || null
   }

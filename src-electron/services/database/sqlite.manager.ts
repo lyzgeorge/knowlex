@@ -115,12 +115,13 @@ export class SQLiteManager {
     for (const migration of migrations) {
       if (!appliedVersions.has(migration.version)) {
         console.log(`Applying migration ${migration.version}: ${migration.name}`)
-        
+
         const transaction = this.db.transaction(() => {
           this.db!.exec(migration.sql)
-          this.db!
-            .prepare('INSERT INTO migrations (version, name) VALUES (?, ?)')
-            .run(migration.version, migration.name)
+          this.db!.prepare('INSERT INTO migrations (version, name) VALUES (?, ?)').run(
+            migration.version,
+            migration.name
+          )
         })
 
         try {
@@ -281,7 +282,7 @@ export class SQLiteManager {
 
     try {
       const result = this.db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
-      
+
       if (result.integrity_check === 'ok') {
         console.log('Database integrity check passed')
         return true
@@ -300,13 +301,13 @@ export class SQLiteManager {
 
     try {
       console.log('Attempting database repair...')
-      
+
       // Try to repair using VACUUM
       this.db.exec('VACUUM')
-      
+
       // Recheck integrity
       const isIntact = await this.checkIntegrity()
-      
+
       if (isIntact) {
         console.log('Database repair successful')
         return true
@@ -335,7 +336,7 @@ export class SQLiteManager {
     if (!this.db) throw new Error('Database not initialized')
 
     await this.acquireWriteLock()
-    
+
     try {
       const transaction = this.db.transaction(callback)
       return transaction()
@@ -356,24 +357,24 @@ export class SQLiteManager {
 
   async query<T = any>(sql: string, params?: any[]): Promise<T[]> {
     if (!this.db) throw new Error('Database not initialized')
-    
+
     const stmt = this.db.prepare(sql)
-    return params ? stmt.all(...params) as T[] : stmt.all() as T[]
+    return params ? (stmt.all(...params) as T[]) : (stmt.all() as T[])
   }
 
   async queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
     if (!this.db) throw new Error('Database not initialized')
-    
+
     const stmt = this.db.prepare(sql)
-    const result = params ? stmt.get(...params) as T : stmt.get() as T
+    const result = params ? (stmt.get(...params) as T) : (stmt.get() as T)
     return result || null
   }
 
   async run(sql: string, params?: any[]): Promise<Database.RunResult> {
     if (!this.db) throw new Error('Database not initialized')
-    
+
     await this.acquireWriteLock()
-    
+
     try {
       const stmt = this.db.prepare(sql)
       return params ? stmt.run(...params) : stmt.run()

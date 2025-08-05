@@ -1,5 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
+import { ipcManager } from '../handlers/ipc.manager'
+import { IPCMessage } from '../types/ipc.types'
 
 const isDev = process.env.IS_DEV === 'true'
 
@@ -40,6 +42,12 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Initialize IPC Manager
+  console.log('Initializing IPC Manager...')
+
+  // Register basic system handlers
+  registerSystemHandlers()
+
   createWindow()
 
   app.on('activate', function () {
@@ -53,5 +61,69 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    // Cleanup IPC Manager before quitting
+    ipcManager.cleanup()
+    app.quit()
+  }
 })
+
+// Cleanup on app quit
+app.on('before-quit', () => {
+  ipcManager.cleanup()
+})
+
+/**
+ * Register basic system handlers for testing IPC functionality
+ */
+function registerSystemHandlers(): void {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { IPC_CHANNELS } = require('../types/ipc.types')
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { testHandler } = require('../handlers/test.handler')
+
+  // System info handler
+  ipcManager.registerHandler(IPC_CHANNELS.SYSTEM_GET_INFO, async (message: IPCMessage) => {
+    return {
+      id: message.id,
+      success: true,
+      data: {
+        platform: process.platform,
+        arch: process.arch,
+        version: process.version,
+        electronVersion: process.versions.electron,
+        nodeVersion: process.versions.node,
+        chromeVersion: process.versions.chrome,
+      },
+      timestamp: Date.now(),
+    }
+  })
+
+  // Register test handlers for IPC framework validation
+  if (isDev) {
+    // Test echo handler
+    ipcManager.registerHandler(IPC_CHANNELS.TEST_ECHO, testHandler.handleEcho.bind(testHandler))
+
+    // Test ping handler
+    ipcManager.registerHandler(IPC_CHANNELS.TEST_PING, testHandler.handlePing.bind(testHandler))
+
+    // Test error handler
+    ipcManager.registerHandler(IPC_CHANNELS.TEST_ERROR, testHandler.handleError.bind(testHandler))
+
+    // Test validation handler
+    ipcManager.registerHandler(
+      IPC_CHANNELS.TEST_VALIDATION,
+      testHandler.handleValidation.bind(testHandler)
+    )
+
+    // Test stream handler
+    ipcManager.registerHandler(
+      IPC_CHANNELS.TEST_STREAM,
+      testHandler.handleStreamTest.bind(testHandler)
+    )
+
+    console.log('Test IPC handlers registered (development mode)')
+  }
+
+  console.log('System IPC handlers registered')
+}

@@ -10,7 +10,7 @@ describe('VectorManager Cross-Platform Tests', () => {
   beforeEach(async () => {
     // Create temporary database path
     testDbPath = path.join(os.tmpdir(), `test_vectors_${Date.now()}.db`)
-    
+
     vectorManager = new VectorManager({
       dbPath: testDbPath,
       dimension: 384, // Smaller dimension for testing
@@ -24,7 +24,7 @@ describe('VectorManager Cross-Platform Tests', () => {
 
   afterEach(async () => {
     await vectorManager.close()
-    
+
     // Clean up test database
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath)
@@ -225,7 +225,7 @@ describe('VectorManager Cross-Platform Tests', () => {
     test('should work on current platform', () => {
       const platform = os.platform()
       console.log(`Testing on platform: ${platform}`)
-      
+
       // The test should pass regardless of platform
       expect(['win32', 'darwin', 'linux']).toContain(platform)
       expect(vectorManager.isReady()).toBe(true)
@@ -233,7 +233,7 @@ describe('VectorManager Cross-Platform Tests', () => {
 
     test('should handle large embeddings efficiently', async () => {
       const largeEmbedding = Array.from({ length: 384 }, () => Math.random())
-      
+
       const testDocument: VectorDocument = {
         id: 'large_doc',
         file_id: 1,
@@ -279,9 +279,7 @@ describe('VectorManager Cross-Platform Tests', () => {
       }))
 
       // Insert documents concurrently
-      const insertPromises = documents.map(doc => 
-        vectorManager.insertDocuments([doc])
-      )
+      const insertPromises = documents.map(doc => vectorManager.insertDocuments([doc]))
 
       await Promise.all(insertPromises)
 
@@ -305,8 +303,9 @@ describe('VectorManager Cross-Platform Tests', () => {
         // Missing embedding
       }
 
-      await expect(vectorManager.insertDocuments([invalidDocument]))
-        .rejects.toThrow('missing embedding')
+      await expect(vectorManager.insertDocuments([invalidDocument])).rejects.toThrow(
+        'missing embedding'
+      )
     })
 
     test('should handle search with mismatched dimensions', async () => {
@@ -327,10 +326,11 @@ describe('VectorManager Cross-Platform Tests', () => {
 
       // Search with wrong dimension
       const wrongDimensionQuery = Array.from({ length: 256 }, () => Math.random())
-      
+
       // Should throw an error for mismatched dimensions
-      await expect(vectorManager.search(wrongDimensionQuery, 1, 1))
-        .rejects.toThrow('Vector dimensions must match')
+      await expect(vectorManager.search(wrongDimensionQuery, 1, 1)).rejects.toThrow(
+        'Vector dimensions must match'
+      )
     })
   })
 })

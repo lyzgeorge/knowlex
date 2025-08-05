@@ -26,7 +26,7 @@ export class DatabaseService {
 
   constructor(config?: DatabaseServiceConfig) {
     const userDataPath = app.getPath('userData')
-    
+
     this.sqliteManager = new SQLiteManager({
       dbPath: path.join(userDataPath, 'knowlex.db'),
       enableWAL: true,
@@ -104,13 +104,13 @@ export class DatabaseService {
       // SQLite maintenance
       await this.sqliteManager.executeInTransaction(() => {
         const db = this.sqliteManager.getDatabase()
-        
+
         // Analyze tables for better query planning
         db.exec('ANALYZE')
-        
+
         // Update table statistics
         db.exec('PRAGMA optimize')
-        
+
         return true
       })
 
@@ -144,11 +144,11 @@ export class DatabaseService {
     }
 
     const sqliteDb = this.sqliteManager.getDatabase()
-    
+
     // Get SQLite statistics
     const pageCount = sqliteDb.prepare('PRAGMA page_count').get() as { page_count: number }
     const pageSize = sqliteDb.prepare('PRAGMA page_size').get() as { page_size: number }
-    
+
     let walSize: number | undefined
     try {
       const walInfo = sqliteDb.prepare('PRAGMA wal_checkpoint(PASSIVE)').get() as any
@@ -186,17 +186,17 @@ export class DatabaseService {
 
     try {
       const sqliteDb = this.sqliteManager.getDatabase()
-      
+
       // Create backup using SQLite's backup API
       const backup = sqliteDb.backup(backupPath)
-      
+
       // Perform the backup
       let remaining = -1
       while (remaining !== 0) {
         remaining = backup.step(100) // Copy 100 pages at a time
         console.log(`Backup progress: ${backup.pageCount - remaining}/${backup.pageCount} pages`)
       }
-      
+
       backup.finish()
       console.log('Database backup completed successfully')
     } catch (error) {
@@ -215,7 +215,7 @@ export class DatabaseService {
     try {
       await this.vectorManager.close()
       await this.sqliteManager.close()
-      
+
       this.isInitialized = false
       console.log('Database service closed successfully')
     } catch (error) {
@@ -240,8 +240,6 @@ export class DatabaseService {
   }
 
   isReady(): boolean {
-    return this.isInitialized && 
-           this.sqliteManager.isReady() && 
-           this.vectorManager.isReady()
+    return this.isInitialized && this.sqliteManager.isReady() && this.vectorManager.isReady()
   }
 }
