@@ -23,6 +23,15 @@ Knowlex 是一款基于 Electron + React 的跨平台桌面智能助理应用，
 - **类型检查**: TypeScript
 - **测试框架**: Jest + React Testing Library
 - **打包工具**: Electron Builder
+- **Monorepo 管理**: pnpm workspace
+- **共享类型包**: @knowlex/types (内部包)
+
+### 契约版本化
+
+- **IPC 通道版本**: 采用 semver 标签 (v1.0.0, v1.1.0)
+- **数据库 Schema 版本**: 版本字段 + 迁移脚本
+- **API 接口版本**: 版本化的类型定义和 changelog
+- **变更管理**: 自动生成 changelog，接口演进可追溯
 
 ## 系统架构
 
@@ -270,16 +279,20 @@ src/
 │   ├── database/
 │   │   ├── sqlite.service.ts     # SQLite 操作
 │   │   └── vector.service.ts     # 向量数据库操作
-│   └── file/
-│       └── file.service.ts       # 文件处理服务
+│   ├── file/
+│   │   └── file.service.ts       # 文件处理服务
+│   └── mock/
+│       ├── ipc.mock.ts           # IPC Mock 服务
+│       ├── openai.mock.ts        # OpenAI Mock 服务
+│       └── database.mock.ts      # 数据库 Mock 服务
 ├── stores/
 │   ├── app.store.ts              # 应用全局状态
 │   ├── chat.store.ts             # 聊天状态
 │   ├── project.store.ts          # 项目状态
 │   └── settings.store.ts         # 设置状态
 ├── types/
-│   ├── api.types.ts              # API 类型定义
-│   ├── database.types.ts         # 数据库类型定义
+│   ├── api.types.ts              # API 类型定义 (引用 @knowlex/types)
+│   ├── database.types.ts         # 数据库类型定义 (引用 @knowlex/types)
 │   └── app.types.ts              # 应用类型定义
 ├── utils/
 │   ├── constants.ts              # 常量定义
@@ -294,6 +307,22 @@ src/
         └── useTranslation.ts     # 翻译 Hook
 ```
 
+### 共享类型包结构
+
+```
+packages/
+└── types/
+    ├── package.json              # @knowlex/types 包配置
+    ├── src/
+    │   ├── ipc.types.ts          # IPC 通道类型定义
+    │   ├── database.types.ts     # 数据库 Schema 类型
+    │   ├── api.types.ts          # API 接口类型
+    │   ├── common.types.ts       # 通用类型定义
+    │   └── index.ts              # 类型导出入口
+    ├── CHANGELOG.md              # 类型变更日志
+    └── README.md                 # 类型包文档
+```
+
 ### 后端服务层次结构
 
 ```
@@ -306,7 +335,8 @@ src-electron/
 │   ├── database/
 │   │   ├── sqlite.manager.ts     # SQLite 管理器
 │   │   ├── vector.manager.ts     # hnswsqlite 管理器
-│   │   └── migration.ts          # 数据库迁移
+│   │   ├── migration.ts          # 数据库迁移
+│   │   └── schema.version.ts     # Schema 版本管理
 │   ├── file/
 │   │   ├── file.manager.ts       # 文件管理器
 │   │   ├── pdf.converter.ts      # PDF 转换器
@@ -319,6 +349,7 @@ src-electron/
 │   └── search/
 │       └── fulltext.service.ts   # 全文搜索服务
 ├── handlers/
+│   ├── base.handler.ts           # 基础处理器 (版本化支持)
 │   ├── chat.handler.ts           # 聊天处理器
 │   ├── project.handler.ts        # 项目处理器
 │   ├── file.handler.ts           # 文件处理器
@@ -327,11 +358,660 @@ src-electron/
 │   ├── file-processor.worker.ts  # 文件处理 Worker Thread
 │   ├── embedding.worker.ts       # 向量化 Worker Thread
 │   └── task-queue.worker.ts      # 任务队列 Worker Thread
+├── types/
+│   ├── ipc.types.ts              # IPC 类型定义 (引用 @knowlex/types)
+│   ├── database.types.ts         # 数据库类型定义 (引用 @knowlex/types)
+│   └── worker.types.ts           # Worker 线程类型定义
 └── utils/
     ├── logger.ts                 # 日志工具
     ├── crypto.ts                 # 加密工具
-    └── path.helper.ts            # 路径工具
+    ├── path.helper.ts            # 路径工具
+    └── version.helper.ts         # 版本管理工具
 ```
+
+## Mock/Stub 服务设计
+
+### 自动生成 Mock 服务
+
+为了提升并行开发效率，减少"等接口"的情况，系统提供自动生成的 Mock 服务：
+
+```typescript
+// src/services/mock/ipc.mock.ts
+import { IPCChannels, IPCRequest, IPCResponse } from '@knowlex/types'
+
+export class IPCMockService {
+  private static instance: IPCMockService
+  private mockData: Map<string, any> = new Map()
+
+  static getInstance(): IPCMockService {
+    if (!IPCMockService.instance) {
+      IPCMockService.instance = new IPCMockService()
+    }
+    return IPCMockService.instance
+  }
+
+  // 基于 TypeScript 接口自动生成 Mock 数据
+  async invoke<T extends keyof IPCChannels>(
+    channel: T,
+    data: IPCRequest<T>
+  ): Promise<IPCResponse<T>> {
+    // 模拟网络延迟
+    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 500))
+
+    // 根据通道类型返回预设的 Mock 数据
+    switch (channel) {
+      case 'chat:send-message':
+        return this.mockChatResponse(data as any)
+      case 'project:create':
+        return this.mockProjectCreate(data as any)
+      case 'file:upload':
+        return this.mockFileUpload(data as any)
+      default:
+        return this.generateMockResponse(channel, data)
+    }
+  }
+
+  private mockChatResponse(data: any): any {
+    return {
+      success: true,
+      data: {
+        id: `msg_${Date.now()}`,
+        content: `Mock response for: ${data.message}`,
+        role: 'assistant',
+        timestamp: new Date().toISOString(),
+      },
+    }
+  }
+
+  // 更多 Mock 方法...
+}
+
+// src/services/mock/openai.mock.ts
+export class OpenAIMockService {
+  async sendMessage(message: string, stream: boolean = false) {
+    if (stream) {
+      return this.createMockStream(message)
+    } else {
+      return {
+        finalOutput: `Mock AI response for: ${message}`,
+        usage: { tokens: 150 },
+      }
+    }
+  }
+
+  private async* createMockStream(message: string) {
+    const response = `Mock streaming response for: ${message}`
+    const words = response.split(' ')
+
+    for (const word of words) {
+      yield { content: word + ' ', done: false }
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+
+    yield { content: '', done: true }
+  }
+}
+```
+
+### Mock 数据管理
+
+```typescript
+// src/services/mock/data.manager.ts
+export class MockDataManager {
+  private scenarios: Map<string, MockScenario> = new Map()
+
+  // 加载预定义的测试场景
+  loadScenarios() {
+    this.scenarios.set('empty-project', {
+      projects: [],
+      conversations: [],
+      files: [],
+    })
+
+    this.scenarios.set('sample-project', {
+      projects: [
+        {
+          id: 1,
+          name: 'Sample Project',
+          created_at: '2024-01-01T00:00:00Z',
+        },
+      ],
+      conversations: [
+        {
+          id: 1,
+          title: 'Sample Chat',
+          project_id: 1,
+          messages: [
+            {
+              id: 1,
+              role: 'user',
+              content: 'Hello, how are you?',
+            },
+            {
+              id: 2,
+              role: 'assistant',
+              content: 'I am doing well, thank you!',
+            },
+          ],
+        },
+      ],
+      files: [],
+    })
+  }
+
+  getScenario(name: string): MockScenario | undefined {
+    return this.scenarios.get(name)
+  }
+}
+
+interface MockScenario {
+  projects: any[]
+  conversations: any[]
+  files: any[]
+}
+```
+
+## CI/CD 与代码质量门禁
+
+### 代码质量标准
+
+```yaml
+# .github/workflows/quality-gate.yml
+name: Quality Gate
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Type checking
+        run: pnpm run type-check
+      
+      - name: Lint check
+        run: pnpm run lint
+        
+      - name: Code formatting check
+        run: pnpm run format:check
+      
+      - name: Unit tests
+        run: pnpm run test:unit
+        
+      - name: Integration tests
+        run: pnpm run test:integration
+      
+      - name: Coverage check
+        run: pnpm run test:coverage
+        env:
+          COVERAGE_THRESHOLD: 80
+      
+      - name: Build check
+        run: pnpm run build
+      
+      - name: Security audit
+        run: pnpm audit --audit-level moderate
+
+  cross-platform-build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup and build
+        run: |
+          npm install -g pnpm
+          pnpm install --frozen-lockfile
+          pnpm run build:electron
+```
+
+### 质量门禁配置
+
+```json
+// package.json
+{
+  "scripts": {
+    "lint": "eslint src src-electron --ext .ts,.tsx --max-warnings 0",
+    "lint:fix": "eslint src src-electron --ext .ts,.tsx --fix",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"src-electron/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"src-electron/**/*.ts\"",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.electron.json",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:coverage": "jest --coverage --coverageThreshold='{\"global\":{\"branches\":80,\"functions\":80,\"lines\":80,\"statements\":80}}'",
+    "test:e2e": "playwright test",
+    "build": "vite build",
+    "build:electron": "electron-builder",
+    "security:audit": "pnpm audit --audit-level moderate"
+  }
+}
+```
+
+### 分支策略
+
+```
+main (生产分支)
+├── develop (开发分支)
+│   ├── feature/chat-interface
+│   ├── feature/file-upload
+│   └── feature/rag-search
+├── release/v1.0.0 (发布分支)
+└── hotfix/critical-bug (热修复分支)
+```
+
+**分支保护规则**：
+- `main` 分支：需要 PR + 2人审核 + 所有检查通过
+- `develop` 分支：需要 PR + 1人审核 + 基础检查通过
+- 自动化部署：`main` 分支自动部署到生产环境
+
+### 自动化发布流程
+
+```yaml
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build and sign
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build:electron
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASS: ${{ secrets.APPLE_ID_PASS }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+      
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true
+```
+
+## 业务流程示例
+
+### 典型用户故事的技术实现流程
+
+为了帮助开发团队更好地理解系统行为，以下提供几个典型用户故事的完整技术实现流程，包括前端调用序列、IPC payload 样例和预期的数据库变化。
+
+#### 用户故事 1：创建新项目并开始聊天
+
+**用户操作流程**：
+1. 用户点击"创建项目"按钮
+2. 输入项目名称"我的AI助手项目"
+3. 确认创建
+4. 系统自动创建新会话
+5. 用户发送第一条消息"你好，请介绍一下自己"
+
+**前端调用序列**：
+```typescript
+// 1. 创建项目
+const projectResponse = await ipcService.invoke('project:create', {
+  name: '我的AI助手项目',
+  description: '这是一个测试项目'
+})
+
+// 2. 创建会话
+const conversationResponse = await ipcService.invoke('conversation:create', {
+  projectId: projectResponse.data.id,
+  title: 'New Chat'
+})
+
+// 3. 发送消息
+const messageResponse = await ipcService.invoke('chat:send-message', {
+  conversationId: conversationResponse.data.id,
+  message: '你好，请介绍一下自己',
+  ragEnabled: false,
+  files: []
+})
+```
+
+**IPC Payload 样例**：
+```typescript
+// project:create 请求
+{
+  channel: 'project:create',
+  version: 'v1.0.0',
+  data: {
+    name: '我的AI助手项目',
+    description: '这是一个测试项目'
+  }
+}
+
+// project:create 响应
+{
+  success: true,
+  data: {
+    id: 1,
+    name: '我的AI助手项目',
+    created_at: '2024-01-15T10:30:00Z',
+    updated_at: '2024-01-15T10:30:00Z'
+  },
+  version: 'v1.0.0'
+}
+
+// chat:send-message 请求
+{
+  channel: 'chat:send-message',
+  version: 'v1.0.0',
+  data: {
+    conversationId: 1,
+    message: '你好，请介绍一下自己',
+    ragEnabled: false,
+    files: []
+  }
+}
+```
+
+**预期数据库变化**：
+```sql
+-- projects 表新增记录
+INSERT INTO projects (id, name, created_at, updated_at) 
+VALUES (1, '我的AI助手项目', '2024-01-15T10:30:00Z', '2024-01-15T10:30:00Z');
+
+-- conversations 表新增记录
+INSERT INTO conversations (id, title, project_id, created_at, updated_at)
+VALUES (1, 'New Chat', 1, '2024-01-15T10:30:00Z', '2024-01-15T10:30:00Z');
+
+-- messages 表新增用户消息
+INSERT INTO messages (id, conversation_id, role, content, created_at)
+VALUES (1, 1, 'user', '你好，请介绍一下自己', '2024-01-15T10:30:00Z');
+
+-- messages 表新增AI回复
+INSERT INTO messages (id, conversation_id, role, content, created_at)
+VALUES (2, 1, 'assistant', '你好！我是Knowlex智能助理...', '2024-01-15T10:30:05Z');
+```
+
+#### 用户故事 2：上传文件并进行RAG检索聊天
+
+**用户操作流程**：
+1. 用户在现有项目中上传PDF文件"技术文档.pdf"
+2. 系统处理文件并向量化
+3. 用户开启RAG模式
+4. 用户询问"文档中提到的核心技术是什么？"
+5. 系统检索相关内容并回答
+
+**前端调用序列**：
+```typescript
+// 1. 上传文件
+const fileResponse = await ipcService.invoke('file:upload', {
+  projectId: 1,
+  filePath: '/path/to/技术文档.pdf',
+  filename: '技术文档.pdf'
+})
+
+// 2. 监听文件处理进度
+ipcService.on('file:processing-progress', (data) => {
+  console.log(`Processing: ${data.progress}%`)
+})
+
+// 3. 发送RAG查询
+const ragResponse = await ipcService.invoke('chat:send-message', {
+  conversationId: 1,
+  message: '文档中提到的核心技术是什么？',
+  ragEnabled: true,
+  files: []
+})
+```
+
+**IPC Payload 样例**：
+```typescript
+// file:upload 请求
+{
+  channel: 'file:upload',
+  version: 'v1.0.0',
+  data: {
+    projectId: 1,
+    filePath: '/path/to/技术文档.pdf',
+    filename: '技术文档.pdf'
+  }
+}
+
+// file:processing-progress 事件
+{
+  channel: 'file:processing-progress',
+  data: {
+    fileId: 1,
+    filename: '技术文档.pdf',
+    progress: 75,
+    status: 'vectorizing',
+    message: '正在向量化文档内容...'
+  }
+}
+
+// chat:send-message RAG查询
+{
+  channel: 'chat:send-message',
+  version: 'v1.0.0',
+  data: {
+    conversationId: 1,
+    message: '文档中提到的核心技术是什么？',
+    ragEnabled: true,
+    files: []
+  }
+}
+```
+
+**预期数据库变化**：
+```sql
+-- files 表新增文件记录
+INSERT INTO files (id, project_id, filename, original_path, pdf_path, file_size, md5_original, md5_pdf, status, created_at)
+VALUES (1, 1, '技术文档.pdf', '/data/files/1/original/技术文档.pdf', '/data/files/1/pdf/技术文档.pdf', 2048576, 'abc123...', 'def456...', 'completed', '2024-01-15T11:00:00Z');
+
+-- vector_documents 表新增向量记录（多条）
+INSERT INTO vector_documents (id, file_id, project_id, chunk_index, content, filename, chunk_start, chunk_end, created_at, embedding)
+VALUES 
+('1_0', 1, 1, 0, '本文档介绍了React、TypeScript、Electron等核心技术...', '技术文档.pdf', 0, 500, '2024-01-15T11:05:00Z', '[0.1, 0.2, ...]'),
+('1_1', 1, 1, 1, 'React是一个用于构建用户界面的JavaScript库...', '技术文档.pdf', 450, 950, '2024-01-15T11:05:00Z', '[0.3, 0.4, ...]');
+
+-- messages 表新增RAG查询和回复
+INSERT INTO messages (id, conversation_id, role, content, file_references, created_at)
+VALUES 
+(3, 1, 'user', '文档中提到的核心技术是什么？', NULL, '2024-01-15T11:10:00Z'),
+(4, 1, 'assistant', '根据您上传的技术文档，核心技术包括：\n1. React - 用于构建用户界面\n2. TypeScript - 提供类型安全\n3. Electron - 跨平台桌面应用框架', '["技术文档.pdf"]', '2024-01-15T11:10:05Z');
+```
+
+#### 用户故事 3：全局搜索历史对话
+
+**用户操作流程**：
+1. 用户按下 Cmd+P 打开全局搜索
+2. 输入关键词"React组件"
+3. 系统显示相关的历史对话
+4. 用户点击某个搜索结果
+5. 系统跳转到对应的会话
+
+**前端调用序列**：
+```typescript
+// 1. 执行全局搜索
+const searchResponse = await ipcService.invoke('search:global', {
+  query: 'React组件',
+  limit: 10,
+  offset: 0
+})
+
+// 2. 跳转到指定会话
+const conversationResponse = await ipcService.invoke('conversation:get', {
+  id: searchResponse.data.results[0].conversationId
+})
+```
+
+**IPC Payload 样例**：
+```typescript
+// search:global 请求
+{
+  channel: 'search:global',
+  version: 'v1.0.0',
+  data: {
+    query: 'React组件',
+    limit: 10,
+    offset: 0
+  }
+}
+
+// search:global 响应
+{
+  success: true,
+  data: {
+    results: [
+      {
+        conversationId: 2,
+        title: 'React开发讨论',
+        projectId: 1,
+        projectName: '我的AI助手项目',
+        snippet: '...关于<mark>React组件</mark>的最佳实践，我们需要考虑...',
+        createdAt: '2024-01-14T15:20:00Z'
+      }
+    ],
+    total: 1,
+    hasMore: false
+  },
+  version: 'v1.0.0'
+}
+```
+
+**预期数据库查询**：
+```sql
+-- 全文搜索查询（使用FTS5）
+SELECT 
+  c.id as conversation_id,
+  c.title,
+  c.project_id,
+  p.name as project_name,
+  m.content,
+  m.created_at,
+  snippet(messages_fts, 2, '<mark>', '</mark>', '...', 32) as snippet
+FROM messages_fts
+JOIN messages m ON messages_fts.rowid = m.id
+JOIN conversations c ON m.conversation_id = c.id
+LEFT JOIN projects p ON c.project_id = p.id
+WHERE messages_fts MATCH 'React组件'
+ORDER BY c.updated_at DESC
+LIMIT 10 OFFSET 0;
+```
+
+#### 用户故事 4：管理项目记忆和知识
+
+**用户操作流程**：
+1. 用户在项目设置中添加记忆"这个项目主要用于学习AI技术"
+2. 用户从聊天中选择一段文字保存为知识
+3. 用户编辑知识内容并保存
+
+**前端调用序列**：
+```typescript
+// 1. 添加项目记忆
+const memoryResponse = await ipcService.invoke('project:add-memory', {
+  projectId: 1,
+  content: '这个项目主要用于学习AI技术',
+  type: 'memory'
+})
+
+// 2. 保存聊天内容为知识
+const knowledgeResponse = await ipcService.invoke('project:add-knowledge', {
+  projectId: 1,
+  title: 'React组件最佳实践',
+  content: '从聊天中选择的内容：React组件应该保持单一职责...'
+})
+
+// 3. 更新知识内容
+const updateResponse = await ipcService.invoke('project:update-knowledge', {
+  id: knowledgeResponse.data.id,
+  title: 'React组件开发指南',
+  content: '更新后的内容：React组件开发的完整指南...'
+})
+```
+
+**预期数据库变化**：
+```sql
+-- project_memories 表新增记忆
+INSERT INTO project_memories (id, project_id, content, type, is_system, created_at)
+VALUES (1, 1, '这个项目主要用于学习AI技术', 'memory', FALSE, '2024-01-15T12:00:00Z');
+
+-- project_knowledge 表新增知识
+INSERT INTO project_knowledge (id, project_id, title, content, created_at, updated_at)
+VALUES (1, 1, 'React组件最佳实践', '从聊天中选择的内容：React组件应该保持单一职责...', '2024-01-15T12:05:00Z', '2024-01-15T12:05:00Z');
+
+-- 更新知识内容
+UPDATE project_knowledge 
+SET title = 'React组件开发指南', 
+    content = '更新后的内容：React组件开发的完整指南...', 
+    updated_at = '2024-01-15T12:10:00Z'
+WHERE id = 1;
+```
+
+### 错误处理流程示例
+
+#### 文件上传失败的处理流程
+
+**场景**：用户上传超大文件导致处理失败
+
+**前端调用序列**：
+```typescript
+try {
+  const fileResponse = await ipcService.invoke('file:upload', {
+    projectId: 1,
+    filePath: '/path/to/huge-file.pdf',
+    filename: 'huge-file.pdf'
+  })
+} catch (error) {
+  // 处理错误
+  console.error('File upload failed:', error)
+  showErrorNotification(error.message)
+}
+```
+
+**错误响应示例**：
+```typescript
+{
+  success: false,
+  error: {
+    code: 'FILE_TOO_LARGE',
+    message: '文件大小超过限制（最大1MB）',
+    details: {
+      fileSize: 5242880,
+      maxSize: 1048576,
+      filename: 'huge-file.pdf'
+    }
+  },
+  version: 'v1.0.0'
+}
+```
+
+这些业务流程示例为开发团队提供了清晰的技术实现路径，确保前后端开发人员能够准确理解系统的预期行为和数据流转过程。
 
 ## 核心功能实现
 
