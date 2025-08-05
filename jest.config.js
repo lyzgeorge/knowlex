@@ -23,5 +23,9 @@ module.exports = {
     '<rootDir>/dist/',
     '<rootDir>/dist-electron/',
     '<rootDir>/release/',
+    '<rootDir>/src-electron/services/database/__tests__/__mocks__/',
   ],
+  moduleNameMapper: {
+    '^electron$': '<rootDir>/src-electron/services/database/__tests__/__mocks__/electron.ts',
+  },
 }
