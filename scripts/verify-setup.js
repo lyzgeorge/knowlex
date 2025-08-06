@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process')
-const fs = require('fs')
-const path = require('path')
+import fs from 'fs'
 
 console.log('🔍 Verifying Knowlex Desktop App Development Environment...\n')
 

@@ -17,7 +17,8 @@ import {
 } from '../types/ipc.types'
 
 export class IPCManager extends EventEmitter {
-  private handlers: Map<IPCChannel, (message: IPCMessage, event: any) => Promise<IPCResponse>> = new Map()
+  private handlers: Map<IPCChannel, (message: IPCMessage, event: any) => Promise<IPCResponse>> =
+    new Map()
   private streamSessions: Map<string, StreamSession> = new Map()
   private defaultStreamControl: StreamControl = {
     chunkSize: 1024, // 1KB chunks
@@ -33,7 +34,10 @@ export class IPCManager extends EventEmitter {
   /**
    * Register an IPC handler for a specific channel
    */
-  registerHandler(channel: IPCChannel, handler: (message: IPCMessage, event: any) => Promise<IPCResponse>): void {
+  registerHandler(
+    channel: IPCChannel,
+    handler: (message: IPCMessage, event: any) => Promise<IPCResponse>
+  ): void {
     if (this.handlers.has(channel)) {
       console.warn(`Handler for channel '${channel}' already exists, overwriting`)
     }

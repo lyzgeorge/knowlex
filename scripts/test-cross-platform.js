@@ -5,10 +5,10 @@
  * This script verifies that the database components work correctly across different platforms
  */
 
-const { execSync } = require('child_process')
-const fs = require('fs')
-const path = require('path')
-const os = require('os')
+import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 console.log('🚀 Starting cross-platform database test...')
 console.log(`Platform: ${os.platform()}`)
@@ -18,7 +18,8 @@ console.log(`Node.js version: ${process.version}`)
 // Test 1: Verify better-sqlite3 installation
 console.log('\n📦 Testing better-sqlite3 installation...')
 try {
-  const Database = require('better-sqlite3')
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Database = require('better-sqlite3') // keep require for native module
   const testDbPath = path.join(os.tmpdir(), 'test-better-sqlite3.db')
 
   const db = new Database(testDbPath)
@@ -42,7 +43,8 @@ try {
 // Test 2: Verify hnswsqlite installation
 console.log('\n🔍 Testing hnswsqlite installation...')
 try {
-  const Database = require('better-sqlite3')
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Database = require('better-sqlite3') // keep require for native module
   const testDbPath = path.join(os.tmpdir(), 'test-hnswsqlite.db')
 
   const db = new Database(testDbPath)
@@ -137,7 +139,8 @@ try {
 // Test 4: Performance benchmark
 console.log('\n⚡ Running performance benchmark...')
 try {
-  const Database = require('better-sqlite3')
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Database = require('better-sqlite3') // keep require for native module
   const testDbPath = path.join(os.tmpdir(), 'test-performance.db')
 
   const db = new Database(testDbPath)
@@ -146,7 +149,7 @@ try {
   // Batch insert test
   const startTime = Date.now()
   const stmt = db.prepare('INSERT INTO perf_test (data) VALUES (?)')
-  const transaction = db.transaction(data => {
+  const transaction = db.transaction(_data => {
     for (let i = 0; i < 1000; i++) {
       stmt.run(`test data ${i}`)
     }
@@ -181,7 +184,8 @@ console.log('\n💾 Testing memory usage...')
 try {
   const initialMemory = process.memoryUsage()
 
-  const Database = require('better-sqlite3')
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Database = require('better-sqlite3') // keep require for native module
   const testDbPath = path.join(os.tmpdir(), 'test-memory.db')
 
   const db = new Database(testDbPath)
