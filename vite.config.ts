@@ -13,13 +13,13 @@ export default defineConfig({
       {
         // Main-Process entry file of the Electron App.
         entry: 'src-electron/main/index.ts',
-        onstart(options) {
+        onstart(_options) {
           if (process.env.VSCODE_DEBUG) {
             // eslint-disable-next-line no-console
             console.log(/* For `.vscode/.debug.json` */ '[startup] Electron App')
-          } else {
-            options.startup()
           }
+          // Don't auto-start Electron in development mode when using pnpm run electron:dev
+          // The electron process is started separately via concurrently
         },
         vite: {
           build: {

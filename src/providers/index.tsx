@@ -13,8 +13,8 @@ import { Box, Spinner, Text, VStack } from '@chakra-ui/react'
 import { ThemeProvider } from './ThemeProvider'
 import { LanguageProvider } from './LanguageProvider'
 
-// Import _i18n configuration (this initializes _i18n)
-import '@/_i18n'
+// Import i18n configuration (this initializes i18n)
+import '@/i18n'
 
 // Props interface
 interface AppProvidersProps {
@@ -82,11 +82,11 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   return (
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
-      onError={(error, errorInfo) => {
+      onError={(_error, _errorInfo) => {
         // Log error to console in development
         if (process.env.NODE_ENV === 'development') {
-          // console.error('Application Error:', error)
-          // console.error('Error Info:', errorInfo)
+          // console.error('Application Error:', _error)
+          // console.error('Error Info:', _errorInfo)
         }
 
         // In production, you might want to send this to an error reporting service
@@ -139,13 +139,8 @@ export const useProviderStatus = () => {
 
   React.useEffect(() => {
     try {
-      // Check if theme provider is available
-      const _themeContext = React.useContext(React.createContext(undefined))
-
-      // Check if language provider is available
-      const _languageContext = React.useContext(React.createContext(undefined))
-
-      // Mark as initialized if no errors
+      // Simple initialization check - providers are available if we get here
+      // The actual provider validation should be done by using their respective hooks
       setIsInitialized(true)
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Provider initialization failed'))

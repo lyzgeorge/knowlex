@@ -48,11 +48,11 @@ interface LanguageProviderProps {
 
 // Language provider component
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const { t, _i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const currentLanguage = (_i18n.language || 'en') as LanguageCode
+  const currentLanguage = (i18n.language || 'en') as LanguageCode
 
   // Change language function
   const setLanguage = async (language: LanguageCode) => {
