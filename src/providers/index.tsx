@@ -32,7 +32,7 @@ const ErrorFallback: React.FC<{ error: Error; resetErrorBoundary: () => void }> 
         Something went wrong
       </Text>
       <Text color="red.500" mb={4}>
-        {error._message}
+        {error.message}
       </Text>
       <Box
         as="button"

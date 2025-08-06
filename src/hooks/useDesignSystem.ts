@@ -9,8 +9,7 @@
  * - Accessibility helpers
  */
 
-import { useTheme, useColorMode, useColorModeValue, useBreakpointValue } from '@chakra-ui/react'
-import { useTranslation } from 'react-i18next'
+import { useTheme, useColorMode, useBreakpointValue } from '@chakra-ui/react'
 import { useMemo } from 'react'
 import { designTokens, type DesignTokens } from '@/theme/tokens'
 
@@ -203,7 +202,7 @@ export const useAnimations = () => {
         fast: `all ${tokens.transitions.duration.fast} ${tokens.transitions.easing.easeOut}`,
         normal: `all ${tokens.transitions.duration.normal} ${tokens.transitions.easing.easeInOut}`,
         slow: `all ${tokens.transitions.duration.slow} ${tokens.transitions.easing.easeInOut}`,
-        _colors: tokens.transitions.common._colors,
+        colors: tokens.transitions.common.colors,
         transform: tokens.transitions.common.transform,
         opacity: tokens.transitions.common.opacity,
       },
@@ -238,8 +237,6 @@ export const useAnimations = () => {
 
 // Hook for accessibility utilities
 export const useAccessibility = () => {
-  // const { t } = useTranslation()()
-
   return useMemo(
     () => ({
       // Screen reader utilities
@@ -321,7 +318,7 @@ export const useAccessibility = () => {
         }),
       },
     }),
-    [t]
+    []
   )
 }
 
@@ -403,15 +400,4 @@ export const useLayout = () => {
     }),
     [tokens, responsive, _colors]
   )
-}
-
-// Export all hooks
-export {
-  useDesignTokens,
-  useColors,
-  useResponsive,
-  useComponentStyles,
-  useAnimations,
-  useAccessibility,
-  useLayout,
 }

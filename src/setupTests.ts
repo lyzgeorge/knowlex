@@ -42,6 +42,8 @@ const localStorageMock = {
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
+  key: jest.fn(),
+  length: 0,
 }
 global.localStorage = localStorageMock as Storage
 
@@ -68,11 +70,16 @@ global.console = {
 }
 
 // Mock Electron APIs if needed
-global.window.electronAPI = {
-  minimize: jest.fn(),
-  maximize: jest.fn(),
-  close: jest.fn(),
-  toggleMaximize: jest.fn(),
+;(global.window as any).electronAPI = {
+  send: jest.fn(),
+  on: jest.fn(),
+  removeListener: jest.fn(),
+  removeAllListeners: jest.fn(),
+  getSystemInfo: jest.fn(() => ({
+    platform: 'test',
+    arch: 'test',
+    version: 'test',
+  })),
 }
 
 // Set up default language for tests

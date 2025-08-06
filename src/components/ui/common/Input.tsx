@@ -331,8 +331,7 @@ const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
   </Box>
 )
 
-// Export types for external use
-export type { InputProps }
+// Types are exported above with their interface definitions
 
 // Default export
 export default Input

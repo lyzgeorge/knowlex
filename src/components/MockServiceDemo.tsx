@@ -6,18 +6,13 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import {
-  mockDataManager,
-  switchMockScenario,
-  getMockStats,
-  isDevModeEnabled,
-  type ScenarioInfo,
-} from '@/services/mock'
+import { developmentTools } from '@/services/development-factory'
+import type { ScenarioInfo, MockStats } from '@/services/interfaces/mock-facade'
 
 export const MockServiceDemo: React.FC = () => {
   const [currentScenario, setCurrentScenario] = useState<string>('default')
   const [scenarios, setScenarios] = useState<ScenarioInfo[]>([])
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+  const [stats, setStats] = useState<MockStats | null>(null)
   const [isDevMode, setIsDevMode] = useState<boolean>(false)
   const [testResults, setTestResults] = useState<Record<string, unknown> | null>(null)
 
@@ -27,9 +22,15 @@ export const MockServiceDemo: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const availableScenarios = mockDataManager.getAvailableScenarios()
-      const currentStats = await getMockStats()
-      const devModeStatus = isDevModeEnabled()
+      const mockFacade = developmentTools.getMockFacade?.()
+      if (!mockFacade) {
+        setIsDevMode(false)
+        return
+      }
+
+      const availableScenarios = mockFacade.getAvailableScenarios()
+      const currentStats = await mockFacade.getMockStats()
+      const devModeStatus = mockFacade.isEnabled()
 
       setScenarios(availableScenarios)
       setCurrentScenario(currentStats.currentScenario)
@@ -37,12 +38,16 @@ export const MockServiceDemo: React.FC = () => {
       setIsDevMode(devModeStatus)
     } catch (error) {
       // console.error('Failed to load mock service data:', error)
+      setIsDevMode(false)
     }
   }
 
   const handleScenarioChange = async (scenarioName: string) => {
     try {
-      switchMockScenario(scenarioName)
+      const mockFacade = developmentTools.getMockFacade?.()
+      if (!mockFacade) return
+
+      mockFacade.switchScenario(scenarioName)
       setCurrentScenario(scenarioName)
       await loadData()
     } catch (error) {
@@ -52,7 +57,13 @@ export const MockServiceDemo: React.FC = () => {
 
   const runValidationTest = async () => {
     try {
-      const validation = await mockDataManager.validateServices()
+      const mockFacade = developmentTools.getMockFacade?.()
+      if (!mockFacade) {
+        setTestResults({ error: 'Mock services not available' })
+        return
+      }
+
+      const validation = await mockFacade.validateServices()
       setTestResults(validation)
     } catch (error) {
       // console.error('Validation test failed:', error)
@@ -62,14 +73,17 @@ export const MockServiceDemo: React.FC = () => {
 
   const exportMockData = async () => {
     try {
-      const exportData = await mockDataManager.exportMockData()
+      const mockFacade = developmentTools.getMockFacade?.()
+      if (!mockFacade) return
+
+      const exportData = await mockFacade.exportMockData()
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json',
       })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `mock-data-${exportData.scenario}-${Date.now()}.json`
+      a.download = `mock-data-${exportData.scenario || 'unknown'}-${Date.now()}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

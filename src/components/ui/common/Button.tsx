@@ -127,8 +127,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         isDisabled={isDisabled}
         isLoading={loading}
         loadingText={loadingText}
-        leftIcon={loading ? undefined : renderIcon(leftIcon)}
-        rightIcon={loading ? undefined : renderIcon(rightIcon)}
+        leftIcon={loading ? undefined : renderIcon(leftIcon) || undefined}
+        rightIcon={loading ? undefined : renderIcon(rightIcon) || undefined}
         spinner={<Spinner size={size === 'xs' || size === 'sm' ? 'xs' : 'sm'} />}
         type={type}
         title={tooltip}
@@ -216,8 +216,7 @@ function renderIcon(icon: React.ReactElement, size: keyof typeof icons.sizes) {
   })
 }
 
-// Export types for external use
-export type { ButtonProps, IconButtonProps }
+// Types are exported above with their interface definitions
 
 // Default export
 export default Button

@@ -328,8 +328,7 @@ export const FeatureCard = forwardRef<HTMLDivElement, CardProps>((props, ref) =>
 ))
 FeatureCard.displayName = 'FeatureCard'
 
-// Export types for external use
-export type { CardProps }
+// Types are exported above with their interface definitions
 
 // Default export
 export default Card

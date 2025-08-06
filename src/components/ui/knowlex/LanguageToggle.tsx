@@ -33,7 +33,7 @@ import { useAnimations } from '@/hooks'
 import { ChevronDownIcon } from '../common'
 
 // Import language helpers
-import { languageHelpers, supportedLanguages, type LanguageConfig } from '@/_i18n'
+import { languageHelpers, supportedLanguages, type LanguageConfig } from '@/i18n'
 
 // Language toggle variants
 export type LanguageToggleVariant = 'flag' | 'text' | 'menu' | 'compact'
@@ -227,7 +227,7 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({
           type="radio"
           onChange={value => handleLanguageChange(value as string)}
         >
-          {supportedLanguages.map(lang => (
+          {supportedLanguages.map((lang: LanguageConfig) => (
             <MenuItemOption key={lang.code} value={lang.code}>
               <HStack spacing={3} justify="space-between" w="full">
                 <HStack spacing={3}>

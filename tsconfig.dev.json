@@ -1,4 +1,5 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
@@ -22,15 +23,6 @@
       "@electron/*": ["src-electron/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "dist-electron",
-    "release",
-    "src-electron",
-    "src/services/mock/**/*",
-    "**/*.mock.ts"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/**/*", "src/services/mock/**/*"],
+  "exclude": ["node_modules", "dist", "dist-electron", "release", "src-electron"]
 }

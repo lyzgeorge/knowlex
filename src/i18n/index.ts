@@ -48,11 +48,12 @@ const i18nConfig = {
   interpolation: {
     escapeValue: false, // React already escapes values
     formatSeparator: ',',
-    format: (value: unknown, format?: string) => {
-      if (format === 'uppercase') return value.toUpperCase()
-      if (format === 'lowercase') return value.toLowerCase()
-      if (format === 'capitalize') return value.charAt(0).toUpperCase() + value.slice(1)
-      return value
+    format: (value: unknown, format?: string): string => {
+      if (format === 'uppercase') return String(value).toUpperCase()
+      if (format === 'lowercase') return String(value).toLowerCase()
+      if (format === 'capitalize')
+        return String(value).charAt(0).toUpperCase() + String(value).slice(1)
+      return String(value)
     },
   },
 
@@ -94,7 +95,12 @@ const i18nConfig = {
   saveMissingTo: 'current' as const,
 
   // Missing key handler
-  missingKeyHandler: (lngs: readonly string[], ns: string, key: string, _fallbackValue: string) => {
+  missingKeyHandler: (
+    _lngs: readonly string[],
+    _ns: string,
+    _key: string,
+    _fallbackValue: string
+  ) => {
     if (process.env.NODE_ENV === 'development') {
       // console.warn(`Missing translation key: ${ns}:${key} for languages: ${lngs.join(', ')}`)
     }

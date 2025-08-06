@@ -92,7 +92,11 @@ export const Icon = forwardRef<SVGSVGElement, IconProps>(
     // Show spinner if loading
     if (loading) {
       return (
-        <Spinner size={size === 'xs' || size === 'sm' ? 'xs' : 'sm'} color={color} {...props} />
+        <Spinner
+          size={size === 'xs' || size === 'sm' ? 'xs' : 'sm'}
+          color={typeof color === 'string' ? color : undefined}
+          {...props}
+        />
       )
     }
 
@@ -311,8 +315,7 @@ export const createHeroIcon = (
   return HeroIcon
 }
 
-// Export types for external use
-export type { IconProps, ExternalIconProps, IconSize, IconPath }
+// Types are exported above with their interface definitions
 
 // Default export
 export default Icon

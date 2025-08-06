@@ -379,7 +379,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       {/* Error Alert */}
       {uploadError && (
-        <Alert _status="error" borderRadius="md">
+        <Alert status="error" borderRadius="md">
           <AlertIcon />
           <Box flex={1}>
             <AlertTitle>{t('error.uploadFailed')}</AlertTitle>

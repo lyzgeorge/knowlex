@@ -21,7 +21,7 @@ interface LanguageContextType {
   error: string | null
 
   // Helper functions
-  t: (key: string, options?: unknown) => string
+  t: (key: string, options?: any) => string
   formatNumber: (num: number) => string
   formatDate: (date: Date, options?: Intl.DateTimeFormatOptions) => string
   formatRelativeTime: (date: Date) => string
@@ -65,7 +65,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       await languageHelpers.changeLanguage(language)
     } catch (err) {
       // console.error('Failed to change language:', err)
-      setError(err instanceof Error ? err._message : 'Failed to change language')
+      setError(err instanceof Error ? err.message : 'Failed to change language')
     } finally {
       setIsLoading(false)
     }
@@ -141,7 +141,8 @@ export const useTranslations = (namespace?: string) => {
     tSettings: (key: string, options?: unknown) => t(`settings:${key}`, options),
 
     // Pluralization helper
-    plural: (key: string, count: number, options?: unknown) => t(key, { count, ...options }),
+    plural: (key: string, count: number, options?: any) =>
+      t(key, { count, ...(options as object) }),
 
     // Interpolation helper with type safety
     interpolate: <T extends Record<string, unknown>>(key: string, values: T) => t(key, values),

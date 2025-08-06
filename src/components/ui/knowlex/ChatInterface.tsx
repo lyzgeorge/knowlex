@@ -105,7 +105,7 @@ const ChatMessage: React.FC<
     navigator.clipboard.writeText(content)
     toast({
       title: t('ui.chat.copy'),
-      _status: 'success',
+      status: 'success',
       duration: 2000,
       isClosable: true,
     })
@@ -115,7 +115,7 @@ const ChatMessage: React.FC<
   const handleSave = () => {
     toast({
       title: t('ui.chat.saveToKnowledge'),
-      _status: 'success',
+      status: 'success',
       duration: 2000,
       isClosable: true,
     })
@@ -321,7 +321,7 @@ const ChatInterface: React.FC = () => {
                 </HStack>
               </FormLabel>
               <Switch
-                _id="rag-toggle"
+                id="rag-toggle"
                 isChecked={isRAGEnabled}
                 onChange={e => setIsRAGEnabled(e.target.checked)}
                 colorScheme="primary"

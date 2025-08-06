@@ -15,7 +15,7 @@ import {
   VectorDocument,
   AppSetting,
   RerankSetting,
-} from '@knowlex/types'
+} from '../../../packages/types/src'
 
 export interface DatabaseMockScenario {
   name: string
@@ -153,7 +153,7 @@ export class DatabaseMockService {
   /**
    * Simulate database restore
    */
-  async restore(path: string): Promise<{ success: boolean; recordsRestored: number }> {
+  async restore(_path: string): Promise<{ success: boolean; recordsRestored: number }> {
     // console.log(`[Database Mock] Restoring from: ${path}`)
     await this.delay(2000) // Simulate restore time
 

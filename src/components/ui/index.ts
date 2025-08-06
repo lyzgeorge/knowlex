@@ -16,9 +16,6 @@ export { default as MainLayout } from './layout/MainLayout'
 // Knowlex Specific Components
 export * from './knowlex'
 
-// Types
-export type * from './types'
-
 // Re-export key components for convenience
 export { default as Button } from './common/Button'
 export { default as Input } from './common/Input'
