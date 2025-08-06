@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { ipcManager } from '../handlers/ipc.manager'
-import { IPCMessage } from '../types/ipc.types'
+import { IPCMessage, IPC_CHANNELS } from '../types/ipc.types'
 
 const isDev = process.env.IS_DEV === 'true'
 
@@ -31,8 +31,8 @@ function createWindow(): void {
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
-  if (isDev && process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -77,11 +77,6 @@ app.on('before-quit', () => {
  * Register basic system handlers for testing IPC functionality
  */
 function registerSystemHandlers(): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { IPC_CHANNELS } = require('../types/ipc.types')
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { testHandler } = require('../handlers/test.handler')
-
   // System info handler
   ipcManager.registerHandler(IPC_CHANNELS.SYSTEM_GET_INFO, async (message: IPCMessage) => {
     return {
@@ -101,6 +96,19 @@ function registerSystemHandlers(): void {
 
   // Register test handlers for IPC framework validation
   if (isDev) {
+    registerTestHandlers()
+  }
+
+  console.log('System IPC handlers registered')
+}
+
+/**
+ * Register test handlers dynamically in development mode
+ */
+async function registerTestHandlers(): Promise<void> {
+  try {
+    const { testHandler } = await import('../handlers/test.handler')
+
     // Test echo handler
     ipcManager.registerHandler(IPC_CHANNELS.TEST_ECHO, testHandler.handleEcho.bind(testHandler))
 
@@ -123,7 +131,7 @@ function registerSystemHandlers(): void {
     )
 
     console.log('Test IPC handlers registered (development mode)')
+  } catch (error) {
+    console.warn('Failed to register test handlers:', error)
   }
-
-  console.log('System IPC handlers registered')
 }

@@ -1,8 +1,8 @@
 packages:
   - .
+  - packages/*
 
 ignoredBuiltDependencies:
-  - electron
   - esbuild
 
 onlyBuiltDependencies:

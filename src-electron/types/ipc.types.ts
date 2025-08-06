@@ -261,6 +261,13 @@ export const IPC_CHANNELS = {
   SYSTEM_GET_INFO: 'system:get-info',
   SYSTEM_GET_LOGS: 'system:get-logs',
   SYSTEM_CLEAR_CACHE: 'system:clear-cache',
+
+  // Test channels (development only)
+  TEST_ECHO: 'test:echo',
+  TEST_PING: 'test:ping',
+  TEST_ERROR: 'test:error',
+  TEST_VALIDATION: 'test:validation',
+  TEST_STREAM: 'test:stream',
 } as const
 
 export type IPCChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

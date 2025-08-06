@@ -17,7 +17,6 @@ import {
   DrawerBody,
   useDisclosure,
 } from '@chakra-ui/react'
-import { useTranslation } from 'react-i18next'
 
 // Using simple text icons to avoid dependency issues
 const HamburgerIcon = () => <span>☰</span>
@@ -41,12 +40,12 @@ const SimpleThemeToggle: React.FC = () => {
 
 // Simple language toggle component
 const SimpleLanguageToggle: React.FC = () => {
-  const { i18n } = useTranslation()
-  const currentLang = i18n.language.startsWith('zh') ? 'EN' : '中'
+  // Simplified language toggle without i18n dependency
+  const currentLang = 'EN'
 
   const toggleLanguage = () => {
-    const newLang = i18n.language.startsWith('zh') ? 'en' : 'zh'
-    i18n.changeLanguage(newLang)
+    // Language toggle functionality would be implemented with i18n
+    // console.log('Language toggle clicked')
   }
 
   return (
@@ -58,12 +57,10 @@ const SimpleLanguageToggle: React.FC = () => {
 
 // Sidebar content component (shared between desktop and mobile)
 const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-  const { t } = useTranslation()
-
   return (
     <VStack spacing={4} align="stretch" height="100%">
       <Flex justify="space-between" align="center">
-        <Heading size="md" color="blue.500">
+        <Heading size="md" color="primary.500">
           Knowlex
         </Heading>
         {onClose && (
@@ -79,15 +76,15 @@ const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       </Flex>
 
       <Button colorScheme="blue" size="md" width="100%">
-        + {t('ui.sidebar.newChat')}
+        + New Chat
       </Button>
 
       <VStack spacing={2} align="stretch" flex={1}>
         <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-          {t('ui.sidebar.projects')}
+          Projects
         </Text>
         <Text fontSize="sm" color="gray.400">
-          {t('ui.sidebar.noProjects')}
+          No projects yet
         </Text>
       </VStack>
 
@@ -160,7 +157,6 @@ const MobileSidebar: React.FC = () => {
 
 // Responsive header component
 const ResponsiveHeader: React.FC = () => {
-  const { t } = useTranslation()
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const isMobile = useBreakpointValue({ base: true, lg: false })
@@ -178,7 +174,7 @@ const ResponsiveHeader: React.FC = () => {
     >
       <Heading size={{ base: 'sm', md: 'md' }}>{isMobile ? 'Knowlex' : 'Knowlex Desktop'}</Heading>
       <Text color="gray.500" fontSize={{ base: 'xs', md: 'sm' }}>
-        {t('ui.app.tagline')}
+        Your intelligent companion
       </Text>
     </Box>
   )
@@ -186,7 +182,6 @@ const ResponsiveHeader: React.FC = () => {
 
 // Main content area
 const MainContent: React.FC = () => {
-  const { t } = useTranslation()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
 
   return (
@@ -203,19 +198,19 @@ const MainContent: React.FC = () => {
           Knowlex
         </Heading>
         <Text fontSize={{ base: 'md', md: 'lg' }} color={useColorModeValue('gray.600', 'gray.300')}>
-          {t('ui.app.title')}
+          Desktop AI Assistant
         </Text>
         <Text color={useColorModeValue('gray.500', 'gray.400')} fontSize={{ base: 'sm', md: 'md' }}>
-          {t('ui.app.welcome')}
+          Welcome to Knowlex Desktop AI Assistant
         </Text>
       </VStack>
 
       <VStack spacing={4}>
         <Button colorScheme="blue" size={{ base: 'md', md: 'lg' }}>
-          {t('ui.app.getStarted')}
+          Get Started
         </Button>
         <Button variant="outline" size={{ base: 'sm', md: 'md' }}>
-          {t('ui.app.viewDocs')}
+          View Documentation
         </Button>
       </VStack>
     </VStack>
