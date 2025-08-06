@@ -6,20 +6,13 @@
 
 import { ReactNode, MouseEvent, KeyboardEvent, ChangeEvent } from 'react'
 import {
-  BoxProps,
   ButtonProps as ChakraButtonProps,
   InputProps as ChakraInputProps,
   TextareaProps as ChakraTextareaProps,
   SelectProps as ChakraSelectProps,
-  FlexProps,
-  StackProps,
   ModalProps as ChakraModalProps,
-  DrawerProps as ChakraDrawerProps,
-  PopoverProps as ChakraPopoverProps,
-  TooltipProps as ChakraTooltipProps,
   AlertProps as ChakraAlertProps,
   CardProps as ChakraCardProps,
-  ThemingProps,
   ResponsiveValue,
 } from '@chakra-ui/react'
 

@@ -11,6 +11,7 @@ const {
   transitions,
   layout,
   components: componentTokens,
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
 } = require('./src/theme/tokens.ts')
 
 module.exports = {

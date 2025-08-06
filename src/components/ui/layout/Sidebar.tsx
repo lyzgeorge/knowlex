@@ -91,13 +91,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']))
 
-  // Theme-aware _colors
+  // Theme-aware colors
   const bgColor = useColorModeValue('gray.50', 'dark.100')
   const borderColor = useColorModeValue('gray.200', 'dark.300')
   const hoverBg = useColorModeValue('gray.100', 'dark.200')
   const activeBg = useColorModeValue('primary.50', 'primary.900')
   const textColor = useColorModeValue('gray.700', 'dark.600')
   const mutedTextColor = useColorModeValue('gray.500', 'dark.500')
+  const inputBg = useColorModeValue('white', 'dark.200')
+  const inputBorderColor = useColorModeValue('gray.300', 'dark.400')
 
   const toggleProject = (projectId: string) => {
     const newExpanded = new Set(expandedProjects)
@@ -158,9 +160,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               placeholder={t('ui.sidebar.search')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              bg={useColorModeValue('white', 'dark.200')}
+              bg={inputBg}
               border="1px solid"
-              borderColor={useColorModeValue('gray.300', 'dark.400')}
+              borderColor={inputBorderColor}
               _focus={{
                 borderColor: 'primary.500',
                 boxShadow: '0 0 0 1px var(--chakra-_colors-primary-500)',

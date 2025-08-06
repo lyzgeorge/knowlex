@@ -213,7 +213,7 @@ describe('OpenAIMockService', () => {
       }
 
       // Each result should have required properties
-      response.results.forEach((result, index) => {
+      response.results.forEach((result, _index) => {
         expect(result.index).toBeDefined()
         expect(result.document).toBeDefined()
         expect(result.relevanceScore).toBeGreaterThanOrEqual(0)

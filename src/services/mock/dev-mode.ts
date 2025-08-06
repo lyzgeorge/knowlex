@@ -5,10 +5,8 @@
  * and development configuration. Provides seamless integration for development workflow.
  */
 
-import { mockDataManager, MockManagerConfig } from './manager'
+import { mockDataManager } from './manager'
 import { ipcMockService } from './ipc.mock'
-import { openaiMockService } from './openai.mock'
-import { databaseMockService } from './database.mock'
 
 export interface DevModeConfig {
   enabled: boolean
@@ -26,7 +24,7 @@ export interface DevModeConfig {
 export class DevModeManager {
   private config: DevModeConfig
   private isInitialized = false
-  private originalServices: Map<string, any> = new Map()
+  private originalServices: Map<string, unknown> = new Map()
 
   constructor() {
     this.config = this.getDefaultConfig()
@@ -235,7 +233,7 @@ export class DevModeManager {
         ipcMockService.send(channel, data)
       },
       invoke: async (channel: string, data: unknown) => {
-        return ipcMockService.invoke(channel as any, data as any)
+        return ipcMockService.invoke(channel as string, data as unknown)
       },
       on: (channel: string, callback: (data: unknown) => void) => {
         ipcMockService.on(channel, callback)
@@ -306,7 +304,7 @@ export class DevModeManager {
     }
 
     // Add global debug functions
-    ;(window as any).mockDebug = {
+    ;(window as unknown as { mockDebug: object }).mockDebug = {
       switchScenario: (scenario: string) => mockDataManager.switchScenario(scenario),
       getStats: () => mockDataManager.getStats(),
       getScenarios: () => mockDataManager.getAvailableScenarios(),
@@ -342,7 +340,7 @@ export const devModeManager = new DevModeManager()
 
 // Auto-initialize in development mode
 if (typeof window !== 'undefined') {
-  devModeManager.initialize().catch(error => {
+  devModeManager.initialize().catch(_error => {
     // console.error('[Dev Mode] Failed to initialize:', error)
   })
 }

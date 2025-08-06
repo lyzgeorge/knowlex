@@ -7,7 +7,6 @@
 
 import React from 'react'
 import { Box, Flex, useColorModeValue } from '@chakra-ui/react'
-import { useTranslations } from '@/providers'
 import type { MainLayoutProps } from '../types'
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -20,11 +19,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   'data-testid': testId,
   ...props
 }) => {
-  const { t } = useTranslations()
-
-  // Theme-aware _colors
+  // Theme-aware colors
   const bgColor = useColorModeValue('white', 'dark.50')
   const borderColor = useColorModeValue('gray.200', 'dark.300')
+  const sidebarBg = useColorModeValue('gray.50', 'dark.100')
+  const mainContentBg = useColorModeValue('gray.25', 'dark.50')
 
   return (
     <Flex
@@ -44,7 +43,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           height="100%"
           borderRight="1px solid"
           borderColor={borderColor}
-          bg={useColorModeValue('gray.50', 'dark.100')}
+          bg={sidebarBg}
           display="flex"
           flexDirection="column"
           position="relative"
@@ -80,12 +79,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         )}
 
         {/* Main Content */}
-        <Box
-          flex={1}
-          overflow="hidden"
-          position="relative"
-          bg={useColorModeValue('gray.25', 'dark.50')}
-        >
+        <Box flex={1} overflow="hidden" position="relative" bg={mainContentBg}>
           {children}
         </Box>
       </Flex>
