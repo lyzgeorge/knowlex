@@ -13,7 +13,6 @@ import {
   VStack,
   Text,
   IconButton,
-  Button,
   Menu,
   MenuButton,
   MenuList,
@@ -45,15 +44,23 @@ const Header: React.FC<HeaderProps> = ({
   ...props
 }) => {
   const { t } = useTranslations()
-  const { theme, setTheme, _actualTheme } = useTheme()
-  const { language, setLanguage, _getLanguageDisplayName } = useLanguage()
+  const { theme, setTheme } = useTheme()
+  const { language, setLanguage } = useLanguage()
 
-  // Theme-aware _colors
+  // Theme-aware colors
   const bgColor = useColorModeValue('white', 'dark.100')
   const borderColor = useColorModeValue('gray.200', 'dark.300')
   const textColor = useColorModeValue('gray.800', 'dark.700')
   const mutedTextColor = useColorModeValue('gray.500', 'dark.500')
   const hoverBg = useColorModeValue('gray.100', 'dark.200')
+  const lightThemeBg = useColorModeValue('primary.50', 'primary.900')
+  const darkThemeBg = useColorModeValue('primary.50', 'primary.900')
+  const systemThemeBg = useColorModeValue('primary.50', 'primary.900')
+  const englishBg = useColorModeValue('primary.50', 'primary.900')
+  const chineseBg = useColorModeValue('primary.50', 'primary.900')
+  const minimizeHoverBg = useColorModeValue('yellow.100', 'yellow.800')
+  const maximizeHoverBg = useColorModeValue('green.100', 'green.800')
+  const closeHoverBg = useColorModeValue('red.100', 'red.800')
 
   // Window control handlers (these would be connected to Electron IPC in real implementation)
   const handleMinimize = () => {
@@ -142,25 +149,21 @@ const Header: React.FC<HeaderProps> = ({
             <MenuItem
               icon={<SunIcon className="w-4 h-4" />}
               onClick={() => handleThemeChange('light')}
-              bg={
-                theme === 'light' ? useColorModeValue('primary.50', 'primary.900') : 'transparent'
-              }
+              bg={theme === 'light' ? lightThemeBg : 'transparent'}
             >
               {t('ui.theme.light')}
             </MenuItem>
             <MenuItem
               icon={<MoonIcon className="w-4 h-4" />}
               onClick={() => handleThemeChange('dark')}
-              bg={theme === 'dark' ? useColorModeValue('primary.50', 'primary.900') : 'transparent'}
+              bg={theme === 'dark' ? darkThemeBg : 'transparent'}
             >
               {t('ui.theme.dark')}
             </MenuItem>
             <MenuItem
               icon={<ComputerDesktopIcon className="w-4 h-4" />}
               onClick={() => handleThemeChange('system')}
-              bg={
-                theme === 'system' ? useColorModeValue('primary.50', 'primary.900') : 'transparent'
-              }
+              bg={theme === 'system' ? systemThemeBg : 'transparent'}
             >
               {t('ui.theme.system')}
             </MenuItem>
@@ -180,17 +183,13 @@ const Header: React.FC<HeaderProps> = ({
           <MenuList>
             <MenuItem
               onClick={() => handleLanguageChange('en')}
-              bg={
-                language === 'en' ? useColorModeValue('primary.50', 'primary.900') : 'transparent'
-              }
+              bg={language === 'en' ? englishBg : 'transparent'}
             >
               English
             </MenuItem>
             <MenuItem
               onClick={() => handleLanguageChange('zh')}
-              bg={
-                language === 'zh' ? useColorModeValue('primary.50', 'primary.900') : 'transparent'
-              }
+              bg={language === 'zh' ? chineseBg : 'transparent'}
             >
               中文
             </MenuItem>
@@ -227,7 +226,7 @@ const Header: React.FC<HeaderProps> = ({
               variant="ghost"
               aria-label={t('ui.header.minimize')}
               onClick={handleMinimize}
-              _hover={{ bg: useColorModeValue('yellow.100', 'yellow.800') }}
+              _hover={{ bg: minimizeHoverBg }}
               borderRadius="full"
               w={8}
               h={8}
@@ -239,7 +238,7 @@ const Header: React.FC<HeaderProps> = ({
               variant="ghost"
               aria-label={t('ui.header.maximize')}
               onClick={handleMaximize}
-              _hover={{ bg: useColorModeValue('green.100', 'green.800') }}
+              _hover={{ bg: maximizeHoverBg }}
               borderRadius="full"
               w={8}
               h={8}
@@ -251,7 +250,7 @@ const Header: React.FC<HeaderProps> = ({
               variant="ghost"
               aria-label={t('ui.header.close')}
               onClick={handleClose}
-              _hover={{ bg: useColorModeValue('red.100', 'red.800') }}
+              _hover={{ bg: closeHoverBg }}
               borderRadius="full"
               w={8}
               h={8}
