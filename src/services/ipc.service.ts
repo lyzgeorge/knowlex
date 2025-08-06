@@ -24,7 +24,7 @@ import {
 
 export class IPCService {
   private messageId: number = 0
-  private pendingRequests: Map<string, PendingRequest> = new Map()
+  private pendingRequests: Map<string, PendingRequest<any>> = new Map()
   private streamHandlers: Map<string, StreamHandler> = new Map()
 
   constructor() {
@@ -46,7 +46,7 @@ export class IPCService {
       data: { channel, data },
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<TResponse>((resolve, reject) => {
       // Set up timeout
       const timeoutId = setTimeout(() => {
         this.pendingRequests.delete(messageId)
@@ -55,7 +55,7 @@ export class IPCService {
 
       // Store pending request
       this.pendingRequests.set(messageId, {
-        resolve,
+        resolve: resolve as (value: unknown) => void,
         reject,
         timeoutId,
         channel,
@@ -109,50 +109,51 @@ export class IPCService {
    */
   private setupIPCListeners(): void {
     // Handle regular responses
-    window.electronAPI.on('ipc:response', (response: IPCResponse<unknown>) => {
-      const pending = this.pendingRequests.get(response.id)
+    window.electronAPI.on('ipc:response', (response: unknown) => {
+      const res = response as IPCResponse<unknown>
+      const pending = this.pendingRequests.get(res.id)
       if (pending) {
         clearTimeout(pending.timeoutId)
-        this.pendingRequests.delete(response.id)
+        this.pendingRequests.delete(res.id)
 
-        if (response.success) {
-          pending.resolve(response.data)
+        if (res.success) {
+          pending.resolve(res.data)
         } else {
-          const error = new Error(response.error?.message || 'Unknown IPC error')
-          ;(error as any).code = response.error?.code
-          ;(error as any).details = response.error?.details
+          const error = new Error(res.error?.message || 'Unknown IPC error')
+          ;(error as any).code = res.error?.code
+          ;(error as any).details = res.error?.details
           pending.reject(error)
         }
       }
     })
 
     // Handle stream data
-    window.electronAPI.on(STREAM_EVENTS.DATA, (chunk: StreamChunk<unknown>) => {
-      const handler = this.streamHandlers.get(chunk.id)
+    window.electronAPI.on(STREAM_EVENTS.DATA, (chunk: unknown) => {
+      const c = chunk as StreamChunk<unknown>
+      const handler = this.streamHandlers.get(c.id)
       if (handler) {
-        handler.onData(chunk)
+        handler.onData(c)
 
-        if (chunk.isLast) {
+        if (c.isLast) {
           handler.onEnd()
-          this.streamHandlers.delete(chunk.id)
+          this.streamHandlers.delete(c.id)
         }
       }
     })
 
     // Handle stream errors
-    window.electronAPI.on(
-      STREAM_EVENTS.ERROR,
-      ({ sessionId, error }: { sessionId: string; error: { message?: string } }) => {
-        const handler = this.streamHandlers.get(sessionId)
-        if (handler) {
-          handler.onError(new Error(error.message || 'Stream error'))
-          this.streamHandlers.delete(sessionId)
-        }
+    window.electronAPI.on(STREAM_EVENTS.ERROR, (data: unknown) => {
+      const { sessionId, error } = data as { sessionId: string; error: { message?: string } }
+      const handler = this.streamHandlers.get(sessionId)
+      if (handler) {
+        handler.onError(new Error(error.message || 'Stream error'))
+        this.streamHandlers.delete(sessionId)
       }
-    )
+    })
 
     // Handle stream end
-    window.electronAPI.on(STREAM_EVENTS.END, ({ sessionId }: { sessionId: string }) => {
+    window.electronAPI.on(STREAM_EVENTS.END, (data: unknown) => {
+      const { sessionId } = data as { sessionId: string }
       const handler = this.streamHandlers.get(sessionId)
       if (handler) {
         handler.onEnd()
@@ -254,8 +255,8 @@ export class StreamController {
 }
 
 // Internal types
-interface PendingRequest {
-  resolve: (value: unknown) => void
+interface PendingRequest<TResponse> {
+  resolve: (value: TResponse) => void
   reject: (error: Error) => void
   timeoutId: NodeJS.Timeout
   channel: IPCChannel
