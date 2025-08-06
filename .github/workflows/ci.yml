@@ -14,6 +14,10 @@ jobs:
       matrix:
         node-version: [18.x, 20.x]
 
+    defaults:
+      run:
+        working-directory: ./
+
     steps:
     - uses: actions/checkout@v4
 
@@ -29,11 +33,10 @@ jobs:
     - name: Install pnpm
       uses: pnpm/action-setup@v2
       with:
-        version: 8
+        version: 10
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
-      working-directory: ./
 
     - name: Run type check
       run: pnpm run type-check
