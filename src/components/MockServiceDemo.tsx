@@ -17,9 +17,9 @@ import {
 export const MockServiceDemo: React.FC = () => {
   const [currentScenario, setCurrentScenario] = useState<string>('default')
   const [scenarios, setScenarios] = useState<ScenarioInfo[]>([])
-  const [stats, setStats] = useState<Record<string, any> | null>(null)
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
   const [isDevMode, setIsDevMode] = useState<boolean>(false)
-  const [testResults, setTestResults] = useState<Record<string, any> | null>(null)
+  const [testResults, setTestResults] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     loadData()

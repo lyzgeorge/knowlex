@@ -15,21 +15,19 @@ import {
   Menu,
   MenuButton,
   MenuList,
-  MenuItem,
   MenuOptionGroup,
   MenuItemOption,
   Button,
   HStack,
   Text,
   useColorMode,
-  useColorModeValue,
   Tooltip,
 } from '@chakra-ui/react'
 import { useTranslation } from 'react-i18next'
 
 // Import design system hooks and components
-import { useColors, useAnimations } from '@/hooks'
-import { Icon, SunIcon, MoonIcon, MonitorIcon, ChevronDownIcon } from '../common'
+import { useAnimations } from '@/hooks'
+import { SunIcon, MoonIcon, MonitorIcon, ChevronDownIcon } from '../common'
 
 // Theme toggle variants
 export type ThemeToggleVariant = 'icon' | 'button' | 'menu'
@@ -68,9 +66,8 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   buttonVariant = 'ghost',
   onThemeChange,
 }) => {
-  // const { t } = useTranslation()()
+  const { t } = useTranslation()
   const { colorMode, setColorMode } = useColorMode()
-  const _colors = useColors()
   const animations = useAnimations()
 
   // Get the current theme display info

@@ -25,7 +25,10 @@ module.exports = {
     '<rootDir>/release/',
     '<rootDir>/src-electron/services/database/__tests__/__mocks__/',
   ],
+  transformIgnorePatterns: ['node_modules/(?!(react-error-boundary|@chakra-ui|framer-motion)/)'],
   moduleNameMapper: {
-    '^electron$': '<rootDir>/src-electron/services/database/__tests__/__mocks__/electron.ts',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@electron/(.*)$': '<rootDir>/src-electron/$1',
+    '^electron$': '<rootDir>/src-electron/__tests__/__mocks__/electron.ts',
   },
 }

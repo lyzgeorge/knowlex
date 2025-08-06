@@ -22,15 +22,12 @@ import {
   StatNumber,
   StatHelpText,
   Badge,
-  Avatar,
-  AvatarGroup,
   Divider,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
   useColorModeValue,
-  useDisclosure,
 } from '@chakra-ui/react'
 import {
   PlusIcon,
@@ -243,7 +240,7 @@ const ProjectOverview: React.FC = () => {
     // console.log('Delete project')
   }
 
-  const handleActivityClick = (item: unknown) => {
+  const handleActivityClick = (_item: unknown) => {
     // console.log('Activity clicked:', item)
   }
 

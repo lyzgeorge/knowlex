@@ -29,8 +29,8 @@ import {
 import { useTranslation } from 'react-i18next'
 
 // Import design system hooks and components
-import { useColors, useAnimations } from '@/hooks'
-import { Icon, ChevronDownIcon } from '../common'
+import { useAnimations } from '@/hooks'
+import { ChevronDownIcon } from '../common'
 
 // Import language helpers
 import { languageHelpers, supportedLanguages, type LanguageConfig } from '@/_i18n'
@@ -84,8 +84,7 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({
   onLanguageChange,
   showBetaBadge = false,
 }) => {
-  const { t, _i18n } = useTranslation()
-  const _colors = useColors()
+  const { t } = useTranslation()
   const animations = useAnimations()
 
   const currentLanguage = languageHelpers.getCurrentLanguage()

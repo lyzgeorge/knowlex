@@ -2,12 +2,7 @@
  * IPC communication types and channel definitions
  */
 
-import {
-  Project,
-  Conversation,
-  Message,
-  ProjectFile,
-} from './database.types'
+import { Project, Conversation, Message, ProjectFile } from './database.types'
 import { AppSettings, TestAPIRequest, TestAPIResponse } from './api.types'
 import { APIResponse, PaginatedResponse, FileMetadata } from './common.types'
 

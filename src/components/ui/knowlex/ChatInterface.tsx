@@ -23,7 +23,6 @@ import {
   Card,
   CardBody,
   Flex,
-  Spacer,
   useColorModeValue,
   useToast,
 } from '@chakra-ui/react'
@@ -97,6 +96,10 @@ const ChatMessage: React.FC<
   const userBg = useColorModeValue('primary.500', 'primary.600')
   const assistantBg = useColorModeValue('white', 'dark.100')
   const borderColor = useColorModeValue('gray.200', 'dark.300')
+  const messageColor = useColorModeValue('gray.800', 'dark.700')
+  const boxShadow = useColorModeValue('sm', 'dark.sm')
+  const refBadgeHoverBg = useColorModeValue('primary.50', 'primary.900')
+  const timestampColor = useColorModeValue('gray.500', 'dark.500')
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content)
@@ -136,11 +139,11 @@ const ChatMessage: React.FC<
         {/* Message Content */}
         <Card
           bg={isUser ? userBg : assistantBg}
-          color={isUser ? 'white' : useColorModeValue('gray.800', 'dark.700')}
+          color={isUser ? 'white' : messageColor}
           border={isUser ? 'none' : '1px solid'}
           borderColor={borderColor}
           borderRadius="lg"
-          boxShadow={useColorModeValue('sm', 'dark.sm')}
+          boxShadow={boxShadow}
           maxW="100%"
         >
           <CardBody p={3}>
@@ -158,11 +161,7 @@ const ChatMessage: React.FC<
         {/* References */}
         {references && references.length > 0 && (
           <VStack align="start" spacing={2} w="100%">
-            <Text
-              fontSize="xs"
-              color={useColorModeValue('gray.500', 'dark.500')}
-              fontWeight="medium"
-            >
+            <Text fontSize="xs" color={timestampColor} fontWeight="medium">
               {t('ui.chat.references')}:
             </Text>
             <HStack spacing={2} flexWrap="wrap">
@@ -173,7 +172,7 @@ const ChatMessage: React.FC<
                     variant="outline"
                     cursor="pointer"
                     fontSize="xs"
-                    _hover={{ bg: useColorModeValue('primary.50', 'primary.900') }}
+                    _hover={{ bg: refBadgeHoverBg }}
                   >
                     {_index + 1}. {ref.title}
                   </Badge>
@@ -185,7 +184,7 @@ const ChatMessage: React.FC<
 
         {/* Message Actions */}
         <HStack spacing={1} opacity={0.7} _hover={{ opacity: 1 }}>
-          <Text fontSize="xs" color={useColorModeValue('gray.500', 'dark.500')}>
+          <Text fontSize="xs" color={timestampColor}>
             {formatRelativeTime(timestamp)}
           </Text>
           {isAssistant && (
@@ -229,16 +228,19 @@ const ChatInterface: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages] = useState(mockMessages)
 
   // Theme-aware _colors
   const bgColor = useColorModeValue('gray.50', 'dark.50')
   const inputBg = useColorModeValue('white', 'dark.100')
   const borderColor = useColorModeValue('gray.200', 'dark.300')
+  const typingColor = useColorModeValue('gray.500', 'dark.500')
+  const helperTextColor = useColorModeValue('gray.500', 'dark.500')
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [mockMessages])
+  }, [messages])
 
   // Handle _message send
   const handleSend = async () => {
@@ -249,6 +251,16 @@ const ChatInterface: React.FC = () => {
     setTimeout(() => {
       setIsLoading(false)
       setMessage('')
+      setMessages(prev => [
+        ...prev,
+        {
+          _id: Date.now().toString(),
+          role: 'user',
+          content: _message,
+          timestamp: new Date(),
+          _status: 'sent',
+        },
+      ])
     }, 2000)
   }
 
@@ -271,7 +283,7 @@ const ChatInterface: React.FC = () => {
       {/* Chat Messages Area */}
       <Box flex={1} overflow="auto" className="scrollbar-thin" bg={bgColor}>
         <VStack spacing={2} align="stretch" py={4}>
-          {mockMessages.map(_message => (
+          {messages.map(_message => (
             <ChatMessage key={_message._id} {..._message} />
           ))}
 
@@ -281,7 +293,7 @@ const ChatInterface: React.FC = () => {
               <Avatar size="sm" name="AI Assistant" bg="primary.500" color="white" />
               <Card bg={inputBg} border="1px solid" borderColor={borderColor}>
                 <CardBody p={3}>
-                  <Text fontSize="sm" color={useColorModeValue('gray.500', 'dark.500')}>
+                  <Text fontSize="sm" color={typingColor}>
                     {t('ui.chat.typing')}
                     <Text as="span" animation="pulse 1.5s infinite">
                       ...
@@ -368,7 +380,7 @@ const ChatInterface: React.FC = () => {
           </HStack>
 
           {/* Helper Text */}
-          <Text fontSize="xs" color={useColorModeValue('gray.500', 'dark.500')}>
+          <Text fontSize="xs" color={helperTextColor}>
             Press ⌘+Enter to send • {t('ui.chat.maxFileSize', { size: '1MB' })}
           </Text>
         </VStack>

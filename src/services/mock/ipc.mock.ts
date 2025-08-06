@@ -19,7 +19,6 @@ import {
   SearchResult,
   SystemInfo,
   TestAPIResponse,
-  StreamResponseChunk,
 } from '@knowlex/types'
 
 export interface MockScenario {
@@ -53,7 +52,7 @@ export class IPCMockService {
       this.currentScenario = scenario
       // [IPC Mock] Switched to scenario: ${scenarioName}
     } else {
-      console.warn(`[IPC Mock] Scenario not found: ${scenarioName}`)
+      // Scenario not found: ${scenarioName}
     }
   }
 
@@ -98,32 +97,32 @@ export class IPCMockService {
     // [IPC Mock] Send: ${channel}, data
 
     if (channel === IPC_CHANNELS.CHAT_SEND_MESSAGE) {
-      this.simulateStreamingResponse(data as any)
+      this.simulateStreamingResponse(data as Record<string, unknown>)
     }
   }
 
   /**
    * Mock IPC on method for event listeners
    */
-  on(channel: string, _callback: (data: unknown) => void): void {
-    console.log(`[IPC Mock] Registered listener for: ${channel}`)
+  on(_channel: string, _callback: (data: unknown) => void): void {
+    // [IPC Mock] Registered listener for: ${_channel}
     // Store callback for later use in streaming responses
   }
 
-  private async handleChannel(channel: string, data: unknown): Promise<unknown> {
+  private async handleChannel(channel: string, data: Record<string, unknown>): Promise<unknown> {
     switch (channel) {
       // Project channels
       case IPC_CHANNELS.PROJECT_LIST:
         return this.currentScenario.data.projects
 
       case IPC_CHANNELS.PROJECT_GET:
-        return this.currentScenario.data.projects.find(p => p.id === (data as any).id) || null
+        return this.currentScenario.data.projects.find(p => p.id === data.id) || null
 
       case IPC_CHANNELS.PROJECT_CREATE: {
         const newProject: Project = {
           id: Date.now(),
-          name: (data as any).name,
-          description: (data as any).description,
+          name: data.name,
+          description: data.description,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
@@ -132,7 +131,7 @@ export class IPCMockService {
       }
 
       case IPC_CHANNELS.PROJECT_UPDATE: {
-        const projectIndex = this.currentScenario.data.projects.findIndex(p => p.id === (data as any).id)
+        const projectIndex = this.currentScenario.data.projects.findIndex(p => p.id === data.id)
         if (projectIndex >= 0) {
           this.currentScenario.data.projects[projectIndex] = {
             ...this.currentScenario.data.projects[projectIndex],
@@ -145,50 +144,62 @@ export class IPCMockService {
       }
 
       case IPC_CHANNELS.PROJECT_DELETE: {
-        const deleteIndex = this.currentScenario.data.projects.findIndex(p => p.id === (data as any).id)
+        const deleteIndex = this.currentScenario.data.projects.findIndex(p => p.id === data.id)
         if (deleteIndex >= 0) {
           this.currentScenario.data.projects.splice(deleteIndex, 1)
-        const newProject: Project = {
-          id: Date.now(),
-          name: (data as any).name,
-          description: (data as any).description,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          return { success: true }
         }
-        this.currentScenario.data.projects.push(newProject)
-        return newProject
+        throw new Error('Project not found')
       }
 
+      // Conversation channels
+      case IPC_CHANNELS.CONVERSATION_LIST:
+        return this.currentScenario.data.conversations.filter(c => c.projectId === data.projectId)
+
       case IPC_CHANNELS.CONVERSATION_GET: {
-        const conversation = this.currentScenario.data.conversations.find(c => c.id === (data as any).id)
+        const conversation = this.currentScenario.data.conversations.find(c => c.id === data.id)
         const messages = this.currentScenario.data.messages.filter(
-          m => m.conversationId === (data as any).id
+          m => m.conversationId === data.id
         )
         return { conversation, messages }
       }
 
-      // Chat channels
-      case IPC_CHANNELS.CHAT_SEND_MESSAGE:
-        const conversationId = (data as any).conversationId || `conv-${Date.now()}`
+      case IPC_CHANNELS.CHAT_SEND_MESSAGE: {
+        const conversationId = data.conversationId || `conv-${Date.now()}`
         const messageId = `msg-${Date.now()}`
         return { conversationId, messageId }
+      }
 
       case IPC_CHANNELS.CHAT_GENERATE_TITLE:
-        return { title: `Generated title for conversation ${(data as any).conversationId}` }
+        return {
+          title: `Generated title for conversation ${data.conversationId}`,
+        }
 
       case IPC_CHANNELS.CHAT_GENERATE_SUMMARY:
         return { summary: 'This is a mock summary of the conversation...' }
-          md5Original: file.md5,
-          md5Pdf: 'mock-pdf-' + file.md5,
-          status: 'processing' as const,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }))
+
+      // File channels
+      case IPC_CHANNELS.FILE_UPLOAD: {
+        const uploadedFiles = (data.files as Record<string, unknown>[]).map(
+          (file: Record<string, unknown>) => ({
+            id: Date.now(),
+            projectId: data.projectId,
+            filename: file.name,
+            originalPath: file.path,
+            pdfPath: file.path.replace(/\.[^/.]+$/, '.pdf'),
+            fileSize: file.size,
+            md5Original: file.md5,
+            md5Pdf: 'mock-pdf-' + file.md5,
+            status: 'processing' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        )
         this.currentScenario.data.files.push(...uploadedFiles)
 
         // Simulate processing completion after delay
         setTimeout(() => {
-          uploadedFiles.forEach((file: any) => {
+          uploadedFiles.forEach((file: Record<string, unknown>) => {
             file.status = 'completed'
           })
         }, 2000)
@@ -198,47 +209,44 @@ export class IPCMockService {
 
       // Memory channels
       case IPC_CHANNELS.MEMORY_LIST:
-        return this.currentScenario.data.memories.filter(m => m.projectId === (data as any).projectId)
+        return this.currentScenario.data.memories.filter(m => m.projectId === data.projectId)
 
       case IPC_CHANNELS.MEMORY_CREATE: {
         const newMemory: ProjectMemory = {
           id: Date.now(),
-          projectId: (data as any).projectId,
-          content: (data as any).content,
-          type: (data as any).type || 'memory',
-          isSystem: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-        this.currentScenario.data.memories.push(newMemory)
-        const newMemory: ProjectMemory = {
-          id: Date.now(),
-          projectId: (data as any).projectId,
-          content: (data as any).content,
-          type: (data as any).type || 'memory',
+          projectId: data.projectId,
+          content: data.content,
+          type: data.type || 'memory',
           isSystem: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
         this.currentScenario.data.memories.push(newMemory)
         return newMemory
-          title: (data as any).title,
-          content: (data as any).content,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-        this.currentScenario.data.knowledge.push(newKnowledge)
+      }
+
+      // Knowledge channels
+      case IPC_CHANNELS.KNOWLEDGE_CREATE: {
         const newKnowledge: ProjectKnowledge = {
           id: Date.now(),
-          projectId: (data as any).projectId,
-          title: (data as any).title,
-          content: (data as any).content,
+          projectId: data.projectId,
+          title: data.title,
+          content: data.content,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
         this.currentScenario.data.knowledge.push(newKnowledge)
         return newKnowledge
-          ...(data as any).settings,
+      }
+
+      // Settings channels
+      case IPC_CHANNELS.SETTINGS_GET:
+        return this.currentScenario.data.settings
+
+      case IPC_CHANNELS.SETTINGS_UPDATE:
+        this.currentScenario.data.settings = {
+          ...this.currentScenario.data.settings,
+          ...data.settings,
         }
         return null
 
@@ -266,8 +274,8 @@ export class IPCMockService {
         return {
           data: searchResults,
           total: searchResults.length,
-          limit: (data as any).limit || 10,
-          offset: (data as any).offset || 0,
+          limit: data.limit || 10,
+          offset: data.offset || 0,
           hasMore: false,
         }
       }
@@ -283,29 +291,13 @@ export class IPCMockService {
         }
         return systemInfo
       }
-      }
-
-      // Chat channels
-      case IPC_CHANNELS.CHAT_SEND_MESSAGE: {
-        const conversationId = (data as any).conversationId || `conv-${Date.now()}`
-        const messageId = `msg-${Date.now()}`
-        return { conversationId, messageId }
-      }
-      }
-
-      case IPC_CHANNELS.CHAT_GENERATE_TITLE:
-        return { title: `Generated title for conversation ${(data as any).conversationId}` }
-
-      case IPC_CHANNELS.CHAT_GENERATE_SUMMARY:
-        return { summary: 'This is a mock summary of the conversation...' }
 
       default:
         throw new Error(`Mock handler not implemented for channel: ${channel}`)
     }
   }
 
-  private simulateStreamingResponse(data: unknown): void {
-    const conversationId = (data as any).conversationId || `conv-${Date.now()}`
+  private simulateStreamingResponse(_data: Record<string, unknown>): void {
     const messageId = `msg-${Date.now()}`
     const mockResponse =
       'This is a mock streaming response from the AI assistant. It simulates how the real AI would respond with streaming text chunks.'
@@ -316,36 +308,12 @@ export class IPCMockService {
     const streamInterval = setInterval(
       () => {
         if (currentIndex < words.length) {
-          const chunk: StreamResponseChunk = {
-            conversationId,
-            messageId,
-            content: words[currentIndex] + ' ',
-            isComplete: false,
-            sources:
-              currentIndex === 0
-                ? [
-                    {
-                      fileId: 1,
-                      filename: 'mock-file.txt',
-                      snippet: 'Mock file content snippet...',
-                      score: 0.85,
-                    },
-                  ]
-                : undefined,
-          }
-
-          // Simulate sending to renderer
-          console.log('[IPC Mock] Stream chunk:', chunk)
+          // Simulate sending chunk to renderer
+          // Chunk with content: words[currentIndex] + ' '
           currentIndex++
         } else {
           // Send final chunk
-          const finalChunk: StreamResponseChunk = {
-            conversationId,
-            messageId,
-            content: '',
-            isComplete: true,
-          }
-          console.log('[IPC Mock] Stream complete:', finalChunk)
+          // Final chunk with isComplete: true
           clearInterval(streamInterval)
         }
       },
@@ -543,7 +511,7 @@ export class IPCMockService {
 
       // Generate 5 conversations per project
       for (let j = 1; j <= 5; j++) {
-        const convId = i * 100 + j;
+        const convId = i * 100 + j
         conversations.push({
           id: convId,
           title: `Conversation ${j} in Project ${i}`,

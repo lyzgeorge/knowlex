@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { languageHelpers, supportedLanguages, type LanguageConfig } from '@/_i18n'
+import { languageHelpers, supportedLanguages, type LanguageConfig } from '@/i18n'
 
 // Language types
 export type LanguageCode = 'en' | 'zh'

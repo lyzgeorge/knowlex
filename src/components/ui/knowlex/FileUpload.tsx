@@ -133,7 +133,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   showFileList = true,
   showProgress = true,
 }) => {
-  // const { t } = useTranslation()()
+  const { t } = useTranslation()
   const _colors = useColors()
   const animations = useAnimations()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -147,6 +147,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const dropzoneBorderColor = useColorModeValue('gray.300', 'dark.400')
   const activeBg = useColorModeValue('primary.50', 'primary.900')
   const activeBorderColor = useColorModeValue('primary.300', 'primary.600')
+
+  const formatFileSize = useCallback((bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+  }, [])
 
   // File validation
   const validateFile = useCallback(
@@ -176,7 +184,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       return null
     },
-    [accept, maxSize, t]
+    [accept, maxSize, t, formatFileSize]
   )
 
   // Handle file selection
@@ -283,7 +291,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
       onSuccess?.(files.filter(f => f._status === 'completed'))
     } catch (error) {
-      const errorMessage = error instanceof Error ? error._message : t('error.uploadFailed')
+      const errorMessage = error instanceof Error ? error.message : t('error.uploadFailed')
       setUploadError(errorMessage)
 
       // Mark failed files as error
@@ -315,15 +323,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     )
   }
 
-  // Format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
-  }
-
   // Get upload progress
   const uploadProgress =
     files.length > 0
@@ -331,9 +330,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       : 0
 
   const hasFiles = files.length > 0
-  const _hasErrors = files.some(f => f._status === 'error')
-  const canUpload =
-    files.some(f => f._status === 'pending' || f._status === 'error') && !isUploading
+  const hasErrors = files.some(f => f._status === 'error')
+  const canUpload = (files.some(f => f._status === 'pending') || hasErrors) && !isUploading
 
   return (
     <VStack spacing={4} align="stretch">

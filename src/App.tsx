@@ -17,7 +17,7 @@ import {
   DrawerBody,
   useDisclosure,
 } from '@chakra-ui/react'
-import { useTranslation } from 'react-i18next'
+import { useTranslations, useLanguage } from './providers'
 
 // Using simple text icons to avoid dependency issues
 const HamburgerIcon = () => <span>☰</span>
@@ -41,12 +41,12 @@ const SimpleThemeToggle: React.FC = () => {
 
 // Simple language toggle component
 const SimpleLanguageToggle: React.FC = () => {
-  const { i18n } = useTranslation()
-  const currentLang = i18n.language.startsWith('zh') ? 'EN' : '中'
+  const { language, setLanguage } = useLanguage()
+  const currentLang = language === 'zh' ? 'EN' : '中'
 
   const toggleLanguage = () => {
-    const newLang = i18n.language.startsWith('zh') ? 'en' : 'zh'
-    i18n.changeLanguage(newLang)
+    const newLang = language === 'zh' ? 'en' : 'zh'
+    setLanguage(newLang)
   }
 
   return (
@@ -58,7 +58,7 @@ const SimpleLanguageToggle: React.FC = () => {
 
 // Sidebar content component (shared between desktop and mobile)
 const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-  const { t } = useTranslation()
+  const { t } = useTranslations()
 
   return (
     <VStack spacing={4} align="stretch" height="100%">
@@ -160,7 +160,7 @@ const MobileSidebar: React.FC = () => {
 
 // Responsive header component
 const ResponsiveHeader: React.FC = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslations()
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const isMobile = useBreakpointValue({ base: true, lg: false })
@@ -186,7 +186,7 @@ const ResponsiveHeader: React.FC = () => {
 
 // Main content area
 const MainContent: React.FC = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslations()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
 
   return (

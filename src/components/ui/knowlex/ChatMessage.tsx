@@ -19,10 +19,6 @@ import {
   Text,
   Avatar,
   IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   Badge,
   Flex,
   Tooltip,
@@ -150,7 +146,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onRegenerate,
   onViewCitation,
 }) => {
-  // const { t } = useTranslation()()
+  const { t } = useTranslation()
   const _colors = useColors()
   const animations = useAnimations()
   const { onCopy: copyToClipboard, hasCopied } = useClipboard(content)
