@@ -373,7 +373,7 @@ const components = {
         px: spacing[3],
         py: spacing[2],
         borderRadius: radii.sm,
-        mx: spacing[1],
+        mx: 0,
         fontSize: 'inherit',
         fontWeight: typography.fontWeights.normal,
         transition: transitions.common.colors,

@@ -1,14 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   Heading,
   Text,
   VStack,
-  HStack,
   Button,
   Flex,
   IconButton,
-  useColorMode,
   useColorModeValue,
   useBreakpointValue,
   Drawer,
@@ -17,110 +15,12 @@ import {
   DrawerBody,
   useDisclosure,
 } from '@chakra-ui/react'
-import { useTranslations, useLanguage } from './providers'
+import { useTranslations } from './providers'
+import Sidebar from './components/ui/layout/Sidebar'
+import { OpenAISimpleTest } from './components/chat/OpenAISimpleTest'
 
 // Using simple text icons to avoid dependency issues
 const HamburgerIcon = () => <span>☰</span>
-const CloseIcon = () => <span>×</span>
-
-// Simple theme toggle component
-const SimpleThemeToggle: React.FC = () => {
-  const { colorMode, toggleColorMode } = useColorMode()
-  const themeIcon = colorMode === 'dark' ? '☀️' : '🌙'
-
-  return (
-    <IconButton
-      size="sm"
-      variant="ghost"
-      aria-label="Toggle theme"
-      icon={<span>{themeIcon}</span>}
-      onClick={toggleColorMode}
-    />
-  )
-}
-
-// Simple language toggle component
-const SimpleLanguageToggle: React.FC = () => {
-  const { language, setLanguage } = useLanguage()
-  const currentLang = language === 'zh' ? 'EN' : '中'
-
-  const toggleLanguage = () => {
-    const newLang = language === 'zh' ? 'en' : 'zh'
-    setLanguage(newLang)
-  }
-
-  return (
-    <Button size="sm" variant="ghost" onClick={toggleLanguage}>
-      {currentLang}
-    </Button>
-  )
-}
-
-// Sidebar content component (shared between desktop and mobile)
-const SidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-  const { t } = useTranslations()
-
-  return (
-    <VStack spacing={4} align="stretch" height="100%">
-      <Flex justify="space-between" align="center">
-        <Heading size="md" color="blue.500">
-          Knowlex
-        </Heading>
-        {onClose && (
-          <IconButton
-            size="sm"
-            variant="ghost"
-            icon={<CloseIcon />}
-            onClick={onClose}
-            aria-label="Close"
-            display={{ base: 'flex', lg: 'none' }}
-          />
-        )}
-      </Flex>
-
-      <Button colorScheme="blue" size="md" width="100%">
-        + {t('ui.sidebar.newChat')}
-      </Button>
-
-      <VStack spacing={2} align="stretch" flex={1}>
-        <Text fontSize="sm" fontWeight="semibold" color="gray.600">
-          {t('ui.sidebar.projects')}
-        </Text>
-        <Text fontSize="sm" color="gray.400">
-          {t('ui.sidebar.noProjects')}
-        </Text>
-      </VStack>
-
-      <VStack spacing={2}>
-        <HStack width="100%" justify="space-between">
-          <SimpleThemeToggle />
-          <SimpleLanguageToggle />
-        </HStack>
-      </VStack>
-    </VStack>
-  )
-}
-
-// Desktop sidebar component
-const DesktopSidebar: React.FC = () => {
-  const bgColor = useColorModeValue('white', 'gray.800')
-  const borderColor = useColorModeValue('gray.200', 'gray.600')
-
-  return (
-    <Box
-      width="260px"
-      minWidth="260px"
-      height="100vh"
-      bg={bgColor}
-      borderRight="1px solid"
-      borderColor={borderColor}
-      p={4}
-      display={{ base: 'none', lg: 'block' }}
-    >
-      <SidebarContent />
-    </Box>
-  )
-}
 
 // Mobile sidebar component
 const MobileSidebar: React.FC = () => {
@@ -146,11 +46,11 @@ const MobileSidebar: React.FC = () => {
       />
 
       {/* Mobile drawer */}
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose} size="xs">
+      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
         <DrawerOverlay />
-        <DrawerContent>
-          <DrawerBody p={4}>
-            <SidebarContent onClose={onClose} />
+        <DrawerContent width="260px" maxWidth="260px">
+          <DrawerBody p={0}>
+            <Sidebar />
           </DrawerBody>
         </DrawerContent>
       </Drawer>
@@ -185,9 +85,28 @@ const ResponsiveHeader: React.FC = () => {
 }
 
 // Main content area
-const MainContent: React.FC = () => {
+const MainContent: React.FC<{ showTest: boolean; onShowTest: (show: boolean) => void }> = ({
+  showTest,
+  onShowTest,
+}) => {
   const { t } = useTranslations()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
+  const headingColor = useColorModeValue('gray.800', 'white')
+  const titleColor = useColorModeValue('gray.600', 'gray.300')
+  const welcomeColor = useColorModeValue('gray.500', 'gray.400')
+
+  if (showTest) {
+    return (
+      <Box height="100%" overflow="auto" bg={bgColor}>
+        <Box p={4}>
+          <Button onClick={() => onShowTest(false)} mb={4} variant="outline">
+            ← Back to Home
+          </Button>
+        </Box>
+        <OpenAISimpleTest />
+      </Box>
+    )
+  }
 
   return (
     <VStack
@@ -199,13 +118,13 @@ const MainContent: React.FC = () => {
       bg={bgColor}
     >
       <VStack spacing={4} textAlign="center">
-        <Heading size={{ base: 'lg', md: 'xl' }} color={useColorModeValue('gray.800', 'white')}>
+        <Heading size={{ base: 'lg', md: 'xl' }} color={headingColor}>
           Knowlex
         </Heading>
-        <Text fontSize={{ base: 'md', md: 'lg' }} color={useColorModeValue('gray.600', 'gray.300')}>
+        <Text fontSize={{ base: 'md', md: 'lg' }} color={titleColor}>
           {t('ui.app.title')}
         </Text>
-        <Text color={useColorModeValue('gray.500', 'gray.400')} fontSize={{ base: 'sm', md: 'md' }}>
+        <Text color={welcomeColor} fontSize={{ base: 'sm', md: 'md' }}>
           {t('ui.app.welcome')}
         </Text>
       </VStack>
@@ -217,19 +136,31 @@ const MainContent: React.FC = () => {
         <Button variant="outline" size={{ base: 'sm', md: 'md' }}>
           {t('ui.app.viewDocs')}
         </Button>
+        <Button
+          colorScheme="green"
+          variant="outline"
+          size={{ base: 'sm', md: 'md' }}
+          onClick={() => onShowTest(true)}
+        >
+          Test OpenAI Agents
+        </Button>
       </VStack>
     </VStack>
   )
 }
 
 function App() {
+  const [showTest, setShowTest] = useState(false)
+
   return (
     <Flex height="100vh" width="100vw" overflow="hidden" position="relative">
       {/* Mobile sidebar */}
       <MobileSidebar />
 
       {/* Desktop sidebar */}
-      <DesktopSidebar />
+      <Box display={{ base: 'none', lg: 'block' }}>
+        <Sidebar />
+      </Box>
 
       {/* Main content area */}
       <Flex direction="column" flex={1} overflow="hidden">
@@ -238,7 +169,7 @@ function App() {
 
         {/* Main content */}
         <Box flex={1} overflow="auto">
-          <MainContent />
+          <MainContent showTest={showTest} onShowTest={setShowTest} />
         </Box>
       </Flex>
     </Flex>

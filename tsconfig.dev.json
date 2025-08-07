@@ -23,6 +23,13 @@
       "@electron/*": ["src-electron/*"]
     }
   },
-  "include": ["src/**/*", "src/services/mock/**/*"],
-  "exclude": ["node_modules", "dist", "dist-electron", "release", "src-electron"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-electron",
+    "release",
+    "src-electron",
+    "src/services/mock/**/*"
+  ]
 }
