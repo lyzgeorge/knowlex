@@ -241,6 +241,368 @@ interface RerankResult {
 
 ## 组件架构设计
 
+### 聊天界面详细设计
+
+#### 聊天界面整体结构
+
+```typescript
+// src/components/chat/ChatInterface.tsx
+interface ChatInterfaceProps {
+  conversationId?: string
+  projectId?: string
+}
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  files?: UploadedFile[]
+  fileReferences?: FileReference[]
+  createdAt: Date
+  isStreaming?: boolean
+}
+
+interface UploadedFile {
+  id: string
+  name: string
+  content: string
+  size: number
+  type: 'txt' | 'md'
+}
+
+interface FileReference {
+  filename: string
+  icon: string
+  clickHandler?: () => void
+}
+```
+
+#### 聊天界面布局结构
+
+```typescript
+// 聊天界面主要分为三个区域：消息显示区、文件上传区、输入区
+<Box height="100vh" display="flex" flexDirection="column">
+  {/* 消息显示区域 - 可滚动 */}
+  <Box flex={1} overflow="auto" p={4}>
+    {messages.length === 0 ? (
+      // 空状态显示
+      <EmptyState />
+    ) : (
+      // 消息列表
+      <MessageList messages={messages} />
+    )}
+  </Box>
+
+  {/* 文件上传预览区域 */}
+  {uploadedFiles.length > 0 && (
+    <Box p={3} borderTop="1px solid" borderColor={borderColor}>
+      <FilePreviewList files={uploadedFiles} onRemove={handleRemoveFile} />
+    </Box>
+  )}
+
+  {/* 消息输入区域 */}
+  <Box p={4} borderTop="1px solid" borderColor={borderColor}>
+    <MessageInput
+      value={inputText}
+      onChange={setInputText}
+      onSend={handleSendMessage}
+      onFileUpload={handleFileUpload}
+      disabled={isStreaming}
+      placeholder="您在忙什么？"
+    />
+  </Box>
+</Box>
+```
+
+#### 消息输入组件设计
+
+```typescript
+// src/components/chat/MessageInput.tsx
+interface MessageInputProps {
+  value: string
+  onChange: (value: string) => void
+  onSend: (message: string, files: UploadedFile[]) => void
+  onFileUpload: (files: File[]) => void
+  disabled?: boolean
+  placeholder?: string
+}
+
+// 输入框布局：左侧+按钮，中间输入区域，右侧发送按钮
+<HStack spacing={3} align="flex-end">
+  {/* 文件上传按钮 */}
+  <IconButton
+    icon={<Icon as={PlusIcon} />}
+    aria-label="Upload files"
+    variant="outline"
+    colorScheme="gray"
+    onClick={handleFileUploadClick}
+    disabled={disabled}
+  />
+
+  {/* 文本输入区域 */}
+  <Box flex={1}>
+    <Textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      resize="none"
+      minHeight="40px"
+      maxHeight="200px"
+      disabled={disabled}
+      onKeyDown={handleKeyDown} // 支持 Ctrl+Enter 发送
+    />
+  </Box>
+
+  {/* 发送按钮 */}
+  <IconButton
+    icon={<Icon as={PaperAirplaneIcon} />}
+    aria-label="Send message"
+    colorScheme="blue"
+    variant="solid"
+    onClick={() => onSend(value, uploadedFiles)}
+    disabled={disabled || (!value.trim() && uploadedFiles.length === 0)}
+  />
+</HStack>
+```
+
+#### 文件上传与预览组件
+
+```typescript
+// src/components/chat/FileUpload.tsx
+interface FileUploadProps {
+  maxFiles?: number // 默认10
+  maxFileSize?: number // 默认1MB
+  acceptedTypes?: string[] // 默认 ['.txt', '.md']
+  onFilesUpload: (files: UploadedFile[]) => void
+}
+
+// src/components/chat/FilePreviewList.tsx
+interface FilePreviewListProps {
+  files: UploadedFile[]
+  onRemove: (fileId: string) => void
+  maxDisplay?: number
+}
+
+// 文件预览卡片布局
+<HStack spacing={2} wrap="wrap">
+  {files.map(file => (
+    <FilePreviewCard
+      key={file.id}
+      file={file}
+      onRemove={() => onRemove(file.id)}
+    />
+  ))}
+</HStack>
+
+// 单个文件预览卡片
+interface FilePreviewCardProps {
+  file: UploadedFile
+  onRemove: () => void
+}
+
+<HStack
+  p={2}
+  bg={cardBg}
+  borderRadius="md"
+  border="1px solid"
+  borderColor={borderColor}
+  spacing={2}
+  maxWidth="200px"
+>
+  {/* 文件图标 */}
+  <Icon 
+    as={file.type === 'md' ? DocumentTextIcon : DocumentIcon} 
+    color="blue.500" 
+    boxSize={4} 
+  />
+  
+  {/* 文件名 - 支持截断 */}
+  <Text fontSize="sm" noOfLines={1} flex={1}>
+    {file.name}
+  </Text>
+  
+  {/* 删除按钮 */}
+  <IconButton
+    icon={<Icon as={XMarkIcon} />}
+    size="xs"
+    variant="ghost"
+    aria-label="Remove file"
+    onClick={onRemove}
+  />
+</HStack>
+```
+
+#### 消息列表与消息气泡设计
+
+```typescript
+// src/components/chat/MessageList.tsx
+interface MessageListProps {
+  messages: ChatMessage[]
+  onEditMessage?: (messageId: string) => void
+  onRegenerateResponse?: (messageId: string) => void
+  onCopyResponse?: (content: string) => void
+}
+
+// 消息列表布局
+<VStack spacing={4} align="stretch">
+  {messages.map(message => (
+    <MessageBubble
+      key={message.id}
+      message={message}
+      onEdit={onEditMessage}
+      onRegenerate={onRegenerateResponse}
+      onCopy={onCopyResponse}
+    />
+  ))}
+</VStack>
+
+// src/components/chat/MessageBubble.tsx
+interface MessageBubbleProps {
+  message: ChatMessage
+  onEdit?: (messageId: string) => void
+  onRegenerate?: (messageId: string) => void
+  onCopy?: (content: string) => void
+}
+
+// 用户消息（右侧）
+{message.role === 'user' && (
+  <HStack justify="flex-end" align="flex-start" spacing={3}>
+    <VStack align="flex-end" spacing={2} maxWidth="70%">
+      {/* 文件列表显示 */}
+      {message.files && message.files.length > 0 && (
+        <HStack spacing={2}>
+          {message.files.map(file => (
+            <FileIcon key={file.id} file={file} size="sm" />
+          ))}
+        </HStack>
+      )}
+      
+      {/* 用户消息内容 */}
+      <Box
+        bg="blue.500"
+        color="white"
+        px={4}
+        py={3}
+        borderRadius="lg"
+        borderBottomRightRadius="sm"
+        position="relative"
+        _hover={{ ".edit-button": { opacity: 1 } }}
+      >
+        <Text>{message.content}</Text>
+        
+        {/* 编辑按钮 - 悬浮显示 */}
+        <IconButton
+          className="edit-button"
+          icon={<Icon as={PencilIcon} />}
+          size="xs"
+          variant="ghost"
+          color="white"
+          position="absolute"
+          top={1}
+          right={1}
+          opacity={0}
+          transition="opacity 0.2s"
+          onClick={() => onEdit?.(message.id)}
+        />
+      </Box>
+    </VStack>
+  </HStack>
+)}
+
+// AI 回复消息（左侧）
+{message.role === 'assistant' && (
+  <HStack justify="flex-start" align="flex-start" spacing={3}>
+    <VStack align="flex-start" spacing={2} maxWidth="70%">
+      {/* AI 回复内容 */}
+      <Box
+        bg={assistantBg}
+        color={textColor}
+        px={4}
+        py={3}
+        borderRadius="lg"
+        borderBottomLeftRadius="sm"
+      >
+        {/* Markdown 渲染 */}
+        <MarkdownRenderer content={message.content} />
+        
+        {/* 流式输入光标 */}
+        {message.isStreaming && (
+          <Box as="span" animation="blink 1s infinite">|</Box>
+        )}
+      </Box>
+      
+      {/* 引用文件列表 */}
+      {message.fileReferences && message.fileReferences.length > 0 && (
+        <HStack spacing={2}>
+          {message.fileReferences.map((ref, index) => (
+            <FileReferenceChip 
+              key={index} 
+              reference={ref}
+              onClick={ref.clickHandler}
+            />
+          ))}
+        </HStack>
+      )}
+      
+      {/* 操作按钮组 */}
+      <HStack spacing={2}>
+        <IconButton
+          icon={<Icon as={ClipboardIcon} />}
+          size="sm"
+          variant="ghost"
+          aria-label="Copy response"
+          onClick={() => onCopy?.(message.content)}
+        />
+        <IconButton
+          icon={<Icon as={ArrowPathIcon} />}
+          size="sm"
+          variant="ghost"
+          aria-label="Regenerate response"
+          onClick={() => onRegenerate?.(message.id)}
+        />
+      </HStack>
+    </VStack>
+  </HStack>
+)}
+```
+
+#### 空状态组件设计
+
+```typescript
+// src/components/chat/EmptyState.tsx
+interface EmptyStateProps {
+  onNewChat?: () => void
+}
+
+<VStack spacing={6} justify="center" align="center" h="100%" color="gray.500">
+  {/* 占位图标或插图 */}
+  <Icon as={ChatBubbleLeftRightIcon} boxSize={16} />
+  
+  {/* 提示文本 */}
+  <VStack spacing={2} textAlign="center">
+    <Text fontSize="lg" fontWeight="medium">
+      开始新对话
+    </Text>
+    <Text fontSize="sm" color="gray.400">
+      上传文件或直接输入消息开始聊天
+    </Text>
+  </VStack>
+  
+  {/* 快速操作建议 */}
+  <VStack spacing={2}>
+    <Text fontSize="xs" color="gray.400">快速开始：</Text>
+    <HStack spacing={4}>
+      <Button size="sm" variant="outline" leftIcon={<Icon as={DocumentIcon} />}>
+        上传文档
+      </Button>
+      <Button size="sm" variant="outline" leftIcon={<Icon as={QuestionMarkCircleIcon} />}>
+        提问
+      </Button>
+    </HStack>
+  </VStack>
+</VStack>
+```
+
 ### 左侧边栏详细设计
 
 #### 边栏整体结构
@@ -494,21 +856,499 @@ const hoverBg = useColorModeValue('gray.50', 'gray.700')
 7. **嵌套菜单**: 支持会话移动到项目的二级菜单
 8. **状态管理**: 使用 React hooks 进行本地状态管理
 
-### 前端组件层次结构
+### 文件处理与UI交互组件
 
+#### 文件上传流程优化
+
+```typescript
+// src/components/chat/FileUpload.tsx - 增强版文件上传
+interface FileUploadConfig {
+  maxFiles: number // 10
+  maxFileSize: number // 1MB
+  allowedTypes: string[] // ['.txt', '.md']
+  supportedMimeTypes: string[] // ['text/plain', 'text/markdown']
+}
+
+interface FileUploadState {
+  uploadedFiles: UploadedFile[]
+  dragActive: boolean
+  uploadProgress: Record<string, number>
+  uploadErrors: Record<string, string>
+}
+
+class FileUploadManager {
+  private config: FileUploadConfig
+  private onFilesChange: (files: UploadedFile[]) => void
+  private onError: (error: string) => void
+
+  async handleFileSelection(files: FileList): Promise<void> {
+    const validFiles: File[] = []
+    const errors: string[] = []
+
+    // 验证文件数量
+    if (this.uploadedFiles.length + files.length > this.config.maxFiles) {
+      errors.push(`最多只能上传${this.config.maxFiles}个文件`)
+      this.onError(errors.join(', '))
+      return
+    }
+
+    // 验证每个文件
+    Array.from(files).forEach(file => {
+      // 验证文件类型
+      const extension = path.extname(file.name).toLowerCase()
+      if (!this.config.allowedTypes.includes(extension)) {
+        errors.push(`不支持的文件类型: ${file.name}`)
+        return
+      }
+
+      // 验证文件大小
+      if (file.size > this.config.maxFileSize) {
+        errors.push(`文件大小超出限制: ${file.name}`)
+        return
+      }
+
+      validFiles.push(file)
+    })
+
+    if (errors.length > 0) {
+      this.onError(errors.join(', '))
+    }
+
+    // 处理有效文件
+    await this.processFiles(validFiles)
+  }
+
+  private async processFiles(files: File[]): Promise<void> {
+    const processedFiles: UploadedFile[] = []
+
+    for (const file of files) {
+      try {
+        // 读取文件内容
+        const content = await this.readFileContent(file)
+        
+        const uploadedFile: UploadedFile = {
+          id: this.generateFileId(),
+          name: file.name,
+          content,
+          size: file.size,
+          type: this.getFileType(file.name)
+        }
+
+        processedFiles.push(uploadedFile)
+      } catch (error) {
+        this.onError(`文件读取失败: ${file.name}`)
+      }
+    }
+
+    // 更新文件列表
+    this.onFilesChange([...this.uploadedFiles, ...processedFiles])
+  }
+
+  private readFileContent(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error('文件读取失败'))
+      reader.readAsText(file, 'utf-8')
+    })
+  }
+
+  private getFileType(filename: string): 'txt' | 'md' {
+    return filename.toLowerCase().endsWith('.md') ? 'md' : 'txt'
+  }
+
+  private generateFileId(): string {
+    return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+}
 ```
-src/
-├── components/
+
+#### 拖拽上传支持
+
+```typescript
+// src/components/chat/DragDropFileUpload.tsx
+interface DragDropProps {
+  onFilesUpload: (files: File[]) => void
+  children: React.ReactNode
+  disabled?: boolean
+}
+
+export const DragDropFileUpload: React.FC<DragDropProps> = ({
+  onFilesUpload,
+  children,
+  disabled = false
+}) => {
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (disabled) return
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      onFilesUpload(files)
+    }
+  }, [onFilesUpload, disabled])
+
+  return (
+    <Box
+      position="relative"
+      onDragEnter={handleDrag}
+      onDragLeave={handleDrag}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+    >
+      {children}
+      
+      {/* 拖拽覆盖层 */}
+      {dragActive && (
+        <Box
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="blue.50"
+          border="2px dashed"
+          borderColor="blue.300"
+          borderRadius="md"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={10}
+        >
+          <VStack spacing={2}>
+            <Icon as={CloudArrowUpIcon} boxSize={8} color="blue.500" />
+            <Text color="blue.500" fontWeight="medium">
+              释放文件开始上传
+            </Text>
+          </VStack>
+        </Box>
+      )}
+    </Box>
+  )
+}
+```
+
+#### Markdown 渲染组件
+
+```typescript
+// src/components/chat/MarkdownRenderer.tsx
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+
+interface MarkdownRendererProps {
+  content: string
+  onFileReferenceClick?: (filename: string) => void
+}
+
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+  content,
+  onFileReferenceClick
+}) => {
+  const { colorMode } = useColorMode()
+
+  // 处理文件引用模式，如 [filename.md] 或 `filename.md`
+  const processFileReferences = (text: string): string => {
+    return text.replace(
+      /\[([^\]]+\.(md|txt))\]/g,
+      (match, filename) => {
+        return `<span class="file-reference" data-filename="${filename}">${match}</span>`
+      }
+    )
+  }
+
+  const customComponents = {
+    // 代码块渲染
+    code: ({ node, inline, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || '')
+      const language = match ? match[1] : ''
+
+      return !inline ? (
+        <Box borderRadius="md" overflow="hidden" my={2}>
+          <SyntaxHighlighter
+            style={colorMode === 'dark' ? oneDark : undefined}
+            language={language}
+            PreTag="div"
+            {...props}
+          >
+            {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+        </Box>
+      ) : (
+        <Code colorScheme="gray" {...props}>
+          {children}
+        </Code>
+      )
+    },
+
+    // 链接渲染
+    a: ({ href, children, ...props }) => (
+      <Link color="blue.500" isExternal {...props} href={href}>
+        {children}
+      </Link>
+    ),
+
+    // 表格渲染
+    table: ({ children, ...props }) => (
+      <TableContainer my={4}>
+        <Table variant="simple" size="sm" {...props}>
+          {children}
+        </Table>
+      </TableContainer>
+    ),
+
+    thead: ({ children, ...props }) => <Thead {...props}>{children}</Thead>,
+    tbody: ({ children, ...props }) => <Tbody {...props}>{children}</Tbody>,
+    tr: ({ children, ...props }) => <Tr {...props}>{children}</Tr>,
+    th: ({ children, ...props }) => <Th {...props}>{children}</Th>,
+    td: ({ children, ...props }) => <Td {...props}>{children}</Td>,
+
+    // 引用块渲染
+    blockquote: ({ children, ...props }) => (
+      <Box
+        pl={4}
+        borderLeft="4px solid"
+        borderColor="gray.300"
+        my={4}
+        fontStyle="italic"
+        color="gray.600"
+        {...props}
+      >
+        {children}
+      </Box>
+    ),
+
+    // 列表渲染
+    ul: ({ children, ...props }) => (
+      <UnorderedList spacing={1} {...props}>
+        {children}
+      </UnorderedList>
+    ),
+    ol: ({ children, ...props }) => (
+      <OrderedList spacing={1} {...props}>
+        {children}
+      </OrderedList>
+    ),
+    li: ({ children, ...props }) => <ListItem {...props}>{children}</ListItem>
+  }
+
+  // 处理文件引用点击
+  useEffect(() => {
+    const handleFileReferenceClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.classList.contains('file-reference')) {
+        const filename = target.getAttribute('data-filename')
+        if (filename && onFileReferenceClick) {
+          onFileReferenceClick(filename)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleFileReferenceClick)
+    return () => document.removeEventListener('click', handleFileReferenceClick)
+  }, [onFileReferenceClick])
+
+  return (
+    <Box className="markdown-content">
+      <ReactMarkdown
+        components={customComponents}
+        remarkPlugins={[]}
+        rehypePlugins={[]}
+      >
+        {processFileReferences(content)}
+      </ReactMarkdown>
+      
+      {/* CSS 样式注入 */}
+      <style jsx>{`
+        .file-reference {
+          background-color: var(--chakra-colors-blue-50);
+          color: var(--chakra-colors-blue-600);
+          padding: 2px 6px;
+          border-radius: 4px;
+          cursor: pointer;
+          border: 1px solid var(--chakra-colors-blue-200);
+          transition: all 0.2s;
+        }
+        
+        .file-reference:hover {
+          background-color: var(--chakra-colors-blue-100);
+          border-color: var(--chakra-colors-blue-300);
+        }
+        
+        [data-theme="dark"] .file-reference {
+          background-color: var(--chakra-colors-blue-900);
+          color: var(--chakra-colors-blue-200);
+          border-color: var(--chakra-colors-blue-700);
+        }
+        
+        [data-theme="dark"] .file-reference:hover {
+          background-color: var(--chakra-colors-blue-800);
+          border-color: var(--chakra-colors-blue-600);
+        }
+      `}</style>
+    </Box>
+  )
+}
+```
+
+#### 文件引用标签组件
+
+```typescript
+// src/components/chat/FileReferenceChip.tsx
+interface FileReferenceChipProps {
+  reference: FileReference
+  onClick?: () => void
+  variant?: 'solid' | 'outline'
+  size?: 'sm' | 'md'
+}
+
+export const FileReferenceChip: React.FC<FileReferenceChipProps> = ({
+  reference,
+  onClick,
+  variant = 'outline',
+  size = 'sm'
+}) => {
+  const hoverProps = onClick ? {
+    _hover: {
+      bg: 'blue.50',
+      borderColor: 'blue.300'
+    },
+    cursor: 'pointer'
+  } : {}
+
+  return (
+    <Tag
+      size={size}
+      variant={variant}
+      colorScheme="blue"
+      onClick={onClick}
+      {...hoverProps}
+    >
+      <TagLeftIcon as={DocumentIcon} />
+      <TagLabel>{reference.filename}</TagLabel>
+    </Tag>
+  )
+}
+```
+
+#### 消息编辑模式组件
+
+```typescript
+// src/components/chat/MessageEditForm.tsx
+interface MessageEditFormProps {
+  originalMessage: ChatMessage
+  onSave: (message: string, files: UploadedFile[]) => void
+  onCancel: () => void
+}
+
+export const MessageEditForm: React.FC<MessageEditFormProps> = ({
+  originalMessage,
+  onSave,
+  onCancel
+}) => {
+  const [editText, setEditText] = useState(originalMessage.content)
+  const [editFiles, setEditFiles] = useState<UploadedFile[]>(originalMessage.files || [])
+
+  const handleSave = () => {
+    if (!editText.trim() && editFiles.length === 0) {
+      toast({
+        title: '消息不能为空',
+        status: 'warning',
+        duration: 3000
+      })
+      return
+    }
+
+    onSave(editText, editFiles)
+  }
+
+  return (
+    <VStack spacing={3} align="stretch">
+      {/* 文件编辑区域 */}
+      {editFiles.length > 0 && (
+        <Box>
+          <Text fontSize="sm" color="gray.600" mb={2}>附加文件:</Text>
+          <FilePreviewList
+            files={editFiles}
+            onRemove={(fileId) => 
+              setEditFiles(files => files.filter(f => f.id !== fileId))
+            }
+          />
+        </Box>
+      )}
+
+      {/* 文本编辑区域 */}
+      <Textarea
+        value={editText}
+        onChange={(e) => setEditText(e.target.value)}
+        placeholder="编辑消息内容..."
+        minHeight="100px"
+        resize="vertical"
+      />
+
+      {/* 操作按钮 */}
+      <HStack justify="space-between">
+        <HStack spacing={2}>
+          {/* 添加文件按钮 */}
+          <FileUpload
+            onFilesUpload={(newFiles) => 
+              setEditFiles(files => [...files, ...newFiles])
+            }
+            maxFiles={10 - editFiles.length}
+          >
+            <Button size="sm" variant="outline" leftIcon={<Icon as={PlusIcon} />}>
+              添加文件
+            </Button>
+          </FileUpload>
+        </HStack>
+
+        <HStack spacing={2}>
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            取消
+          </Button>
+          <Button size="sm" colorScheme="blue" onClick={handleSave}>
+            保存并重发
+          </Button>
+        </HStack>
+      </HStack>
+    </VStack>
+  )
+}
+```
 │   ├── ui/
 │   │   └── layout/
 │   │       ├── Sidebar.tsx       # 左侧边栏主组件（当前实现 - 单文件架构）
 │   │       ├── MainContent.tsx   # 右侧主内容区
 │   │       └── Layout.tsx        # 整体布局
 │   ├── chat/
-│   │   ├── ChatInterface.tsx     # 聊天界面
-│   │   ├── MessageList.tsx       # 消息列表
-│   │   ├── MessageInput.tsx      # 消息输入框
-│   │   └── FileUpload.tsx        # 文件上传组件
+│   │   ├── ChatInterface.tsx     # 聊天界面主组件
+│   │   ├── MessageList.tsx       # 消息列表容器
+│   │   ├── MessageBubble.tsx     # 消息气泡组件
+│   │   ├── MessageInput.tsx      # 消息输入框组件
+│   │   ├── MessageEditForm.tsx   # 消息编辑表单
+│   │   ├── FileUpload.tsx        # 文件上传组件
+│   │   ├── DragDropFileUpload.tsx # 拖拽上传包装器
+│   │   ├── FilePreviewList.tsx   # 文件预览列表
+│   │   ├── FilePreviewCard.tsx   # 单个文件预览卡片
+│   │   ├── FileReferenceChip.tsx # 文件引用标签
+│   │   ├── MarkdownRenderer.tsx  # Markdown 渲染器
+│   │   ├── EmptyState.tsx        # 空状态组件
+│   │   └── StreamingIndicator.tsx # 流式输入指示器
 │   ├── project/
 │   │   ├── ProjectList.tsx       # 项目列表
 │   │   ├── ProjectOverview.tsx   # 项目概览
@@ -524,7 +1364,9 @@ src/
 │   └── common/
 │       ├── Modal.tsx             # 通用模态框
 │       ├── Button.tsx            # 通用按钮
-│       └── Loading.tsx           # 加载组件
+│       ├── Loading.tsx           # 加载组件
+│       ├── ErrorBoundary.tsx     # 错误边界
+│       └── Toast.tsx             # 提示组件
 ├── services/
 │   ├── api/
 │   │   ├── openai.service.ts     # OpenAI API 服务
@@ -654,6 +1496,37 @@ src-electron/
 - 标签推送触发自动构建和发布
 - 支持 macOS、Windows 跨平台打包
 - 集成代码签名和公证
+
+## 聊天界面设计要点总结
+
+基于用户反馈和界面截图，聊天界面的设计重点包括：
+
+### 1. 用户体验优化
+- **直观的初始状态**: 空状态下显示"您在忙什么？"占位符，引导用户开始对话
+- **灵活的文件上传**: 支持拖拽、点击上传，最多10个文件，仅限txt和md格式
+- **实时文件预览**: 上传文件后立即显示为图标卡片，支持悬浮删除
+- **一键编辑重发**: 用户消息支持编辑后重新发送，不保留历史版本
+
+### 2. 消息布局与交互
+- **左右分布**: 用户消息右侧显示，AI回复左侧显示，符合对话习惯
+- **Markdown 支持**: AI回复完整支持Markdown渲染，包括代码块、表格、列表等
+- **文件引用处理**: AI回复中的文件引用支持悬浮提示和点击操作
+- **操作按钮**: 每个AI回复末尾提供复制和重新生成按钮
+
+### 3. 文件管理增强
+- **智能验证**: 严格的文件类型、大小、数量验证，友好的错误提示
+- **内容加载**: 文件内容直接加载到消息上下文，显示格式为"文件名：内容"
+- **引用展示**: AI回复底部显示引用文件图标，点击预留文件管理器接口
+
+### 4. 流式输入体验
+- **实时流式显示**: AI回复采用流式传输，带有光标指示器
+- **响应式布局**: 输入框自适应高度，支持多行输入
+- **快捷键支持**: Ctrl/Cmd+Enter快速发送消息
+
+### 5. 状态管理与错误处理
+- **加载状态**: 文件上传和消息发送期间的清晰状态指示
+- **错误恢复**: 超时或失败时保留用户输入，支持重试
+- **无障碍支持**: 完整的键盘导航和屏幕阅读器支持
 
 ## 关键业务流程
 
