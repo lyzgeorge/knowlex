@@ -151,7 +151,3 @@ Desktop.ini
 # Husky
 .husky/_
 
-# Claude
-.claude
-CLAUDE.md
-GEMINI.md

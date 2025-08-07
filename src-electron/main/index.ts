@@ -3,7 +3,7 @@ import { join } from 'path'
 import { ipcManager } from '../handlers/ipc.manager'
 import { IPCMessage, IPC_CHANNELS } from '../types/ipc.types'
 // import { DatabaseService } from '../services/database/database.service'
-import { OpenAIAgentsWrapperService } from '../services/ai/openai-agents-wrapper.service'
+import { OpenAIClient } from '../services/ai/openai.client'
 // import { ChatHandler } from '../handlers/chat.handler'
 // import { SettingsHandler } from '../handlers/settings.handler'
 import { OpenAITestHandler } from '../handlers/openai-test.handler'
@@ -12,7 +12,7 @@ const isDev = process.env.IS_DEV === 'true'
 
 // Global services
 // let _databaseService: DatabaseService
-let openaiService: OpenAIAgentsWrapperService
+let openaiService: OpenAIClient
 // let _chatHandler: ChatHandler
 // let _settingsHandler: SettingsHandler
 let openaiTestHandler: OpenAITestHandler
@@ -145,7 +145,7 @@ async function initializeServices(): Promise<void> {
 
   try {
     // Initialize OpenAI service (will be configured when settings are loaded)
-    openaiService = new OpenAIAgentsWrapperService()
+    openaiService = new OpenAIClient()
     console.log('OpenAI service initialized')
 
     // TODO: Initialize database service when native module issues are resolved

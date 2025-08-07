@@ -1,12 +1,10 @@
 /**
- * OpenAI Agents Service
+ * OpenAI Client
  *
- * Integrates OpenAI Agents JS SDK for chat functionality, title generation,
- * and summary generation with error handling and retry mechanisms.
+ * A consolidated OpenAI client that dynamically imports the OpenAI Agents SDK
+ * to handle ES module compatibility in the Electron main process.
  */
 
-import { Agent, run, Runner } from '@openai/agents'
-import { z } from 'zod'
 import { ChatAPIConfig } from '@knowlex/types'
 
 export interface ChatMessage {
@@ -46,9 +44,9 @@ export interface RetryConfig {
   backoffFactor: number
 }
 
-export class OpenAIAgentsService {
+export class OpenAIClient {
   private config: ChatAPIConfig | null = null
-  private runner: Runner | null = null
+  private agentsSDK: any = null
   private retryConfig: RetryConfig = {
     maxRetries: 3,
     baseDelay: 1000, // 1 second
@@ -63,41 +61,70 @@ export class OpenAIAgentsService {
   }
 
   /**
+   * Initialize the OpenAI Agents SDK
+   */
+  private async initializeSDK(): Promise<void> {
+    if (this.agentsSDK) {
+      return
+    }
+
+    try {
+      // Dynamic import to handle ES modules
+      this.agentsSDK = await import('@openai/agents')
+      console.log('OpenAI Agents SDK loaded successfully')
+    } catch (error) {
+      console.error('Failed to load OpenAI Agents SDK:', error)
+      throw new Error('Failed to initialize OpenAI Agents SDK')
+    }
+  }
+
+  /**
    * Update OpenAI configuration
    */
-  updateConfig(config: ChatAPIConfig): void {
+  async updateConfig(config: ChatAPIConfig): Promise<void> {
     this.config = config
-
-    // Create a new Runner instance with the updated config
-    this.runner = new Runner({
-      modelProvider: {
-        name: 'openai',
-        apiKey: config.apiKey,
-        baseURL: config.baseUrl,
-      },
-      model: config.model,
-      tracingDisabled: true, // Disable tracing for privacy
-    })
+    await this.initializeSDK()
+    console.log('OpenAI configuration updated')
   }
 
   /**
    * Test API connection
    */
   async testConnection(): Promise<{ success: boolean; latency?: number; error?: string }> {
-    if (!this.config || !this.runner) {
+    if (!this.config) {
       return { success: false, error: 'OpenAI configuration not set' }
     }
 
     const startTime = Date.now()
 
     try {
+      await this.initializeSDK()
+
+      const { Agent, Runner, setDefaultOpenAIClient } = this.agentsSDK
+      const { default: OpenAI } = await import('openai')
+
+      // Create a custom OpenAI client with our configuration
+      const openaiClient = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl,
+      })
+
+      // Set the custom client as the default for this test
+      setDefaultOpenAIClient(openaiClient)
+
+      // Create a Runner instance with the model configuration
+      const runner = new Runner({
+        model: this.config.model,
+        tracingDisabled: true,
+      })
+
       const testAgent = new Agent({
         name: 'Test Agent',
         instructions: 'You are a test agent. Respond with exactly "OK" to confirm the connection.',
       })
 
       const result = await this.executeWithRetry(async () => {
-        return await run(testAgent, 'Test connection')
+        return await runner.run(testAgent, 'Test connection')
       })
 
       const latency = Date.now() - startTime
@@ -123,16 +150,36 @@ export class OpenAIAgentsService {
     context?: string,
     systemPrompt?: string
   ): Promise<ChatResponse> {
-    if (!this.config || !this.runner) {
+    if (!this.config) {
       throw new Error('OpenAI configuration not set')
     }
 
     try {
+      await this.initializeSDK()
+
+      const { Runner, setDefaultOpenAIClient } = this.agentsSDK
+      const { default: OpenAI } = await import('openai')
+
+      // Create a custom OpenAI client with our configuration
+      const openaiClient = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl,
+      })
+
+      // Set the custom client as the default
+      setDefaultOpenAIClient(openaiClient)
+
+      // Create a Runner instance with the model configuration
+      const runner = new Runner({
+        model: this.config.model,
+        tracingDisabled: true,
+      })
+
       const agent = this.createChatAgent(systemPrompt)
       const userMessage = this.formatMessagesForAgent(messages, context)
 
       const result = await this.executeWithRetry(async () => {
-        return await this.runner!.run(agent, userMessage)
+        return await runner.run(agent, userMessage)
       })
 
       return {
@@ -155,11 +202,31 @@ export class OpenAIAgentsService {
     context?: string,
     systemPrompt?: string
   ): AsyncGenerator<StreamChatResponse> {
-    if (!this.config || !this.runner) {
+    if (!this.config) {
       throw new Error('OpenAI configuration not set')
     }
 
     try {
+      await this.initializeSDK()
+
+      const { Runner, setDefaultOpenAIClient } = this.agentsSDK
+      const { default: OpenAI } = await import('openai')
+
+      // Create a custom OpenAI client with our configuration
+      const openaiClient = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl,
+      })
+
+      // Set the custom client as the default
+      setDefaultOpenAIClient(openaiClient)
+
+      // Create a Runner instance with the model configuration
+      const runner = new Runner({
+        model: this.config.model,
+        tracingDisabled: true,
+      })
+
       const agent = this.createChatAgent(systemPrompt)
       const userMessage = this.formatMessagesForAgent(messages, context)
 
@@ -167,14 +234,11 @@ export class OpenAIAgentsService {
       const messageId = this.generateId()
 
       const stream = await this.executeWithRetry(async () => {
-        return await this.runner!.run(agent, userMessage, { stream: true })
+        return await runner.run(agent, userMessage, { stream: true })
       })
-
-      // let _accumulatedContent = ''
 
       for await (const event of stream) {
         if (event.type === 'text') {
-          // _accumulatedContent += event.data
           yield {
             content: event.data,
             isComplete: false,
@@ -201,11 +265,32 @@ export class OpenAIAgentsService {
    * Generate title for conversation
    */
   async generateTitle(messages: ChatMessage[]): Promise<string> {
-    if (!this.config || !this.runner) {
+    if (!this.config) {
       throw new Error('OpenAI configuration not set')
     }
 
     try {
+      await this.initializeSDK()
+
+      const { Agent, Runner, setDefaultOpenAIClient } = this.agentsSDK
+      const { z } = await import('zod')
+      const { default: OpenAI } = await import('openai')
+
+      // Create a custom OpenAI client with our configuration
+      const openaiClient = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl,
+      })
+
+      // Set the custom client as the default
+      setDefaultOpenAIClient(openaiClient)
+
+      // Create a Runner instance with the model configuration
+      const runner = new Runner({
+        model: this.config.model,
+        tracingDisabled: true,
+      })
+
       const titleAgent = new Agent({
         name: 'Title Generator',
         instructions: `You are a title generator. Generate a concise, descriptive title (maximum 10 words) for the conversation based on the messages provided. 
@@ -219,7 +304,7 @@ export class OpenAIAgentsService {
       const conversationText = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')
 
       const result = await this.executeWithRetry(async () => {
-        return await this.runner!.run(
+        return await runner.run(
           titleAgent,
           `Generate a title for this conversation:\n\n${conversationText}`
         )
@@ -236,11 +321,32 @@ export class OpenAIAgentsService {
    * Generate summary for conversation
    */
   async generateSummary(messages: ChatMessage[], maxTokens: number = 1000): Promise<string> {
-    if (!this.config || !this.runner) {
+    if (!this.config) {
       throw new Error('OpenAI configuration not set')
     }
 
     try {
+      await this.initializeSDK()
+
+      const { Agent, Runner, setDefaultOpenAIClient } = this.agentsSDK
+      const { z } = await import('zod')
+      const { default: OpenAI } = await import('openai')
+
+      // Create a custom OpenAI client with our configuration
+      const openaiClient = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl,
+      })
+
+      // Set the custom client as the default
+      setDefaultOpenAIClient(openaiClient)
+
+      // Create a Runner instance with the model configuration
+      const runner = new Runner({
+        model: this.config.model,
+        tracingDisabled: true,
+      })
+
       const summaryAgent = new Agent({
         name: 'Summary Generator',
         instructions: `You are a conversation summarizer. Create a concise summary of the conversation that captures the key points, questions asked, and conclusions reached.
@@ -254,10 +360,7 @@ export class OpenAIAgentsService {
       const conversationText = messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')
 
       const result = await this.executeWithRetry(async () => {
-        return await this.runner!.run(
-          summaryAgent,
-          `Summarize this conversation:\n\n${conversationText}`
-        )
+        return await runner.run(summaryAgent, `Summarize this conversation:\n\n${conversationText}`)
       })
 
       return result.finalOutput?.summary || 'Unable to generate summary'
@@ -270,7 +373,9 @@ export class OpenAIAgentsService {
   /**
    * Create a chat agent with optional system prompt
    */
-  private createChatAgent(systemPrompt?: string): Agent {
+  private createChatAgent(systemPrompt?: string): any {
+    const { Agent } = this.agentsSDK
+
     const defaultInstructions = `You are Knowlex, a helpful desktop AI assistant. You provide accurate, helpful, and contextual responses to user questions.
     
     Key guidelines:
@@ -389,6 +494,6 @@ export class OpenAIAgentsService {
    * Check if service is configured
    */
   isConfigured(): boolean {
-    return this.config !== null && this.runner !== null
+    return this.config !== null
   }
 }

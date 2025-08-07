@@ -246,159 +246,264 @@ interface RerankResult {
 #### 边栏整体结构
 
 ```typescript
-// src/components/layout/Sidebar.tsx
+// src/components/ui/layout/Sidebar.tsx - 当前实现
 interface SidebarProps {
-  width: number // 固定260px
-  isCollapsed?: boolean
+  className?: string
+  'data-testid'?: string
 }
 
-interface SidebarState {
-  expandedProjects: Set<number>
-  selectedItem: { type: 'project' | 'chat', id: number } | null
-  hoveredItem: { type: 'project' | 'chat', id: number } | null
+// 核心数据类型
+interface Project {
+  id: string
+  name: string
+  description?: string
+  createdAt: Date
+  updatedAt: Date
+  conversationCount: number
+  fileCount: number
 }
+
+interface Conversation {
+  id: string
+  title: string
+  projectId?: string
+  updatedAt: Date
+  messageCount: number
+}
+
+// 状态管理
+const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(['1']))
+const [hoveredItem, setHoveredItem] = useState<{ type: string; id: string } | null>(null)
+const [openMenu, setOpenMenu] = useState<{ type: string; id: string } | null>(null)
 ```
 
-#### 边栏头部组件
+#### 边栏布局结构
 
 ```typescript
-// src/components/layout/SidebarHeader.tsx
-interface SidebarHeaderProps {
-  onNewChat: () => void
-  onGlobalSearch: () => void
-}
+// 固定宽度 260px，全高度布局
+<Box
+  width="260px"
+  minWidth="260px" 
+  maxWidth="260px"
+  height="100vh"
+  bg={bgColor}
+  borderRight="1px solid"
+  borderColor={borderColor}
+  display="flex"
+  flexDirection="column"
+  overflow="hidden"
+>
+  {/* 头部区域 - Logo */}
+  <VStack spacing={4} p={4} align="stretch">
+    <Text fontSize="xl" fontWeight="bold" color={textColor} mb={2}>
+      Knowlex
+    </Text>
+  </VStack>
 
-// 组件结构：
-// - Knowlex Logo (固定顶部)
-// - New Chat 按钮 (黑色背景，白色文字，+ 图标)
-// - Global Search 图标 (搜索图标，灰色背景)
+  <Divider borderColor={borderColor} />
+
+  {/* 主内容区域 - 可滚动 */}
+  <Box flex={1} overflow="auto">
+    {/* New Chat 按钮 */}
+    {/* Global Search 按钮 */}
+    {/* 项目列表 */}
+    {/* 未归类聊天列表 */}
+  </Box>
+
+  <Divider borderColor={borderColor} />
+
+  {/* 底部用户区域 */}
+  <Box p={3}>
+    {/* 用户头像和设置菜单 */}
+  </Box>
+</Box>
 ```
 
-#### 项目区域组件
+#### 功能按钮区域
 
 ```typescript
-// src/components/layout/ProjectSection.tsx
-interface ProjectSectionProps {
-  projects: Project[]
-  expandedProjects: Set<number>
-  onToggleProject: (projectId: number) => void
-  onCreateProject: () => void
-  onProjectAction: (projectId: number, action: ProjectAction) => void
-}
+// New Chat 按钮 - 蓝色主题，带加号图标
+<Button
+  leftIcon={<Icon as={PlusIcon} boxSize={4} />}
+  size="sm"
+  variant="outline"
+  mx={4}
+  mt={3}
+  mb={2}
+  onClick={handleNewChat}
+  colorScheme="blue"
+  justifyContent="flex-start"
+>
+  {t('ui.sidebar.newChat')}
+</Button>
 
-interface ProjectAction {
-  type: 'rename' | 'delete' | 'file-manager' | 'memory-knowledge'
-  payload?: any
-}
+// Global Search 按钮 - 灰色主题，带搜索图标
+<Button
+  leftIcon={<Icon as={MagnifyingGlassIcon} boxSize={4} />}
+  size="sm"
+  variant="outline"
+  mx={4}
+  mb={3}
+  onClick={handleGlobalSearch}
+  colorScheme="gray"
+  justifyContent="flex-start"
+>
+  {t('ui.sidebar.globalSearch')}
+</Button>
 ```
 
-#### 单个项目组件
+#### 项目展示与交互
 
 ```typescript
-// src/components/layout/ProjectItem.tsx
-interface ProjectItemProps {
-  project: Project
-  isExpanded: boolean
-  isHovered: boolean
-  conversations: Conversation[]
-  onToggle: () => void
-  onHover: (hovered: boolean) => void
-  onAction: (action: ProjectAction) => void
-  onConversationAction: (conversationId: number, action: ConversationAction) => void
-}
+// 项目展开/收起逻辑
+const toggleProject = useCallback((projectId: string) => {
+  setExpandedProjects(prev => {
+    const newSet = new Set(prev)
+    if (newSet.has(projectId)) {
+      newSet.delete(projectId)
+    } else {
+      newSet.add(projectId)
+    }
+    return newSet
+  })
+}, [])
 
-interface ConversationAction {
-  type: 'move-to' | 'move-out' | 'rename' | 'delete'
-  targetProjectId?: number
-}
-
-// 悬浮状态显示的图标：
-// - 文件图标 (file icon) -> 触发文件管理页面
-// - 书本图标 (book icon) -> 触发记忆与知识管理页面  
-// - 菜单图标 (menu icon) -> 显示重命名/删除菜单
+// 项目悬浮时显示的操作图标
+{isHovered && (
+  <HStack spacing={1}>
+    {/* 文件管理图标 */}
+    <IconButton
+      icon={<Icon as={DocumentIcon} boxSize={4} />}
+      size="xs"
+      variant="ghost"
+      aria-label="File manager"
+      onClick={e => {
+        e.stopPropagation()
+        handleProjectFileManager(project.id)
+      }}
+    />
+    {/* 记忆与知识管理图标 */}
+    <IconButton
+      icon={<Icon as={BookOpenIcon} boxSize={4} />}
+      size="xs"
+      variant="ghost"
+      aria-label="Memory & Knowledge"
+      onClick={e => {
+        e.stopPropagation()
+        handleProjectMemoryKnowledge(project.id)
+      }}
+    />
+    {/* 更多选项菜单 */}
+    <Menu>
+      <MenuButton as={IconButton} icon={<Icon as={EllipsisVerticalIcon} boxSize={4} />} />
+      <MenuList>
+        <MenuItem>{t('ui.sidebar.rename')}</MenuItem>
+        <MenuItem color="red.500">{t('ui.sidebar.delete')}</MenuItem>
+      </MenuList>
+    </Menu>
+  </HStack>
+)}
 ```
 
-#### 聊天区域组件
+#### 会话管理与时间显示
 
 ```typescript
-// src/components/layout/ChatSection.tsx
-interface ChatSectionProps {
-  conversations: Conversation[]
-  hasMore: boolean
-  isLoading: boolean
-  onLoadMore: () => void
-  onConversationAction: (conversationId: number, action: ConversationAction) => void
+// 智能时间格式化函数
+const formatTimestamp = (date: Date, language: 'en' | 'zh' = 'zh'): string => {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMinutes = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (language === 'zh') {
+    if (diffMinutes < 1) return '刚刚'
+    if (diffMinutes < 60) return `${diffMinutes}分钟前`
+    if (diffHours < 24) return `${diffHours}小时前`
+    if (diffDays === 0) return '今天'
+    if (diffDays === 1) return '昨天'
+    if (diffDays < 7) return `${diffDays}天前`
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  } else {
+    if (diffMinutes < 1) return 'now'
+    if (diffMinutes < 60) return `${diffMinutes}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays === 0) return 'today'
+    if (diffDays === 1) return 'yesterday'
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  }
 }
 
-// 实现无限滚动：
-// - 使用 react-window 或 react-virtualized 优化长列表性能
-// - 每次加载10个会话
-// - 按最后修改时间倒序排列
+// 会话操作菜单
+<Menu placement="right-start">
+  <MenuButton as={MenuItem}>{t('ui.sidebar.moveTo')}</MenuButton>
+  <MenuList>
+    {mockProjects
+      .filter(project => project.id !== conversation.projectId)
+      .map(project => (
+        <MenuItem key={project.id} onClick={() => handleConversationMenu(conversation.id, 'moveTo', project.id)}>
+          {project.name}
+        </MenuItem>
+      ))}
+  </MenuList>
+</Menu>
 ```
 
-#### 单个聊天会话组件
+#### 主题与国际化支持
 
 ```typescript
-// src/components/layout/ChatItem.tsx
-interface ChatItemProps {
-  conversation: Conversation
-  showTimestamp: boolean
-  isHovered: boolean
-  onHover: (hovered: boolean) => void
-  onAction: (action: ConversationAction) => void
-  onSelect: () => void
-}
+// 主题颜色适配
+const bgColor = useColorModeValue('white', 'gray.800')
+const borderColor = useColorModeValue('gray.200', 'gray.600')
+const textColor = useColorModeValue('gray.800', 'white')
+const mutedTextColor = useColorModeValue('gray.500', 'gray.400')
+const hoverBg = useColorModeValue('gray.50', 'gray.700')
 
-// 时间显示逻辑：
-// - 刚刚 (< 1分钟)
-// - X分钟前 (< 1小时)
-// - X小时前 (< 24小时)
-// - 今天 (当天)
-// - 昨天 (前一天)
-// - X天前 (< 7天)
-// - YYYY-MM-DD (> 7天)
+// 用户设置菜单
+<MenuList>
+  <MenuItem>{t('ui.sidebar.settings')}</MenuItem>
+  <MenuDivider />
+  <MenuItem onClick={toggleColorMode}>
+    {t('ui.theme.theme')} ({colorMode === 'light' ? t('ui.theme.light') : t('ui.theme.dark')})
+  </MenuItem>
+  <MenuItem onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}>
+    {t('ui.language.languageSelector')} ({language === 'zh' ? '中文' : 'English'})
+  </MenuItem>
+  <MenuDivider />
+  <MenuItem>{t('ui.sidebar.logout')}</MenuItem>
+</MenuList>
 ```
 
-#### 边栏底部组件
+#### 当前实现特点
 
-```typescript
-// src/components/layout/SidebarFooter.tsx
-interface SidebarFooterProps {
-  user: User
-  onSettingsAction: (action: SettingsAction) => void
-}
-
-interface SettingsAction {
-  type: 'configuration' | 'theme' | 'language' | 'logout'
-  payload?: any
-}
-
-interface ThemeOption {
-  value: 'light' | 'dark' | 'system'
-  label: string
-}
-
-interface LanguageOption {
-  value: 'en' | 'zh'
-  label: string
-}
-```
+1. **单文件架构**: 所有功能集中在一个组件中，便于维护和理解
+2. **完整的交互逻辑**: 包含项目展开/收起、悬浮效果、菜单操作等
+3. **智能时间显示**: 支持中英文的相对时间和绝对时间显示
+4. **主题适配**: 完整的明暗主题支持
+5. **国际化**: 使用 react-i18next 进行多语言支持
+6. **响应式设计**: 悬浮状态下显示操作按钮，非悬浮时显示时间戳
+7. **嵌套菜单**: 支持会话移动到项目的二级菜单
+8. **状态管理**: 使用 React hooks 进行本地状态管理
 
 ### 前端组件层次结构
 
 ```
 src/
 ├── components/
-│   ├── layout/
-│   │   ├── Sidebar.tsx           # 左侧边栏主组件
-│   │   ├── SidebarHeader.tsx     # 边栏头部（Logo、New Chat、搜索）
-│   │   ├── ProjectSection.tsx    # 项目区域组件
-│   │   ├── ProjectItem.tsx       # 单个项目组件
-│   │   ├── ChatSection.tsx       # 未归类聊天区域组件
-│   │   ├── ChatItem.tsx          # 单个聊天会话组件
-│   │   ├── SidebarFooter.tsx     # 边栏底部（用户信息、设置）
-│   │   ├── MainContent.tsx       # 右侧主内容区
-│   │   └── Layout.tsx            # 整体布局
+│   ├── ui/
+│   │   └── layout/
+│   │       ├── Sidebar.tsx       # 左侧边栏主组件（当前实现 - 单文件架构）
+│   │       ├── MainContent.tsx   # 右侧主内容区
+│   │       └── Layout.tsx        # 整体布局
 │   ├── chat/
 │   │   ├── ChatInterface.tsx     # 聊天界面
 │   │   ├── MessageList.tsx       # 消息列表

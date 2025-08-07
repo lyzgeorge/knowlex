@@ -8,7 +8,7 @@
 import { IpcMainEvent } from 'electron'
 import { BaseIPCHandler } from './base.handler'
 import { IPCMessage, IPCResponse, IPC_CHANNELS } from '../types/ipc.types'
-import { OpenAIAgentsWrapperService } from '../services/ai/openai-agents-wrapper.service'
+import { OpenAIClient } from '../services/ai/openai.client'
 import { DatabaseService } from '../services/database/database.service'
 import { ipcManager } from './ipc.manager'
 import {
@@ -21,10 +21,10 @@ import {
 
 export class SettingsHandler extends BaseIPCHandler {
   protected handlerName = 'SettingsHandler'
-  private openaiService: OpenAIAgentsWrapperService
+  private openaiService: OpenAIClient
   private databaseService: DatabaseService
 
-  constructor(openaiService: OpenAIAgentsWrapperService, databaseService: DatabaseService) {
+  constructor(openaiService: OpenAIClient, databaseService: DatabaseService) {
     super()
     this.openaiService = openaiService
     this.databaseService = databaseService
@@ -153,7 +153,7 @@ export class SettingsHandler extends BaseIPCHandler {
   private async testChatAPI(config: ChatAPIConfig): Promise<TestAPIResponse> {
     try {
       // Create a temporary OpenAI service instance for testing
-      const testService = new OpenAIAgentsWrapperService(config)
+      const testService = new OpenAIClient(config)
 
       const result = await testService.testConnection()
 

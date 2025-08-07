@@ -8,14 +8,14 @@
 import { IpcMainEvent } from 'electron'
 import { BaseIPCHandler } from './base.handler'
 import { IPCMessage, IPCResponse } from '../types/ipc.types'
-import { OpenAIAgentsWrapperService } from '../services/ai/openai-agents-wrapper.service'
+import { OpenAIClient } from '../services/ai/openai.client'
 import { ipcManager } from './ipc.manager'
 
 export class OpenAITestHandler extends BaseIPCHandler {
   protected handlerName = 'OpenAITestHandler'
-  private openaiService: OpenAIAgentsWrapperService
+  private openaiService: OpenAIClient
 
-  constructor(openaiService: OpenAIAgentsWrapperService) {
+  constructor(openaiService: OpenAIClient) {
     super()
     this.openaiService = openaiService
   }
