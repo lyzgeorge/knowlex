@@ -8,11 +8,9 @@
 import { IpcMainEvent } from 'electron'
 import { BaseIPCHandler } from './base.handler'
 import { IPCMessage, IPCResponse, IPC_CHANNELS } from '../types/ipc.types'
-import {
-  OpenAIAgentsWrapperService,
-  ChatMessage,
-} from '../services/ai/openai-agents-wrapper.service'
+import { OpenAIClient, ChatMessage } from '../services/ai/openai.client'
 import { DatabaseService } from '../services/database/database.service'
+import { FileImportService } from '../services/file/file-import.service'
 import { ipcManager } from './ipc.manager'
 import {
   SendMessageRequest,
@@ -23,13 +21,15 @@ import {
 
 export class ChatHandler extends BaseIPCHandler {
   protected handlerName = 'ChatHandler'
-  private openaiService: OpenAIAgentsWrapperService
+  private openaiService: OpenAIClient
   private databaseService: DatabaseService
+  private fileImportService: FileImportService
 
-  constructor(openaiService: OpenAIAgentsWrapperService, databaseService: DatabaseService) {
+  constructor(openaiService: OpenAIClient, databaseService: DatabaseService) {
     super()
     this.openaiService = openaiService
     this.databaseService = databaseService
+    this.fileImportService = new FileImportService()
   }
 
   /**
@@ -78,10 +78,33 @@ export class ChatHandler extends BaseIPCHandler {
         systemPrompt = conversation.systemPrompt
       }
 
+      // Process file imports if provided
+      let fileContext = ''
+      if (requestData.files && requestData.files.length > 0) {
+        const importResult = await this.fileImportService.importFiles(requestData.files)
+
+        // Handle import errors
+        if (importResult.errors.length > 0) {
+          this.log('warn', 'File import errors', importResult.errors)
+          // Continue processing with successful files, but log errors
+        }
+
+        // Format successful files for context
+        if (importResult.success.length > 0) {
+          fileContext = this.fileImportService.formatFilesForContext(importResult.success)
+        }
+      }
+
+      // Combine user message with file context
+      let userMessageContent = requestData.message
+      if (fileContext) {
+        userMessageContent = `文件内容：\n\n${fileContext}\n\n---\n\n用户消息：\n${requestData.message}`
+      }
+
       // Add the new user message
       messages.push({
         role: 'user',
-        content: requestData.message,
+        content: userMessageContent,
       })
 
       // Get RAG context if enabled and projectId is provided
@@ -150,9 +173,32 @@ export class ChatHandler extends BaseIPCHandler {
         systemPrompt = conversation.systemPrompt
       }
 
+      // Process file imports if provided (same logic as handleSendMessage)
+      let fileContext = ''
+      if (requestData.files && requestData.files.length > 0) {
+        const importResult = await this.fileImportService.importFiles(requestData.files)
+
+        // Handle import errors
+        if (importResult.errors.length > 0) {
+          this.log('warn', 'File import errors in stream', importResult.errors)
+          // Continue processing with successful files
+        }
+
+        // Format successful files for context
+        if (importResult.success.length > 0) {
+          fileContext = this.fileImportService.formatFilesForContext(importResult.success)
+        }
+      }
+
+      // Combine user message with file context
+      let userMessageContent = requestData.message
+      if (fileContext) {
+        userMessageContent = `文件内容：\n\n${fileContext}\n\n---\n\n用户消息：\n${requestData.message}`
+      }
+
       messages.push({
         role: 'user',
-        content: requestData.message,
+        content: userMessageContent,
       })
 
       if (requestData.ragEnabled && requestData.projectId) {
@@ -238,7 +284,7 @@ export class ChatHandler extends BaseIPCHandler {
    * Stream chat response
    */
   private async streamChatResponse(
-    streamSession: any,
+    streamSession: any, // StreamSession from ipc.manager - avoiding circular import
     messages: ChatMessage[],
     context?: string,
     systemPrompt?: string,
