@@ -1,35 +1,130 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import { ChakraProvider } from '@chakra-ui/react'
 import App from './App'
 
-// Mock window.api
-Object.defineProperty(window, 'api', {
+// Mock the IPC client
+vi.mock('./lib/ipc-client', () => ({
+  ipcClient: {
+    ready: true,
+    system: {
+      ping: vi.fn().mockResolvedValue('pong'),
+      getAppInfo: vi.fn().mockResolvedValue({
+        name: 'Knowlex Desktop',
+        version: '0.1.0',
+        platform: 'darwin',
+        arch: 'x64',
+        nodeVersion: '18.0.0',
+        electronVersion: '28.1.0',
+        uptime: 100
+      })
+    },
+    database: {
+      healthCheck: vi.fn().mockResolvedValue({
+        status: 'healthy',
+        details: {
+          connection: true,
+          vectorSupport: true,
+          tables: ['projects', 'conversations'],
+          dbPath: '/test/path'
+        }
+      }),
+      getStats: vi.fn().mockResolvedValue({
+        projects: { count: 0 },
+        conversations: { count: 0 },
+        messages: { count: 0 },
+        files: { count: 0 },
+        chunks: { count: 0 },
+        memories: { count: 0 },
+        knowledgeCards: { count: 0 },
+        vectors: { available: true, documentCount: 0 }
+      }),
+      createSampleData: vi.fn().mockResolvedValue(undefined),
+      clearAllData: vi.fn().mockResolvedValue(undefined),
+      resetDatabase: vi.fn().mockResolvedValue(undefined),
+      searchVectors: vi.fn().mockResolvedValue([])
+    }
+  }
+}))
+
+// Mock window.knowlexAPI
+Object.defineProperty(window, 'knowlexAPI', {
   value: {
-    ping: () => Promise.resolve('pong')
+    invoke: () => Promise.resolve('pong'),
+    onStream: () => () => {},
+    onEvent: () => () => {},
+    system: {
+      ping: () => Promise.resolve('pong'),
+      getAppInfo: () =>
+        Promise.resolve({
+          name: 'Knowlex Desktop',
+          version: '0.1.0',
+          platform: 'darwin',
+          arch: 'x64',
+          nodeVersion: '18.0.0',
+          electronVersion: '28.1.0',
+          uptime: 100
+        })
+    },
+    database: {
+      healthCheck: () =>
+        Promise.resolve({
+          status: 'healthy',
+          details: {
+            connection: true,
+            vectorSupport: true,
+            tables: ['projects', 'conversations'],
+            dbPath: '/test/path'
+          }
+        }),
+      getStats: () =>
+        Promise.resolve({
+          projects: { count: 0 },
+          conversations: { count: 0 },
+          messages: { count: 0 },
+          files: { count: 0 },
+          chunks: { count: 0 },
+          memories: { count: 0 },
+          knowledgeCards: { count: 0 },
+          vectors: { available: true, documentCount: 0 }
+        }),
+      createSampleData: () => Promise.resolve(),
+      clearAllData: () => Promise.resolve(),
+      resetDatabase: () => Promise.resolve(),
+      searchVectors: () => Promise.resolve([])
+    }
   },
   writable: true
 })
 
 describe('App', () => {
-  it('renders Knowlex Desktop title', () => {
+  it('renders Knowlex Desktop title', async () => {
     render(
       <ChakraProvider>
         <App />
       </ChakraProvider>
     )
 
-    expect(screen.getByText('Knowlex Desktop')).toBeDefined()
-    expect(screen.getByText('桌面智能助理')).toBeDefined()
+    // Wait for the app to initialize and show the main content
+    await waitFor(() => {
+      expect(screen.getByText('Knowlex Desktop')).toBeDefined()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('AI-Powered Knowledge Assistant')).toBeDefined()
+    })
   })
 
-  it('renders IPC test button', () => {
+  it('renders IPC test button', async () => {
     render(
       <ChakraProvider>
         <App />
       </ChakraProvider>
     )
 
-    expect(screen.getByText('Test IPC Communication')).toBeDefined()
+    // Wait for the app to initialize and show the main content with the button
+    await waitFor(() => {
+      expect(screen.getByText('Test IPC Ping')).toBeDefined()
+    })
   })
 })

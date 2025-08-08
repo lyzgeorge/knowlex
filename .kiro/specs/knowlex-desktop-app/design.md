@@ -66,9 +66,9 @@ knowlex/
 | **桌面框架**  | Electron                 | 提供跨平台能力。                              |
 | **UI 组件库** | Chakra UI + Tailwind CSS | Chakra 提供组件骨架，Tailwind 提供原子化CSS。 |
 | **状态管理**  | Zustand                  | 轻量级全局状态管理。                          |
-| **数据库**    | better-sqlite3           | 高性能同步 SQLite 客户端。                    |
-| **向量存储**  | hnswsqlite               | 本地向量检索能力，作为 better-sqlite3 扩展。  |
+| **数据库**    | libsql                   | 高性能 SQLite 兼容数据库，原生支持向量存储。   |
 | **构建工具**  | Vite (electron-vite)     | 开发和打包工具。                              |
+| **数据库驱动** | @libsql/client          | libsql 官方 Node.js 客户端。                 |
 
 ## 3. 核心服务层设计 (src-electron/services)
 
@@ -78,8 +78,9 @@ knowlex/
 
 ### 3.2 主进程服务详情
 
-- **`DatabaseService`**: 管理数据库连接和迁移。
+- **`DatabaseService`**: 管理 libsql 数据库连接和迁移。
   - `getInstance()`, `getDB()`, `runMigrations()`, `executeTransaction()`。
+  - `createVectorIndex(tableName, columnName)`, `optimizeVectorQueries()`。
 - **`ProjectService`**: 管理项目生命周期。
   - `createProject(name, desc)`, `updateProject(id, data)`, `deleteProject(id)`, `getProject(id)`, `listProjects()`, `getProjectStats(id)`。
 - **`FileService`**: 文件上传和管理。
@@ -87,11 +88,13 @@ knowlex/
 - **`RAGService`**: 检索增强生成处理。
   - `processFile(fileId)`, `retrieveContext(projectId, query, topK)`, `deleteVectors(fileId)`, `rebuildIndex(projectId)`。
   - **文本处理策略**: 智能分块（基于段落和滑动窗口），目标500字符，重叠50字符。
+  - **向量存储**: 利用 libsql 的原生向量支持，使用 `VECTOR` 数据类型和向量相似度查询功能。
 - **`LLMService`**: 大语言模型接口管理。
   - `registerProvider(provider)`, `setActiveProvider(id)`, `complete(req)`, `stream(req)`, `testConnection(config)`。
   - **Provider 适配器**: 需实现统一的请求/响应格式转换和错误处理。
 - **`EmbeddingService`**: 文本向量化处理。
   - `generateEmbeddings(texts[])`, `setModel(modelId)`。
+  - `batchInsertVectors(chunks[])`, `queryVectorSimilarity(vector, projectId, topK)`。
 - **`ChatService`**: 会话和消息管理。
   - `createConversation(projectId?)`, `deleteConversation(id)`, `addMessage(convId, role, content)`, `getMessages(convId)`, `generateTitle(convId)`, `moveConversation(convId, projectId)`。
   - `editMessage(messageId, newContent)`, `deleteMessagesAfter(messageId)` - 支持消息编辑和重发功能。
@@ -248,17 +251,52 @@ knowlex/
 - **`conversations`**: `id`, `projectId`, `title`, `summary`, `createdAt`, `updatedAt`。
 - **`messages`**: `id`, `conversationId`, `role`, `content`, `metadata` (JSON), `createdAt`。
 - **`project_files`**: `id`, `projectId`, `fileName`, `filePath`, `fileSize`, `md5`, `status`, `createdAt`。
-- **`text_chunks`**: `id`, `fileId`, `content`, `position`, `embedding` (BLOB)。
+- **`text_chunks`**: `id`, `fileId`, `content`, `position`, `embedding` (VECTOR)。
 - **`project_memories`**: `id`, `projectId`, `content`, `order`, `createdAt`。
 - **`knowledge_cards`**: `id`, `projectId`, `title`, `content` (Markdown), `tags` (JSON), `createdAt`, `updatedAt`。
 - **`app_settings`**: `key`, `value` (JSON), `updatedAt`。
 
-### 5.2 文件存储结构
+### 5.2 libsql 向量数据库设计
+
+**选择 libsql 的优势**:
+- **原生向量支持**: libsql 提供内置的 `VECTOR` 数据类型，无需额外扩展
+- **高性能向量查询**: 支持向量相似度搜索和 KNN 查询，性能优于传统 BLOB 存储方案
+- **SQLite 兼容**: 完全兼容 SQLite API，迁移成本低
+- **本地化部署**: 支持完全本地化运行，符合隐私保护要求
+
+**向量数据处理流程**:
+1. **文本分块**: 将文档按段落和滑动窗口分割为 500 字符的文本块
+2. **向量化**: 使用 Embedding 模型将文本块转换为向量
+3. **存储**: 将向量直接存储在 `text_chunks.embedding` 字段（VECTOR 类型）
+4. **检索**: 使用 libsql 的向量相似度查询进行 RAG 检索
+
+**向量查询示例**:
+```sql
+-- 创建向量索引
+CREATE INDEX idx_text_chunks_embedding ON text_chunks USING vector(embedding);
+
+-- 向量相似度查询
+SELECT tc.content, tc.fileId, pf.fileName,
+       vector_distance(tc.embedding, ?) as similarity
+FROM text_chunks tc
+JOIN project_files pf ON tc.fileId = pf.id
+WHERE pf.projectId = ?
+ORDER BY similarity ASC
+LIMIT ?;
+```
+
+**性能优化策略**:
+- 为向量字段创建专门的向量索引
+- 使用批量插入优化向量数据写入性能
+- 实现向量缓存机制，避免重复计算
+- 支持增量向量索引更新
+
+### 5.3 文件存储结构
 
 ```
 app-data/
 ├── database/
-│   └── knowlex.db          # SQLite数据库 (包含hnswsqlite索引)
+│   └── knowlex.db          # libsql数据库 (原生向量支持)
 ├── projects/
 │   └── {project-id}/
 │       └── files/          # 存储该项目下的原始文件
@@ -284,7 +322,7 @@ app-data/
 ## 7. 性能优化策略
 
 - **前端**: 虚拟滚动、组件懒加载、状态批量更新、事件防抖节流。
-- **后端**: 数据库索引、批量操作、WAL模式、文件处理异步化和队列化。
+- **后端**: 数据库索引、批量操作、WAL模式、文件处理异步化和队列化、向量索引优化、向量查询缓存。
 - **内存**: 使用 LRU 缓存，及时清理不再使用的资源。
 
 ## 8. 安全性设计
