@@ -1,56 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { electronAPI } from '@electron-toolkit/preload'
+import type { IPCRequest, IPCResponse } from '@shared'
 
 // Custom APIs for renderer
 const api = {
-  // Send message to main process
-  send: (channel: string, data: any) => {
-    // Validate channel to prevent security issues
-    const allowedChannels = ['ipc:request', 'stream:control']
+  // IPC 通信封装
+  invoke: async <T = any>(channel: string, data?: any): Promise<T> => {
+    const request: IPCRequest = {
+      id: Math.random().toString(36).substr(2, 9),
+      channel,
+      data,
+      timestamp: Date.now()
+    }
 
-    if (allowedChannels.includes(channel)) {
-      ipcRenderer.send(channel, data)
-    } else {
-      console.error(`Attempted to send message on unauthorized channel: ${channel}`)
+    const response: IPCResponse<T> = await ipcRenderer.invoke('ipc-request', request)
+
+    if (!response.success) {
+      throw new Error(response.error || 'IPC request failed')
+    }
+
+    return response.data as T
+  },
+
+  // 流式数据监听
+  onStream: (channel: string, callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data)
+    ipcRenderer.on(`stream-${channel}`, listener)
+
+    return () => {
+      ipcRenderer.removeListener(`stream-${channel}`, listener)
     }
   },
 
-  // Listen for messages from main process
-  on: (channel: string, callback: (data: any) => void) => {
-    // Validate channel to prevent security issues
-    const allowedChannels = [
-      'ipc:response',
-      'stream:data',
-      'stream:error',
-      'stream:end',
-      'stream:pause',
-      'stream:resume',
-    ]
-
-    if (allowedChannels.includes(channel)) {
-      ipcRenderer.on(channel, (event, data) => callback(data))
-    } else {
-      console.error(`Attempted to listen on unauthorized channel: ${channel}`)
-    }
-  },
-
-  // Remove listener
-  removeListener: (channel: string, callback: (data: any) => void) => {
-    ipcRenderer.removeListener(channel, callback)
-  },
-
-  // Remove all listeners for a channel
-  removeAllListeners: (channel: string) => {
-    ipcRenderer.removeAllListeners(channel)
-  },
-
-  // Get system information
-  getSystemInfo: () => {
-    return {
-      platform: process.platform,
-      arch: process.arch,
-      version: process.version,
-    }
-  },
+  // 基础 IPC 方法
+  ping: () => ipcRenderer.invoke('ping')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -58,12 +41,14 @@ const api = {
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electronAPI', api)
+    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error(error)
   }
 } else {
   // @ts-expect-error (define in dts)
-  window.electronAPI = api
+  window.electron = electronAPI
+  // @ts-expect-error (define in dts)
+  window.api = api
 }
