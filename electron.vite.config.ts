@@ -7,12 +7,13 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
-        '@shared': resolve('packages/shared-types/src')
+        '@shared': resolve('src/shared'),
+        '@main': resolve('src/main')
       }
     },
     build: {
       lib: {
-        entry: 'src-electron/main.ts'
+        entry: 'src/main/index.ts'
       }
     }
   },
@@ -20,27 +21,28 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
-        '@shared': resolve('packages/shared-types/src')
+        '@shared': resolve('src/shared'),
+        '@preload': resolve('src/preload')
       }
     },
     build: {
       lib: {
-        entry: 'src-electron/preload/index.ts'
+        entry: 'src/preload/index.ts'
       }
     }
   },
   renderer: {
-    root: 'src',
+    root: 'src/renderer',
     resolve: {
       alias: {
-        '@renderer': resolve('src'),
-        '@shared': resolve('packages/shared-types/src')
+        '@renderer': resolve('src/renderer/src'),
+        '@shared': resolve('src/shared')
       }
     },
     plugins: [react()],
     build: {
       rollupOptions: {
-        input: resolve(__dirname, 'src/index.html')
+        input: resolve(__dirname, 'src/renderer/index.html')
       }
     }
   }
