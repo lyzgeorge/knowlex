@@ -136,7 +136,7 @@ window.knowlexAPI.database = {
 
 ## Implementation Details
 
-### 1. Database Service (`src-electron/services/database.service.ts`)
+### 1. Database Service (`src/main/services/database.service.ts`)
 
 **Key Methods:**
 - `initialize()` - Setup database connection and run migrations
@@ -148,7 +148,7 @@ window.knowlexAPI.database = {
 - `clearAllData()` - Remove all data with FTS trigger management
 - `resetDatabase()` - Complete database file deletion and recreation
 
-### 2. Database Helpers (`src-electron/lib/db-helpers.ts`)
+### 2. Database Helpers (`src/main/lib/db-helpers.ts`)
 
 **Utility Functions:**
 - Row-to-object converters for all entity types

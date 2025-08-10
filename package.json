@@ -2,7 +2,7 @@
   "name": "knowlex-desktop",
   "version": "0.1.0",
   "description": "Knowlex 桌面智能助理",
-  "main": "out/main/main.js",
+  "main": "out/main/index.js",
   "author": "Knowlex Team",
   "license": "MIT",
   "private": true,

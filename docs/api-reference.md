@@ -27,7 +27,7 @@ The `ipcClient` provides a clean, promise-based interface.
 
 **Example: Basic IPC Call**
 ```typescript
-import { ipcClient } from '@/lib/ipc-client';
+import { ipcClient } from '@renderer/lib/ipc-client';
 
 // Invoke a method on the main process
 const appInfo = await ipcClient.invoke('system:app-info');
@@ -44,7 +44,7 @@ The `useIPC` hook provides access to the `invoke` function within React componen
 
 **Example: React Hook Usage**
 ```typescript
-import { useIPC } from '@/hooks/useIPC';
+import { useIPC } from '@renderer/hooks/useIPC';
 
 function MyComponent() {
   const { invoke } = useIPC();
@@ -64,7 +64,7 @@ For continuous data streams, you can use the `useIPCStream` hook or the underlyi
 
 **Example: Stream Hook Usage**
 ```typescript
-import { useIPCStream } from '@/hooks/useIPC';
+import { useIPCStream } from '@renderer/hooks/useIPC';
 
 function LogStreamer() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -83,7 +83,7 @@ function LogStreamer() {
 
 ## Shared Type Definitions
 
-These types are shared between the main and renderer processes, located in `packages/shared-types`.
+These types are shared between the main and renderer processes, located in `src/shared/`.
 
 ### IPC Communication Types
 
@@ -254,7 +254,7 @@ A singleton service in the main process that manages all IPC communication. It p
 The IPC framework uses a standardized `IPCError` object for failures.
 
 ### Common Error Codes
-A comprehensive list of error codes is defined in `packages/shared-types/src/index.ts` under `IPC_ERROR_CODES`. Key categories include:
+A comprehensive list of error codes is defined in `src/shared/index.ts` under `IPC_ERROR_CODES`. Key categories include:
 - **`UNKNOWN_ERROR`**: A generic, unexpected error.
 - **`INVALID_REQUEST`**: Malformed request (e.g., missing ID).
 - **`INVALID_CHANNEL`**: No handler for the requested channel.
@@ -266,7 +266,7 @@ A comprehensive list of error codes is defined in `packages/shared-types/src/ind
 
 ### Error Handling Example
 ```typescript
-import { useIPC } from '@/hooks/useIPC';
+import { useIPC } from '@renderer/hooks/useIPC';
 import type { IPCError } from '@shared';
 
 function Component() {

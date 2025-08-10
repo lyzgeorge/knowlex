@@ -15,8 +15,8 @@ Knowlex 是一款为知识工作者打造的桌面智能助理应用，旨在构
 ### 1.2 架构设计原则
 
 - **分层架构 (Layered Architecture)**:
-  - **展示层 (Presentation Layer)**: UI组件和状态管理 (`src`)。
-  - **应用层 (Application Layer)**: 业务逻辑和服务编排 (`src-electron/services`)。
+  - **展示层 (Presentation Layer)**: UI组件和状态管理 (`src/renderer`)。
+  - **应用层 (Application Layer)**: 业务逻辑和服务编排 (`src/main/services`)。
   - **领域层 (Domain Layer)**: 核心模型和业务规则 (在服务和数据库模型中体现)。
   - **基础设施层 (Infrastructure Layer)**: 数据库、文件系统、外部API封装。
 - **核心设计原则**:
@@ -31,21 +31,25 @@ Knowlex 是一款为知识工作者打造的桌面智能助理应用，旨在构
 
 ```
 knowlex/
-├── src/                      # 前端 (Renderer Process - React App)
-│   ├── components/           # UI 组件 (原子/分子/组织)
-│   ├── hooks/                # 自定义 Hooks
-│   ├── lib/                  # 工具函数, 客户端服务
-│   ├── pages/                # 页面级组件
-│   ├── stores/               # Zustand 状态管理
-│   ├── styles/               # 全局样式与 Tailwind/Chakra 配置
-│   └── main.tsx              # 前端入口
-├── src-electron/             # 后端 (Main Process - Electron)
-│   ├── services/             # 核心原子服务
-│   ├── lib/                  # 后端工具函数 (e.g., db-helpers)
+├── src/                      # 统一源码目录
+│   ├── main/                 # 主进程代码 (Main Process - Electron)
+│   │   ├── index.ts          # 主进程入口
+│   │   ├── services/         # 核心原子服务
+│   │   └── lib/              # 后端工具函数 (e.g., db-helpers)
 │   ├── preload/              # 预加载脚本
-│   └── main.ts               # 后端入口
-├── packages/
-│   └── shared-types/         # 前后端共享的类型定义 (e.g., IPC, DB Schema)
+│   │   └── index.ts          # 预加载入口
+│   ├── renderer/             # 渲染进程代码 (Renderer Process - React App)
+│   │   ├── index.html        # HTML 入口
+│   │   └── src/              # React 应用源码
+│   │       ├── main.tsx      # React 入口
+│   │       ├── components/   # UI 组件 (原子/分子/组织)
+│   │       ├── hooks/        # 自定义 Hooks
+│   │       ├── lib/          # 客户端工具函数与服务
+│   │       ├── pages/        # 页面级组件
+│   │       ├── stores/       # Zustand 状态管理
+│   │       └── styles/       # 全局样式与 Chakra UI 配置
+│   └── shared/               # 前后端共享代码
+│       └── index.ts          # 共享类型定义 (IPC, DB Schema 等)
 ├── docs/
 ├── electron.vite.config.ts   # Vite 配置文件
 ├── tsconfig.json             # 根 TypeScript 配置
@@ -93,13 +97,13 @@ knowlex/
 | ------------- | ------------------------ | --------------------------------------------- |
 | **前端框架**  | React 18 + TypeScript    | 构建用户界面的核心。                          |
 | **桌面框架**  | Electron                 | 提供跨平台能力。                              |
-| **UI 组件库** | Chakra UI + Tailwind CSS | Chakra 提供组件骨架，Tailwind 提供原子化CSS。 |
+| **UI 组件库** | Chakra UI | 提供完整的组件系统和主题化设计。 |
 | **状态管理**  | Zustand                  | 轻量级全局状态管理。                          |
 | **数据库**    | libsql                   | 高性能 SQLite 兼容数据库，原生支持向量存储。   |
 | **构建工具**  | Vite (electron-vite)     | 开发和打包工具。                              |
 | **数据库驱动** | @libsql/client          | libsql 官方 Node.js 客户端。                 |
 
-## 3. 核心服务层设计 (src-electron/services)
+## 3. 核心服务层设计 (src/main/services)
 
 ### 3.1 服务架构
 
@@ -177,10 +181,11 @@ knowlex/
 
 ### 4.3 UI 与样式策略
 
-- **集成方案**: 采用团队行为约定。
-  1. **Chakra UI 负责宏观布局和复杂组件**: 使用 `<Box>`, `<Stack>`, `<Grid>` 进行页面布局；使用 `Modal`, `Drawer`, `Menu` 等处理复杂交互和可访问性。
-  2. **Tailwind CSS 负责微观样式和自定义**: 用于快速为简单元素（`div`, `span`）添加样式，或进行一次性的样式微调，弥补 Chakra 不足的场景。
-  3. **同步设计令牌 (推荐)**: 将 Chakra 的主题配置（颜色、间距、字体）注入到 `tailwind.config.js` 中，确保二者使用同一套设计语言，实现视觉一致性。
+- **UI 设计方案**: 完全基于 Chakra UI 的设计系统。
+  1. **布局组件**: 使用 `<Box>`, `<Stack>`, `<Grid>`, `<Flex>` 进行页面布局和组件排列。
+  2. **交互组件**: 使用 `Modal`, `Drawer`, `Menu`, `Popover` 等处理复杂交互和可访问性。
+  3. **样式定制**: 通过 Chakra UI 的主题系统进行样式定制，使用 `sx` 属性进行局部样式调整。
+  4. **设计令牌**: 使用 Chakra UI 的设计令牌系统（颜色、间距、字体、阴影等）确保视觉一致性。
 
 ### 4.4 核心界面设计
 

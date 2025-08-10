@@ -15,7 +15,7 @@
   - 配置 Vite 构建工具和开发服务器 (electron-vite)
   - 设置 ESLint、Prettier 代码规范，集成 husky + lint-staged 钩子
   - 配置 Vitest 测试框架
-  - 创建基础目录结构：src/, src-electron/, packages/shared-types/
+  - 创建基础目录结构：src/（统一源码目录，包含 main/, preload/, renderer/, shared/）
   - 配置 pnpm workspace 和 monorepo 结构
   - 实现基础的 Electron 主进程和渲染进程通信
   - _需求: D1.6 (跨平台与更新), D1.4 (数据管理)_
@@ -33,7 +33,7 @@
   - _需求: D1.4 (数据管理), B2.3 (后台处理流程-RAG)_
 
 - [x] 3. IPC 通信框架搭建
-  - 定义 IPC 通道接口和类型 (packages/shared-types/)
+  - 定义 IPC 通道接口和类型 (src/shared/)
   - 实现预加载脚本 (preload) 安全桥梁
   - 实现主进程 IPC 处理器基础框架
   - 实现渲染进程 IPC 客户端
@@ -54,7 +54,7 @@
 
 - [ ] 5. OpenAI JS SDK 集成
   - 使用标准的 OpenAI JS SDK 替代复杂的 Agents SDK
-  - 后端代码在 src-electron/ 前端代码在 src/
+  - 后端代码在 src/main/ 前端代码在 src/renderer/
   - 集成 OpenAI JS SDK 并配置客户端
   - 实现基础聊天功能（非流式和流式）
   - 实现流式响应处理和前端渲染
@@ -125,7 +125,7 @@
 
 - [ ] 12. UI/UX 设计系统搭建
   - 创建设计系统和组件 tokens
-  - 定义 Chakra UI 主题变量与 Tailwind 的一致性
+  - 定义 Chakra UI 主题变量和设计令牌系统
   - 设计关键界面原型和交互流程
   - 集成 react-i18next 国际化框架
   - _需求: D1.2, D1.3, D1.5_

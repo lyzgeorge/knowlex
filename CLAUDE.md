@@ -5,7 +5,7 @@ Knowlex is a desktop AI assistant for knowledge workers, providing a secure, pri
 
 ## Key Technologies
 - **Desktop**: Electron + React 18 + TypeScript
-- **UI**: Chakra UI + Tailwind CSS + Heroicons (Use Chakra UI to build main layouts, Tailwind CSS style name should always have "tw-" prefix.)
+- **UI**: Chakra UI + Heroicons (Use Chakra UI for all layouts and styling)
 - **State**: Zustand
 - **Database**: libsql (SQLite-compatible with native vector support)
 - **Build**: Vite (electron-vite)
@@ -13,21 +13,25 @@ Knowlex is a desktop AI assistant for knowledge workers, providing a secure, pri
 ## Architecture
 ```
 knowlex/
-├── src/                      # 前端 (Renderer Process - React App)
-│   ├── components/           # UI 组件 (原子/分子/组织)
-│   ├── hooks/                # 自定义 Hooks
-│   ├── lib/                  # 工具函数, 客户端服务
-│   ├── pages/                # 页面级组件
-│   ├── stores/               # Zustand 状态管理
-│   ├── styles/               # 全局样式与 Tailwind/Chakra 配置
-│   └── main.tsx              # 前端入口
-├── src-electron/             # 后端 (Main Process - Electron)
-│   ├── services/             # 核心原子服务
-│   ├── lib/                  # 后端工具函数 (e.g., db-helpers)
+├── src/                      # 统一源码目录
+│   ├── main/                 # 主进程代码 (Main Process - Electron)
+│   │   ├── index.ts          # 主进程入口
+│   │   ├── services/         # 核心原子服务
+│   │   └── lib/              # 后端工具函数 (e.g., db-helpers)
 │   ├── preload/              # 预加载脚本
-│   └── main.ts               # 后端入口
-├── packages/
-│   └── shared-types/         # 前后端共享的类型定义 (e.g., IPC, DB Schema)
+│   │   └── index.ts          # 预加载入口
+│   ├── renderer/             # 渲染进程代码 (Renderer Process - React App)
+│   │   ├── index.html        # HTML 入口
+│   │   └── src/              # React 应用源码
+│   │       ├── main.tsx      # React 入口
+│   │       ├── components/   # UI 组件 (原子/分子/组织)
+│   │       ├── hooks/        # 自定义 Hooks
+│   │       ├── lib/          # 客户端工具函数与服务
+│   │       ├── pages/        # 页面级组件
+│   │       ├── stores/       # Zustand 状态管理
+│   │       └── styles/       # 全局样式与 Chakra UI 配置
+│   └── shared/               # 前后端共享代码
+│       └── index.ts          # 共享类型定义 (IPC, DB Schema 等)
 ├── docs/
 ├── electron.vite.config.ts   # Vite 配置文件
 ├── tsconfig.json             # 根 TypeScript 配置
@@ -43,7 +47,7 @@ BEFORE starting any work, you MUST:
 3. Create a solid, detailed plan that aligns with the project specifications
 4. Ensure your approach follows the established architecture and design patterns
 
-## Core Services (src-electron/services/)
+## Core Services (src/main/services/)
 
 - **DatabaseService**: libsql connection + vector operations
 - **ProjectService**: Project lifecycle management

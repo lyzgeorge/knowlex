@@ -8,17 +8,17 @@ The Knowlex desktop application uses a secure Inter-Process Communication (IPC) 
 
 ### Three-Layer Architecture
 
-1. **Main Process Layer** (`src-electron/services/ipc.service.ts`)
+1. **Main Process Layer** (`src/main/services/ipc.service.ts`)
    - IPC service with router and middleware support
    - Request validation and error handling
    - Handler registration and management
 
-2. **Preload Layer** (`src-electron/preload/index.ts`)
+2. **Preload Layer** (`src/preload/index.ts`)
    - Security bridge between main and renderer processes
    - API exposure through `contextBridge`
    - Type-safe method wrappers
 
-3. **Renderer Layer** (`src/lib/ipc-client.ts`, `src/hooks/useIPC.ts`)
+3. **Renderer Layer** (`src/renderer/src/lib/ipc-client.ts`, `src/renderer/src/hooks/useIPC.ts`)
    - Client-side IPC wrapper
    - React hooks for easy integration
    - Stream and event handling utilities
@@ -71,7 +71,7 @@ interface IPCStreamData<T = any> {
 
 ## Channel Definitions
 
-All IPC channels are defined in `packages/shared-types/src/index.ts`:
+All IPC channels are defined in `src/shared/index.ts`:
 
 ### System Channels
 - `system:ping` - Health check
@@ -125,13 +125,13 @@ All IPC channels are defined in `packages/shared-types/src/index.ts`:
 ### Basic IPC Request (Renderer)
 
 ```typescript
-import { ipcClient } from '@/lib/ipc-client'
+import { ipcClient } from '@renderer/lib/ipc-client'
 
 // Using the client directly
 const result = await ipcClient.invoke('system:ping')
 
 // Using React hooks
-import { useIPC } from '@/hooks/useIPC'
+import { useIPC } from '@renderer/hooks/useIPC'
 
 function MyComponent() {
   const { invoke } = useIPC()
@@ -152,7 +152,7 @@ function MyComponent() {
 ### Handler Registration (Main Process)
 
 ```typescript
-import { IPCService } from '@/services/ipc.service'
+import { IPCService } from '@main/services/ipc.service'
 
 const ipcService = IPCService.getInstance()
 
@@ -188,7 +188,7 @@ ipcService.handleStream('my-stream', {
 ### Streaming Data (Renderer)
 
 ```typescript
-import { createStreamListener } from '@/lib/ipc-client'
+import { createStreamListener } from '@renderer/lib/ipc-client'
 
 // Create stream listener
 const streamListener = createStreamListener('my-stream', {
@@ -208,7 +208,7 @@ streamListener.stop()
 ### React Hook for Streaming
 
 ```typescript
-import { useIPCStream } from '@/hooks/useIPC'
+import { useIPCStream } from '@renderer/hooks/useIPC'
 
 function StreamingComponent() {
   const [chunks, setChunks] = useState([])
@@ -381,7 +381,7 @@ When updating IPC interfaces:
 
 ### Example Test
 ```typescript
-import { IPCService } from '@/services/ipc.service'
+import { IPCService } from '@main/services/ipc.service'
 
 describe('IPC Service', () => {
   it('should handle ping request', async () => {
