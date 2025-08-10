@@ -44,7 +44,7 @@
 
 ### 阶段二：核心 AI 功能实现
 
-- [ ] 4. Mock 服务实现
+- [x] 4. Mock 服务实现
   - 实现 IPC Mock 服务，基于 @knowlex/types 自动生成 Mock 数据
   - 实现 OpenAI Mock 服务，支持流式和非流式响应模拟
   - 实现数据库 Mock 服务，提供预定义测试场景

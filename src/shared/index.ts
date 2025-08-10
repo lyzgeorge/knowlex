@@ -114,7 +114,14 @@ export const IPC_CHANNELS = {
   // 设置相关
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
-  SETTINGS_GET_ALL: 'settings:get-all'
+  SETTINGS_GET_ALL: 'settings:get-all',
+
+  // Mock 管理相关 (开发模式)
+  MOCK_STATUS: 'mock:status',
+  MOCK_HEALTH: 'mock:health',
+  MOCK_SWITCH_SCENARIO: 'mock:switch-scenario',
+  MOCK_LIST_SCENARIOS: 'mock:list-scenarios',
+  MOCK_EXECUTE_COMMAND: 'mock:execute-command'
 } as const
 
 // IPC 流式通道定义

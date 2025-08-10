@@ -367,6 +367,168 @@ When updating IPC interfaces:
 5. **Test all affected components**
 6. **Update documentation**
 
+## Mock Services Integration
+
+The IPC framework includes comprehensive mock services for development and testing, providing realistic data simulation without external dependencies.
+
+> **✅ Implementation Status**: Mock services are fully implemented and operational in development mode. All 50+ IPC channels are automatically mocked with realistic data generation, and the Mock Manager provides runtime control through the Debug App interface.
+
+### Mock Service Architecture
+
+The mock system consists of four main components:
+
+1. **MockService** - Core data generation and scenario management
+2. **OpenAIMockService** - OpenAI API simulation with streaming support
+3. **IPCMockService** - Automatic IPC handler registration for all channels
+4. **MockManagerService** - Centralized control and configuration
+
+### Automatic Mock Handler Registration
+
+In development mode, mock handlers are automatically registered for all IPC channels:
+
+```typescript
+// Mock handlers are automatically registered for all channels
+// No manual setup required in development mode
+
+// Example: Database operations are mocked
+const stats = await ipcClient.invoke('database:stats')
+// Returns realistic mock database statistics
+
+// Example: LLM operations are mocked  
+const response = await ipcClient.invoke('llm:chat', {
+  messages: [{ role: 'user', content: 'Hello' }],
+  model: 'gpt-3.5-turbo'
+})
+// Returns realistic mock chat completion
+```
+
+### Mock Data Scenarios
+
+Multiple predefined scenarios for different testing needs:
+
+```typescript
+// Available scenarios
+- 'default'  // Medium-sized realistic dataset
+- 'empty'    // Clean slate for new user testing
+- 'large'    // Performance testing with large datasets  
+- 'error'    // Error condition testing
+
+// Switch scenarios at runtime
+await ipcClient.invoke('mock:switch-scenario', { scenarioId: 'large' })
+```
+
+### Mock Configuration
+
+Configure mock behavior through the Mock Manager:
+
+```typescript
+// Get current mock status
+const status = await ipcClient.invoke('mock:status')
+
+// Run health check
+const health = await ipcClient.invoke('mock:health')
+
+// Execute mock commands
+await ipcClient.invoke('mock:execute-command', {
+  command: 'simulate-error',
+  args: ['DB_CONNECTION_ERROR']
+})
+```
+
+### Streaming Mock Support
+
+Mock services support streaming operations with realistic timing:
+
+```typescript
+// Mock file processing with progress updates
+const streamListener = createStreamListener('file:upload', {
+  onData: (progress) => {
+    console.log(`Processing: ${progress.progress}%`)
+  },
+  onEnd: () => {
+    console.log('File processing complete')
+  }
+})
+
+// Mock LLM streaming responses
+const chatStream = createStreamListener('llm:stream', {
+  onData: (chunk) => {
+    console.log('Token:', chunk.content)
+  }
+})
+```
+
+### Mock Error Simulation
+
+Configurable error simulation for testing error handling:
+
+```typescript
+// Configure error rates
+await ipcClient.invoke('mock:execute-command', {
+  command: 'update-config',
+  args: [{
+    globalErrorRate: 0.1, // 10% error rate
+    delays: {
+      short: 100,
+      medium: 500, 
+      long: 2000
+    }
+  }]
+})
+
+// Simulate specific errors
+const error = await ipcClient.invoke('mock:simulate-error', {
+  errorType: 'LLM_API_ERROR'
+})
+```
+
+### Development Mode Integration
+
+Mock services automatically activate in development:
+
+```typescript
+// In development mode:
+// - All IPC handlers are automatically mocked
+// - Real services are bypassed
+// - Realistic data is generated on-demand
+// - No external API keys or services required
+// - Mock Manager control channels are available for runtime management
+
+// Check if mocks are active
+const mockStatus = await ipcClient.invoke('mock:status')
+if (mockStatus.enabled) {
+  console.log('Running with mock services')
+  console.log('Current scenario:', mockStatus.currentScenario)
+  console.log('Registered handlers:', mockStatus.services.ipc.handlersCount)
+}
+```
+
+### Mock Service Channels
+
+Additional IPC channels for mock management (available in development mode):
+
+- `mock:status` - Get mock system status and statistics
+- `mock:health` - Run comprehensive health check on all mock services
+- `mock:switch-scenario` - Change active data scenario for testing
+- `mock:list-scenarios` - Get available mock data scenarios
+- `mock:execute-command` - Execute mock management commands
+
+### Debug Interface Integration
+
+The Mock services integrate with the Debug App interface:
+
+```typescript
+// Access mock controls through the Debug App
+// Navigate to: Debug App → Mock Services tab
+
+// Available operations:
+// - View mock service status and statistics
+// - Switch between data scenarios
+// - Run health checks
+// - Simulate errors for testing
+// - Monitor real-time mock performance
+```
+
 ## Testing
 
 ### Unit Tests
@@ -378,6 +540,12 @@ When updating IPC interfaces:
 - Test full IPC communication flow
 - Verify streaming data handling
 - Test error propagation
+
+### Mock Service Testing
+- Test scenario switching and data consistency
+- Verify mock data generation and relationships
+- Test error simulation and recovery
+- Validate streaming mock behavior
 
 ### Example Test
 ```typescript
@@ -400,6 +568,18 @@ describe('IPC Service', () => {
     const response = await ipcService.getRouter().handleRequest(mockContext)
     expect(response.success).toBe(true)
     expect(response.data).toBe('pong')
+  })
+
+  it('should handle mock scenario switching', async () => {
+    // Switch to empty scenario
+    const result = await ipcClient.invoke('mock:switch-scenario', { 
+      scenarioId: 'empty' 
+    })
+    expect(result).toBe(true)
+
+    // Verify scenario change
+    const status = await ipcClient.invoke('mock:status')
+    expect(status.currentScenario).toBe('empty')
   })
 })
 ```

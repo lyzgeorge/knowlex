@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { DatabaseService } from './services/database.service'
 import { IPCService } from './services/ipc.service'
+import { MockManagerService } from './services/mock-manager.service'
 import { IPC_CHANNELS } from '@shared'
 
 let mainWindow: BrowserWindow | null = null
@@ -203,6 +204,18 @@ async function initializeServices(): Promise<void> {
     throw new Error(`IPC initialization failed: ${error}`)
   }
 
+  // Initialize Mock Manager (development mode only)
+  if (is.dev) {
+    try {
+      const mockManager = MockManagerService.getInstance()
+      await mockManager.initialize()
+      console.log('✓ Mock Manager initialized successfully')
+    } catch (error) {
+      console.error('✗ Failed to initialize Mock Manager:', error)
+      // Don't throw error, continue without mocks
+    }
+  }
+
   // Initialize libsql database
   try {
     const dbService = DatabaseService.getInstance()
@@ -213,8 +226,14 @@ async function initializeServices(): Promise<void> {
     throw new Error(`Database initialization failed: ${error}`)
   }
 
-  // Register all IPC handlers
-  await registerIPCHandlers()
+  // Register all IPC handlers (only if not using mocks)
+  if (!is.dev) {
+    await registerIPCHandlers()
+  } else {
+    console.log('✓ Using Mock IPC handlers in development mode')
+    // Still need to register Mock Manager control handlers in development
+    await registerMockManagerHandlers()
+  }
 }
 
 async function registerIPCHandlers(): Promise<void> {
@@ -316,6 +335,37 @@ async function registerIPCHandlers(): Promise<void> {
   console.log('✓ All IPC handlers registered successfully')
 }
 
+async function registerMockManagerHandlers(): Promise<void> {
+  const ipcService = IPCService.getInstance()
+  const mockManager = MockManagerService.getInstance()
+
+  ipcService.handle('mock:status', {
+    handle: async () => mockManager.getStatus()
+  })
+
+  ipcService.handle('mock:health', {
+    handle: async () => await mockManager.runHealthCheck()
+  })
+
+  ipcService.handle('mock:switch-scenario', {
+    handle: async (data: { scenarioId: string }) => {
+      return await mockManager.switchScenario(data.scenarioId)
+    }
+  })
+
+  ipcService.handle('mock:list-scenarios', {
+    handle: async () => mockManager.getAvailableScenarios()
+  })
+
+  ipcService.handle('mock:execute-command', {
+    handle: async (data: { command: string; args?: any[] }) => {
+      return await mockManager.executeCommand(data.command, data.args || [])
+    }
+  })
+
+  console.log('✓ Mock Manager IPC handlers registered')
+}
+
 async function handleInitializationError(error: Error): Promise<void> {
   console.error('Application initialization failed:', error)
 
@@ -394,6 +444,17 @@ app.on('window-all-closed', async () => {
     if (dbService) {
       await dbService.close()
       console.log('✓ Database connection closed')
+    }
+
+    // Destroy Mock Manager (development only)
+    if (is.dev) {
+      try {
+        const mockManager = MockManagerService.getInstance()
+        mockManager.destroy()
+        console.log('✓ Mock Manager destroyed')
+      } catch (error) {
+        console.warn('⚠️  Error destroying Mock Manager:', error)
+      }
     }
 
     // Destroy IPC service
