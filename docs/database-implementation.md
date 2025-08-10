@@ -95,17 +95,18 @@ PRAGMA cache_size = 1000
 PRAGMA temp_store = memory
 ```
 
-#### Vector Query Optimization
+#### General Query Optimization
+The `optimizeVectorQueries` method applies general performance settings:
 ```sql
-PRAGMA vector_cache_size = 10000
-PRAGMA vector_index_type = hnsw
+PRAGMA cache_size = 10000
+PRAGMA temp_store = memory
 ```
 
 #### Indexes
 - Primary key indexes on all tables
 - Foreign key indexes for joins
 - Composite indexes for common queries
-- **Native vector indexes** for similarity search
+- **Standard indexes on vector columns** for similarity search
 
 ### 6. IPC Integration
 
@@ -121,7 +122,7 @@ PRAGMA vector_index_type = hnsw
 
 #### Preload API
 ```typescript
-window.api.database = {
+window.knowlexAPI.database = {
   healthCheck: () => Promise<HealthStatus>,
   getStats: () => Promise<DatabaseStats>,
   insertVector: (chunkId, content, embedding) => Promise<void>,

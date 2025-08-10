@@ -1,430 +1,283 @@
-# Knowlex Desktop API 参考文档
+# Knowlex Desktop API Reference
 
-## 概述
+## Overview
 
-本文档描述了 Knowlex Desktop 应用中的 API 接口，包括 IPC 通信接口、共享类型定义和核心服务接口。
+This document describes the API interfaces for the Knowlex Desktop application, including IPC communication, shared type definitions, and core services.
 
-## IPC 通信接口
+## IPC Communication
 
-### 渲染进程 API (window.api)
+Communication between the renderer (frontend) and main (backend) processes is handled via a secure IPC framework.
 
-渲染进程通过 `window.api` 对象与主进程通信，所有方法都是异步的。
+### Renderer Process API
 
-#### 基础方法
+The preload script exposes a global `window.knowlexAPI` object. For ease of use in the React application, this is wrapped into a singleton `ipcClient` and convenient React hooks (`useIPC`, `useIPCStream`).
 
-##### `ping()`
+#### `ipcClient`
 
-测试 IPC 通信连接。
+The `ipcClient` provides a clean, promise-based interface.
 
-**语法**
+**Example: Basic IPC Call**
 ```typescript
-window.api.ping(): Promise<string>
+import { ipcClient } from '@/lib/ipc-client';
+
+// Invoke a method on the main process
+const appInfo = await ipcClient.invoke('system:app-info');
+console.log(appInfo);
+
+// Using the namespaced helpers
+const health = await ipcClient.database.healthCheck();
+console.log(health);
 ```
 
-**返回值**
-- `Promise<string>` - 返回 "pong" 字符串
+#### `useIPC` Hook
 
-**示例**
+The `useIPC` hook provides access to the `invoke` function within React components.
+
+**Example: React Hook Usage**
 ```typescript
-const result = await window.api.ping()
-console.log(result) // "pong"
+import { useIPC } from '@/hooks/useIPC';
+
+function MyComponent() {
+  const { invoke } = useIPC();
+
+  const checkDbHealth = async () => {
+    const healthStatus = await invoke('database:health-check');
+    console.log(healthStatus);
+  };
+
+  return <button onClick={checkDbHealth}>Check DB Health</button>;
+}
 ```
 
-##### `invoke<T>(channel, data?)`
+#### Streaming
 
-通用 IPC 调用方法。
+For continuous data streams, you can use the `useIPCStream` hook or the underlying `createStreamListener`.
 
-**语法**
+**Example: Stream Hook Usage**
 ```typescript
-window.api.invoke<T = any>(channel: string, data?: any): Promise<T>
+import { useIPCStream } from '@/hooks/useIPC';
+
+function LogStreamer() {
+  const [logs, setLogs] = useState<string[]>([]);
+
+  useIPCStream('stream:log-channel', {
+    onData: (logEntry) => {
+      setLogs(prev => [...prev, logEntry]);
+    },
+    onEnd: () => console.log('Log stream ended.'),
+    onError: (err) => console.error('Stream error:', err),
+  });
+
+  // ...
+}
 ```
 
-**参数**
-- `channel` (string) - IPC 通道名称
-- `data` (any, 可选) - 传递给主进程的数据
+## Shared Type Definitions
 
-**返回值**
-- `Promise<T>` - 主进程返回的数据
+These types are shared between the main and renderer processes, located in `packages/shared-types`.
 
-**示例**
-```typescript
-// 调用数据库查询
-const users = await window.api.invoke<User[]>('db:users:findAll')
-
-// 调用带参数的方法
-const user = await window.api.invoke<User>('db:users:findById', { id: '123' })
-```
-
-##### `onStream(channel, callback)`
-
-监听流式数据。
-
-**语法**
-```typescript
-window.api.onStream(channel: string, callback: (data: any) => void): () => void
-```
-
-**参数**
-- `channel` (string) - 流式数据通道名称
-- `callback` (function) - 数据接收回调函数
-
-**返回值**
-- `function` - 取消监听的函数
-
-**示例**
-```typescript
-// 监听 AI 回复流
-const unsubscribe = window.api.onStream('ai:chat:stream', (chunk) => {
-  console.log('Received chunk:', chunk)
-})
-
-// 取消监听
-unsubscribe()
-```
-
-## 共享类型定义
-
-### IPC 通信类型
+### IPC Communication Types
 
 #### `IPCRequest<T>`
-
-IPC 请求数据结构。
-
 ```typescript
 interface IPCRequest<T = any> {
-  id: string        // 请求唯一标识符
-  channel: string   // IPC 通道名称
-  data: T          // 请求数据
-  timestamp: number // 请求时间戳
+  id: string;        // Unique request identifier
+  channel: string;   // IPC channel name
+  data: T;           // Request payload
+  timestamp: number; // Request timestamp
+  version?: string;  // API version (optional)
 }
 ```
 
 #### `IPCResponse<T>`
-
-IPC 响应数据结构。
-
 ```typescript
 interface IPCResponse<T = any> {
-  id: string        // 对应请求的标识符
-  success: boolean  // 请求是否成功
-  data?: T         // 响应数据（成功时）
-  error?: string   // 错误信息（失败时）
-  timestamp: number // 响应时间戳
+  id: string;         // Corresponds to the request ID
+  success: boolean;   // True if the operation succeeded
+  data?: T;          // Response payload (on success)
+  error?: IPCError;  // Error details (on failure)
+  timestamp: number;  // Response timestamp
+  version?: string;   // API version (optional)
 }
 ```
 
-### 数据库实体类型
+#### `IPCError`
+```typescript
+interface IPCError {
+  code: string;    // Error code (e.g., 'DB_QUERY_ERROR')
+  message: string; // Human-readable error message
+  details?: any;   // Additional error details (optional)
+  stack?: string;  // Stack trace (in development mode)
+}
+```
+
+### Database Entity Types
 
 #### `Project`
-
-项目实体。
-
 ```typescript
 interface Project {
-  id: string           // 项目唯一标识符
-  name: string         // 项目名称
-  description?: string // 项目描述
-  created_at: string   // 创建时间 (ISO 8601)
-  updated_at: string   // 更新时间 (ISO 8601)
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
 #### `Conversation`
-
-对话实体。
-
 ```typescript
 interface Conversation {
-  id: string          // 对话唯一标识符
-  project_id?: string // 所属项目 ID（可选）
-  title: string       // 对话标题
-  created_at: string  // 创建时间 (ISO 8601)
-  updated_at: string  // 更新时间 (ISO 8601)
+  id: string;
+  project_id?: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
 #### `Message`
-
-消息实体。
-
 ```typescript
 interface Message {
-  id: string             // 消息唯一标识符
-  conversation_id: string // 所属对话 ID
-  role: 'user' | 'assistant' // 消息角色
-  content: string        // 消息内容
-  files?: string[]       // 附件文件列表
-  created_at: string     // 创建时间 (ISO 8601)
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  files?: string[]; // From metadata
+  created_at: string;
 }
 ```
 
 #### `ProjectFile`
-
-项目文件实体。
-
 ```typescript
 interface ProjectFile {
-  id: string                              // 文件唯一标识符
-  project_id: string                      // 所属项目 ID
-  filename: string                        // 文件名
-  filepath: string                        // 文件路径
-  file_size: number                       // 文件大小（字节）
-  file_hash: string                       // 文件哈希值
-  status: 'processing' | 'completed' | 'failed' // 处理状态
-  created_at: string                      // 创建时间 (ISO 8601)
-  updated_at: string                      // 更新时间 (ISO 8601)
+  id: string;
+  project_id: string;
+  filename: string;
+  filepath: string;
+  file_size: number;
+  file_hash: string;
+  status: 'processing' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
 }
 ```
 
 #### `TextChunk`
-
-文本块实体（用于向量化）。
-
 ```typescript
 interface TextChunk {
-  id: string          // 文本块唯一标识符
-  file_id: string     // 所属文件 ID
-  content: string     // 文本内容
-  chunk_index: number // 块索引
-  embedding?: number[] // 向量嵌入（可选）
-  created_at: string  // 创建时间 (ISO 8601)
+  id: string;
+  file_id: string;
+  content: string;
+  chunk_index: number;
+  embedding?: number[]; // Stored as JSON in the database
+  metadata?: Record<string, any>;
+  created_at: string;
 }
 ```
 
-#### `ProjectMemory`
-
-项目记忆实体。
-
-```typescript
-interface ProjectMemory {
-  id: string                    // 记忆唯一标识符
-  project_id: string            // 所属项目 ID
-  type: 'user' | 'system'       // 记忆类型
-  content: string               // 记忆内容
-  created_at: string            // 创建时间 (ISO 8601)
-  updated_at: string            // 更新时间 (ISO 8601)
-}
-```
-
-#### `KnowledgeCard`
-
-知识卡片实体。
-
-```typescript
-interface KnowledgeCard {
-  id: string          // 知识卡片唯一标识符
-  project_id: string  // 所属项目 ID
-  title: string       // 卡片标题
-  content: string     // 卡片内容
-  tags?: string[]     // 标签列表
-  created_at: string  // 创建时间 (ISO 8601)
-  updated_at: string  // 更新时间 (ISO 8601)
-}
-```
-
-#### `AppSettings`
-
-应用设置实体。
-
-```typescript
-interface AppSettings {
-  id: string         // 设置唯一标识符
-  key: string        // 设置键名
-  value: string      // 设置值
-  updated_at: string // 更新时间 (ISO 8601)
-}
-```
-
-### 业务逻辑类型
+### Business Logic Types
 
 #### `OpenAIConfig`
-
-OpenAI API 配置。
-
 ```typescript
 interface OpenAIConfig {
-  apiKey: string         // API 密钥
-  baseURL?: string       // API 基础 URL（可选）
-  model: string          // 聊天模型名称
-  embeddingModel: string // 嵌入模型名称
+  apiKey: string;
+  baseURL?: string;
+  model: string;
+  embeddingModel: string;
+  timeout?: number;
+  maxRetries?: number;
 }
 ```
 
 #### `ChatMessage`
-
-聊天消息。
-
 ```typescript
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system' // 消息角色
-  content: string                       // 消息内容
-  files?: FileInfo[]                    // 附件信息
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  files?: FileInfo[];
+  metadata?: Record<string, any>;
 }
 ```
 
 #### `FileInfo`
-
-文件信息。
-
 ```typescript
 interface FileInfo {
-  name: string    // 文件名
-  content: string // 文件内容
-  size: number    // 文件大小（字节）
+  name: string;
+  content: string;
+  size: number;
+  type?: string;
+  lastModified?: number;
 }
 ```
 
 #### `RAGResult`
-
-RAG 检索结果。
-
 ```typescript
 interface RAGResult {
-  content: string     // 文本内容
-  filename: string    // 来源文件名
-  score: number       // 相似度分数
-  chunk_index: number // 文本块索引
+  content: string;
+  filename: string;
+  score: number;
+  chunk_index: number;
+  fileId: string;
+  projectId: string;
 }
 ```
 
-#### `KnowlexError`
+## Core Services
 
-应用错误类型。
+### `DatabaseService`
+A singleton service in the main process that manages the application's `libsql` database. It handles:
+- Connection management and configuration (WAL mode).
+- Schema creation and version-based migrations.
+- CRUD operations for all entities.
+- Transaction support.
+- Vector data operations (insertion, similarity search via in-memory calculation).
+- Health checks and statistics.
 
+### `IPCService`
+A singleton service in the main process that manages all IPC communication. It provides:
+- A router to register handlers for specific IPC channels.
+- Middleware support for logging, authentication, etc.
+- Secure handling of request/response and streaming patterns.
+- Centralized error handling and validation.
+
+## Error Handling
+
+The IPC framework uses a standardized `IPCError` object for failures.
+
+### Common Error Codes
+A comprehensive list of error codes is defined in `packages/shared-types/src/index.ts` under `IPC_ERROR_CODES`. Key categories include:
+- **`UNKNOWN_ERROR`**: A generic, unexpected error.
+- **`INVALID_REQUEST`**: Malformed request (e.g., missing ID).
+- **`INVALID_CHANNEL`**: No handler for the requested channel.
+- **`INVALID_DATA`**: The request payload failed validation.
+- **`DB_*`**: Database-related errors (e.g., `DB_CONNECTION_ERROR`, `DB_QUERY_ERROR`).
+- **`FILE_*`**: File system errors (e.g., `FILE_NOT_FOUND`).
+- **`LLM_*`**: Large Language Model API errors (e.g., `LLM_API_ERROR`).
+- **`PERMISSION_DENIED`**: The action was not permitted.
+
+### Error Handling Example
 ```typescript
-interface KnowlexError {
-  code: string    // 错误代码
-  message: string // 错误消息
-  details?: any   // 错误详情（可选）
-}
-```
+import { useIPC } from '@/hooks/useIPC';
+import type { IPCError } from '@shared';
 
-## 服务接口
+function Component() {
+  const { invoke } = useIPC();
 
-### DatabaseService
-
-数据库服务接口（待实现）。
-
-```typescript
-class DatabaseService {
-  // TODO: 实现数据库服务方法
-  // - 连接管理
-  // - CRUD 操作
-  // - 事务处理
-  // - 迁移管理
-}
-```
-
-### IPCService
-
-IPC 服务接口（待实现）。
-
-```typescript
-class IPCService {
-  // TODO: 实现 IPC 服务方法
-  // - 通道注册
-  // - 消息路由
-  // - 错误处理
-  // - 流式数据处理
-}
-```
-
-## 错误处理
-
-### 错误代码
-
-| 代码 | 描述 | 处理方式 |
-|------|------|----------|
-| `IPC_TIMEOUT` | IPC 调用超时 | 重试或提示用户 |
-| `IPC_CHANNEL_NOT_FOUND` | IPC 通道不存在 | 检查通道名称 |
-| `DATABASE_ERROR` | 数据库操作失败 | 记录日志并提示用户 |
-| `FILE_NOT_FOUND` | 文件不存在 | 提示用户选择有效文件 |
-| `PERMISSION_DENIED` | 权限不足 | 提示用户授权 |
-
-### 错误处理示例
-
-```typescript
-try {
-  const result = await window.api.invoke('some-operation', data)
-  // 处理成功结果
-} catch (error) {
-  if (error instanceof Error) {
-    console.error('Operation failed:', error.message)
-    // 根据错误类型进行处理
-    switch (error.message) {
-      case 'IPC_TIMEOUT':
-        // 重试逻辑
-        break
-      case 'DATABASE_ERROR':
-        // 显示用户友好的错误消息
-        break
-      default:
-        // 通用错误处理
-        break
+  const doSomething = async () => {
+    try {
+      const result = await invoke('some:action');
+      // ... handle success
+    } catch (e) {
+      const error = e as IPCError;
+      console.error(`Operation failed with code ${error.code}: ${error.message}`);
+      // ... show user-friendly message
     }
-  }
+  };
 }
 ```
 
-## 使用示例
+## Version Information
 
-### 基础 IPC 通信
-
-```typescript
-// 渲染进程中
-const App: React.FC = () => {
-  const [status, setStatus] = useState<string>('Connecting...')
-
-  useEffect(() => {
-    // 测试连接
-    window.api.ping()
-      .then(() => setStatus('Connected'))
-      .catch(() => setStatus('Connection failed'))
-  }, [])
-
-  return <div>Status: {status}</div>
-}
-```
-
-### 流式数据处理
-
-```typescript
-const ChatComponent: React.FC = () => {
-  const [messages, setMessages] = useState<string[]>([])
-
-  useEffect(() => {
-    const unsubscribe = window.api.onStream('ai:response', (chunk) => {
-      setMessages(prev => [...prev, chunk])
-    })
-
-    return unsubscribe
-  }, [])
-
-  return (
-    <div>
-      {messages.map((msg, index) => (
-        <div key={index}>{msg}</div>
-      ))}
-    </div>
-  )
-}
-```
-
-## 版本信息
-
-- **API 版本**: 0.1.0
-- **最后更新**: 2025-01-08
-- **兼容性**: Electron 28.3.3+
-
-## 更新日志
-
-### v0.1.0 (2025-01-08)
-
-- 初始 API 设计
-- 基础 IPC 通信接口
-- 共享类型定义
-- 数据库实体类型
-
----
-
-**注意**: 本文档描述的是当前实现的接口。随着开发进展，接口可能会发生变化。请关注更新日志获取最新信息。
+- **API Version**: 1.0.0
+- **Last Updated**: 2025-08-10
+- **Compatibility**: Electron 28+

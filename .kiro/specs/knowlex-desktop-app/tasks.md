@@ -20,7 +20,7 @@
   - 实现基础的 Electron 主进程和渲染进程通信
   - _需求: D1.6 (跨平台与更新), D1.4 (数据管理)_
 
-- [ ] 2. 数据库架构实现（更新为 libsql）
+- [x] 2. 数据库架构实现（更新为 libsql）
   - 集成 @libsql/client 作为主数据库客户端
   - 创建数据库表结构：projects, conversations, messages, project_files, text_chunks, project_memories, knowledge_cards, app_settings
   - 更新 text_chunks 表的 embedding 字段为 VECTOR 类型
@@ -32,7 +32,7 @@
   - 实现向量索引优化和查询性能调优
   - _需求: D1.4 (数据管理), B2.3 (后台处理流程-RAG)_
 
-- [ ] 3. IPC 通信框架搭建
+- [x] 3. IPC 通信框架搭建
   - 定义 IPC 通道接口和类型 (packages/shared-types/)
   - 实现预加载脚本 (preload) 安全桥梁
   - 实现主进程 IPC 处理器基础框架
