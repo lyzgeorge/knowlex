@@ -10,3 +10,21 @@ declare global {
     }
   }
 }
+
+export interface Chat {
+  id: string
+  title: string
+  lastUpdatedAt: Date
+}
+
+export interface Project {
+  id: string
+  name: string
+  chats: Chat[]
+  isExpanded: boolean
+}
+
+export interface User {
+  name: string
+  avatarUrl: string
+}
