@@ -6,9 +6,10 @@ import { IPCService } from './services/ipc.service'
 import { IPC_CHANNELS } from '@shared'
 
 let mainWindow: BrowserWindow | null = null
+let debugWindow: BrowserWindow | null = null
 
-function createWindow(): void {
-  // Create the browser window
+function createMainWindow(): void {
+  // Create the main application window
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -16,6 +17,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false, // Don't show until ready-to-show
     autoHideMenuBar: true,
+    title: 'Knowlex Desktop',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -31,57 +33,26 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     if (mainWindow) {
       mainWindow.show()
-
-      // Focus window
-      if (is.dev) {
-        mainWindow.webContents.openDevTools()
-      }
+      console.log('✓ Main window shown')
     }
   })
 
   // Handle window lifecycle events
   mainWindow.on('close', (_event) => {
     console.log('Main window close event triggered')
+    mainWindow = null
   })
 
   // Handle renderer process crashes
   mainWindow.webContents.on('crashed', async (event) => {
-    console.error('Renderer process crashed:', event)
-
-    const options = {
-      type: 'error',
-      title: 'Application Error',
-      message: 'The application has crashed. Would you like to restart?',
-      buttons: ['Restart', 'Exit'],
-      defaultId: 0
-    }
-
-    const { response } = await dialog.showMessageBox(mainWindow!, options)
-    if (response === 0) {
-      app.relaunch()
-      app.exit(0)
-    } else {
-      app.quit()
-    }
+    console.error('Main window renderer process crashed:', event)
+    await handleWindowCrash(mainWindow, 'Main Application')
   })
 
   // Handle unresponsive renderer
   mainWindow.on('unresponsive', async () => {
-    console.error('Renderer process became unresponsive')
-
-    const options = {
-      type: 'warning',
-      title: 'Application Unresponsive',
-      message: 'The application is not responding. Would you like to restart?',
-      buttons: ['Wait', 'Restart'],
-      defaultId: 0
-    }
-
-    const { response } = await dialog.showMessageBox(mainWindow!, options)
-    if (response === 1) {
-      app.relaunch()
-      app.exit(0)
-    }
+    console.error('Main window renderer process became unresponsive')
+    await handleWindowUnresponsive(mainWindow, 'Main Application')
   })
 
   // Handle external link clicks
@@ -90,11 +61,134 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Load the app
+  // Load the main app (root route)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function createDebugWindow(): void {
+  // Create the debug window (only in development)
+  debugWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
+    show: false,
+    autoHideMenuBar: true,
+    title: 'Knowlex Desktop - Debug Console',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false
+    }
+  })
+
+  // Position debug window to the right of main window
+  if (mainWindow) {
+    const [mainX, mainY] = mainWindow.getPosition()
+    const [mainWidth] = mainWindow.getSize()
+    debugWindow.setPosition(mainX + mainWidth + 20, mainY)
+  }
+
+  // Show window when ready
+  debugWindow.on('ready-to-show', () => {
+    if (debugWindow) {
+      debugWindow.show()
+      // Set window title to ensure debug detection works
+      debugWindow.setTitle('Knowlex Desktop - Debug Console')
+      // Open DevTools for debug window
+      debugWindow.webContents.openDevTools()
+      console.log('✓ Debug window shown with DevTools')
+    }
+  })
+
+  // Handle window lifecycle events
+  debugWindow.on('close', (_event) => {
+    console.log('Debug window close event triggered')
+    debugWindow = null
+  })
+
+  // Handle renderer process crashes
+  debugWindow.webContents.on('crashed', async (event) => {
+    console.error('Debug window renderer process crashed:', event)
+    await handleWindowCrash(debugWindow, 'Debug Console')
+  })
+
+  // Handle unresponsive renderer
+  debugWindow.on('unresponsive', async () => {
+    console.error('Debug window renderer process became unresponsive')
+    await handleWindowUnresponsive(debugWindow, 'Debug Console')
+  })
+
+  // Handle external link clicks
+  debugWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  // Load the debug route with URL parameter
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    debugWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}?mode=debug`)
+  } else {
+    debugWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      query: { mode: 'debug' }
+    })
+  }
+}
+
+// Helper functions for error handling
+async function handleWindowCrash(window: BrowserWindow | null, windowName: string): Promise<void> {
+  if (!window) return
+
+  const options = {
+    type: 'error',
+    title: `${windowName} Error`,
+    message: `The ${windowName.toLowerCase()} has crashed. Would you like to restart it?`,
+    buttons: ['Restart', 'Close'],
+    defaultId: 0
+  }
+
+  const { response } = await dialog.showMessageBox(options)
+  if (response === 0) {
+    // Restart the specific window
+    if (windowName === 'Main Application') {
+      createMainWindow()
+    } else if (windowName === 'Debug Console') {
+      createDebugWindow()
+    }
+  }
+}
+
+async function handleWindowUnresponsive(
+  window: BrowserWindow | null,
+  windowName: string
+): Promise<void> {
+  if (!window) return
+
+  const options = {
+    type: 'warning',
+    title: `${windowName} Unresponsive`,
+    message: `The ${windowName.toLowerCase()} is not responding. Would you like to restart it?`,
+    buttons: ['Wait', 'Restart'],
+    defaultId: 0
+  }
+
+  const { response } = await dialog.showMessageBox(options)
+  if (response === 1) {
+    window.close()
+    // Restart the specific window
+    if (windowName === 'Main Application') {
+      createMainWindow()
+    } else if (windowName === 'Debug Console') {
+      createDebugWindow()
+    }
   }
 }
 
@@ -238,7 +332,10 @@ async function handleInitializationError(error: Error): Promise<void> {
     // Retry initialization
     try {
       await initializeServices()
-      createWindow()
+      createMainWindow()
+      if (is.dev) {
+        createDebugWindow()
+      }
     } catch (retryError) {
       console.error('Retry failed:', retryError)
       app.quit()
@@ -263,12 +360,20 @@ app.whenReady().then(async () => {
     })
 
     // Create main window
-    createWindow()
+    createMainWindow()
+
+    // Create debug window in development mode
+    if (is.dev) {
+      createDebugWindow()
+    }
 
     // Handle activate event (macOS)
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow()
+        createMainWindow()
+        if (is.dev) {
+          createDebugWindow()
+        }
       }
     })
   } catch (error) {

@@ -58,7 +58,36 @@ knowlex/
 - **渲染进程 (Renderer Process)**: 应用的前端，负责 UI 渲染与交互、状态管理、用户输入处理和所有展示逻辑。
 - **预加载脚本 (Preload Script)**: 作为主进程和渲染进程之间的安全桥梁，通过 `contextBridge` 暴露经过严格定义的 API 接口。
 
-### 2.3 技术栈
+### 2.3 开发环境双窗口架构
+
+**设计目标**: 在开发模式下提供主应用界面和调试界面的分离，提高开发效率和调试体验。
+
+**窗口管理策略**:
+- **主窗口 (Main Window)**: 
+  - 显示用户界面 (`MainApp` 组件)
+  - 窗口标题: `Knowlex Desktop`
+  - 尺寸: 1200x800 (最小 800x600)
+  - 路由: 默认加载 `/` 路由
+- **调试窗口 (Debug Window)**: 
+  - 显示开发调试界面 (`DebugApp` 组件)
+  - 窗口标题: `Knowlex Desktop - Debug Console`
+  - 尺寸: 1400x900 (最小 1000x700)
+  - 路由: 加载 `/?mode=debug` 路由
+  - 自动打开 DevTools
+  - 自动定位在主窗口右侧
+
+**路由识别机制**:
+- 使用 URL 参数 `?mode=debug` 区分窗口类型
+- `App.tsx` 根据 URL 参数动态渲染对应组件
+- 支持独立的错误处理和崩溃恢复
+
+**开发体验优化**:
+- 开发模式下自动创建两个窗口
+- 调试窗口包含数据库测试、IPC框架测试、系统信息等开发工具
+- 主窗口专注于用户界面开发和测试
+- 独立的窗口生命周期管理
+
+### 2.4 技术栈
 
 | 分类          | 技术                     | 备注                                          |
 | ------------- | ------------------------ | --------------------------------------------- |
@@ -142,7 +171,9 @@ knowlex/
 - **Atoms (原子)**: `Button`, `Input`, `Icon`, `Avatar`, `Badge`, `Spinner`。
 - **Molecules (分子)**: `MessageBubble`, `FileCard`, `SearchBar`。
 - **Organisms (组织)**: `Sidebar`, `ChatView`, `ProjectDashboard`, `SettingsPanel`。
-- **Pages (页面)**: `ChatPage`, `ProjectPage`, `SettingsPage` 等，负责组合 Organisms。
+- **Pages (页面)**: `MainApp`, `DebugApp`, `ChatPage`, `ProjectPage`, `SettingsPage` 等，负责组合 Organisms。
+  - **`MainApp`**: 主应用界面，包含欢迎页面、功能入口和系统状态展示
+  - **`DebugApp`**: 开发调试界面，包含数据库测试、IPC测试和系统信息
 
 ### 4.3 UI 与样式策略
 

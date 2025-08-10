@@ -1,2 +1,2 @@
-// 页面级组件导出
-// TODO: 导出具体页面组件
+export { default as MainApp } from './MainApp'
+export { default as DebugApp } from './DebugApp'

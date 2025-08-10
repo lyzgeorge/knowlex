@@ -98,7 +98,7 @@ Object.defineProperty(window, 'knowlexAPI', {
 })
 
 describe('App', () => {
-  it('renders Knowlex Desktop title', async () => {
+  it('renders main app by default', async () => {
     render(
       <ChakraProvider>
         <App />
@@ -107,22 +107,39 @@ describe('App', () => {
 
     // Wait for the app to initialize and show the main content
     await waitFor(() => {
-      expect(screen.getByText('Knowlex Desktop')).toBeDefined()
+      expect(screen.getByText('Knowlex')).toBeDefined()
     })
 
     await waitFor(() => {
-      expect(screen.getByText('AI-Powered Knowledge Assistant')).toBeDefined()
+      expect(screen.getByText('Desktop')).toBeDefined()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('欢迎使用 Knowlex 桌面智能助理')).toBeDefined()
     })
   })
 
-  it('renders IPC test button', async () => {
+  it('renders debug app when mode=debug', async () => {
+    // Mock URL search params for debug mode
+    Object.defineProperty(window, 'location', {
+      value: {
+        href: 'http://localhost:3000/?mode=debug',
+        search: '?mode=debug'
+      },
+      writable: true
+    })
+
     render(
       <ChakraProvider>
         <App />
       </ChakraProvider>
     )
 
-    // Wait for the app to initialize and show the main content with the button
+    // Wait for the app to initialize and show the debug content
+    await waitFor(() => {
+      expect(screen.getByText('Knowlex Desktop Debug')).toBeDefined()
+    })
+
     await waitFor(() => {
       expect(screen.getByText('Test IPC Ping')).toBeDefined()
     })

@@ -4,6 +4,15 @@
 
 This document describes the API interfaces for the Knowlex Desktop application, including IPC communication, shared type definitions, and core services.
 
+### Development Environment
+
+The application supports a dual-window development environment:
+
+- **Main Window**: Displays the user interface (`MainApp` component) at the root route `/`
+- **Debug Window**: Displays the development interface (`DebugApp` component) at `/?mode=debug`
+
+The `App.tsx` component uses URL parameters to determine which interface to render, enabling independent development and testing of both user-facing and debugging features.
+
 ## IPC Communication
 
 Communication between the renderer (frontend) and main (backend) processes is handled via a secure IPC framework.
@@ -276,8 +285,40 @@ function Component() {
 }
 ```
 
+## Development Architecture
+
+### Window Management
+
+The application uses a dual-window architecture in development mode:
+
+```typescript
+// Main window loads the default route
+mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+
+// Debug window loads with mode parameter
+debugWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}?mode=debug`)
+```
+
+### Route Detection
+
+The `App.tsx` component detects the window type using URL parameters:
+
+```typescript
+const urlParams = new URLSearchParams(window.location.search)
+const isDebug = urlParams.get('mode') === 'debug'
+
+return isDebug ? <DebugApp /> : <MainApp />
+```
+
+### Component Structure
+
+- **`MainApp`**: User-facing interface with welcome screen, feature cards, and system status
+- **`DebugApp`**: Development interface with database testing, IPC testing, and system information
+- **Shared Components**: Both apps use the same underlying IPC hooks and services
+
 ## Version Information
 
 - **API Version**: 1.0.0
 - **Last Updated**: 2025-08-10
 - **Compatibility**: Electron 28+
+- **Development Features**: Dual-window architecture, URL-based routing, independent error handling
