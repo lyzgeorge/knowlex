@@ -3,3 +3,53 @@ export interface IPCResult<T = unknown> {
   data?: T
   error?: string
 }
+
+// Project IPC
+export interface ProjectCreateRequest {
+  name: string
+  description: string
+}
+
+export interface ProjectUpdateRequest {
+  id: string
+  name?: string
+  description?: string
+}
+
+// Conversation IPC
+export interface ConversationCreateRequest {
+  projectId?: string
+  title?: string
+}
+
+export interface MessageAddRequest {
+  conversationId: string
+  role: 'user' | 'assistant'
+  content: MessageContent
+}
+
+// File IPC
+export interface FileUploadRequest {
+  projectId: string
+  files: File[]
+}
+
+export interface TemporaryFileRequest {
+  files: File[]
+}
+
+// Search IPC
+export interface SearchRequest {
+  query: string
+  projectId?: string
+  limit?: number
+}
+
+// Settings IPC
+export interface SettingsUpdateRequest {
+  key: string
+  value: unknown
+}
+
+// Import MessageContent type
+import type { MessageContent } from './message'

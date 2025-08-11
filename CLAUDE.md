@@ -41,9 +41,9 @@ Knowlex is a cross-platform desktop application built with Electron that serves 
 
 General PRD file: prd/250812-Knowlex-prd.md (for general understanding, if you are not sure about why or how)
 
-Detailed PRD: .kiro/specs/knowlex-desktop-app/requirements.md
+Detailed PRD: .kiro/specs/knowlex-desktop-app/requirements.md 
 
-Tech Design: .kiro/specs/knowlex-desktop-app/design.md
+Tech Design: .kiro/specs/knowlex-desktop-app/design.md (must read before start)
 
 Breakdown Tasks: .kiro/specs/knowlex-desktop-app/tasks.md
 

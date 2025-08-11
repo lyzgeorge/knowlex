@@ -1,17 +1,24 @@
-import React from 'react'
-import { Box, Text, VStack } from '@chakra-ui/react'
+import React, { useMemo } from 'react'
+import { MainApp, DebugApp } from './pages'
 
+/**
+ * Main App component that routes between MainApp and DebugApp based on URL parameters
+ * - Default route (/) renders MainApp - the main user interface
+ * - Debug route (/?mode=debug) renders DebugApp - development debugging interface
+ */
 function App(): JSX.Element {
-  return (
-    <Box minH="100vh" bg="gray.50" p={4}>
-      <VStack spacing={4} align="center" justify="center" minH="100vh">
-        <Text fontSize="2xl" fontWeight="bold">
-          Knowlex Desktop
-        </Text>
-        <Text color="gray.600">Intelligent workspace for researchers and developers</Text>
-      </VStack>
-    </Box>
-  )
+  const appMode = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    return urlParams.get('mode')
+  }, [])
+
+  // Route to debug interface if mode=debug parameter is present
+  if (appMode === 'debug') {
+    return <DebugApp />
+  }
+
+  // Default to main application interface
+  return <MainApp />
 }
 
 export default App
