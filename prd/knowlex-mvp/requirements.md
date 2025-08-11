@@ -1,1 +1,0 @@
-/Users/lyz/Desktop/knowlex/.kiro/specs/knowlex-desktop-app/requirements.md

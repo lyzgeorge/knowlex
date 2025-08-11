@@ -1,40 +1,17 @@
-import React, { useEffect, useState } from 'react'
-import { Box, Spinner, Text, VStack } from '@chakra-ui/react'
-import MainApp from './pages/MainApp'
-import DebugApp from './pages/DebugApp'
+import React from 'react'
+import { Box, Text, VStack } from '@chakra-ui/react'
 
 function App(): JSX.Element {
-  const [isDebugMode, setIsDebugMode] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    // Check if this is the debug window based on URL parameters
-    const urlParams = new URLSearchParams(window.location.search)
-    const isDebug = urlParams.get('mode') === 'debug'
-
-    console.log('App initialization:', {
-      url: window.location.href,
-      search: window.location.search,
-      mode: urlParams.get('mode'),
-      isDebug
-    })
-
-    setIsDebugMode(isDebug)
-  }, [])
-
-  // Show loading while determining mode
-  if (isDebugMode === null) {
-    return (
-      <Box p={8} textAlign="center">
-        <VStack spacing={4}>
-          <Spinner size="lg" />
-          <Text>Loading Knowlex Desktop...</Text>
-        </VStack>
-      </Box>
-    )
-  }
-
-  // Render the appropriate component based on mode
-  return isDebugMode ? <DebugApp /> : <MainApp />
+  return (
+    <Box minH="100vh" bg="gray.50" p={4}>
+      <VStack spacing={4} align="center" justify="center" minH="100vh">
+        <Text fontSize="2xl" fontWeight="bold">
+          Knowlex Desktop
+        </Text>
+        <Text color="gray.600">Intelligent workspace for researchers and developers</Text>
+      </VStack>
+    </Box>
+  )
 }
 
 export default App

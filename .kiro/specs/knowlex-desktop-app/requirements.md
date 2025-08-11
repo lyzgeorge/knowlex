@@ -1,130 +1,186 @@
-## 1. 产品愿景与目标
+# Requirements Document
 
-### 1.1 产品愿景 (Vision)
+## Introduction
 
-为知识工作者（如研究人员、开发者、分析师等）打造一款无缝集成于桌面工作流的、以个人和项目数据为核心的智能助理，将本地文件、项目记忆与强大的语言模型相结合，构建一个安全、私密、个性化的“第二大脑”。
+Knowlex is a cross-platform desktop application built with Electron that serves as an intelligent workspace for researchers, developers, technical writers, and analysts. The application integrates AI-powered conversations, project management, and knowledge accumulation into a unified work environment. It addresses core pain points including information overload, high context-switching costs, difficulty in knowledge retention and reuse, and repetitive work in AI interactions.
 
-### 1.2 核心目标 (Goals)
+The solution provides a project-centric workspace with dual-mode RAG capabilities: project-internal mode with vector search and project memory, and project-external mode for lightweight conversations with temporary file uploads. All data is stored locally using libsql (SQLite) for both structured and vector data.
 
-- **提升信息处理效率**: 通过对话式AI，快速理解、总结和查询本地文档内容。
-- **强化项目知识沉淀**: 将分散的聊天、文件和笔记结构化地组织在项目中，形成可复用的知识库。
-- **保障数据隐私安全**: 所有用户数据（文件、元数据、向量）均存储在本地，确保隐私和数据所有权。
-- **提供无缝工作体验**: 作为跨平台的桌面应用，深度融入用户的日常工作环境。
+## Requirements
 
-## 2. 核心功能模块 (Epics)
+### Requirement 1: Left Sidebar Navigation
 
-我们将产品功能划分为以下四个核心模块：
+**User Story:** As a user, I want a fixed navigation sidebar that provides access to all core features, so that I can efficiently organize and access my projects and conversations.
 
-| 模块 (Epic)         | 核心用户价值                                                 |
-| ------------------- | ------------------------------------------------------------ |
-| **A. 智能对话核心** | 提供流畅、支持上下文、可交互的AI对话体验。                   |
-| **B. 项目空间**     | 围绕项目聚合与管理所有相关信息，提供专属的文件、知识管理视图和具备RAG能力的对话环境。 |
-| **C. 全局信息检索** | 跨越项目和会话，快速定位历史信息。                           |
-| **D. 系统与配置**   | 保障应用的稳定性、个性化和跨平台兼容性。                     |
+#### Acceptance Criteria
 
-## 3. 详细功能需求 (User Stories & Acceptance Criteria)
+1. WHEN the application loads THEN the system SHALL display a fixed 280px width left sidebar
+2. WHEN the user views the sidebar THEN the system SHALL display the Knowlex logo at the top
+3. WHEN the user clicks "+ New Chat" THEN the system SHALL create a new unclassified conversation in the main content area
+4. WHEN the user types in the global search box THEN the system SHALL search across all conversation content
+5. WHEN the user clicks the "+" icon next to Projects THEN the system SHALL open a project creation dialog
+6. WHEN the user clicks a project name THEN the system SHALL expand/collapse the project to show/hide its conversations
+7. WHEN the user hovers over a project THEN the system SHALL display file management, duplicate project, and more options icons
+8. WHEN the user clicks the file management icon THEN the system SHALL load the project's file management view
+9. WHEN the user clicks duplicate project THEN the system SHALL create a new project with the same configuration but no chat history
+10. WHEN the user clicks the more options menu THEN the system SHALL display project settings, rename, and delete options
 
-### **模块 A: 智能对话核心**
+### Requirement 2: Multi-Part Message System
 
-这是用户与产品交互最主要的功能，是所有价值主张的基础。
+**User Story:** As a user, I want to send and receive messages with different content types, so that I can have rich conversations with text, images, and citations.
 
-#### **用户故事 1: 作为用户，我希望能与AI进行基础对话，并上传临时文件作为当前对话的上下文。**
+#### Acceptance Criteria
 
-- **验收标准:**
-  - **A1.1 (创建会话)**: 用户可以通过点击“New Chat”按钮或快捷键 (`⌘/Ctrl+N`) 创建一个新的空白会话（此会话默认未归入任何项目）。
-  - **A1.2 (输入引导)**: 空会话界面应在输入框中显示引导性文字，如“您在忙什么？”。
-  - **A1.3 (文件上传)**:
-    - 用户可通过“+”按钮或拖拽方式上传文件，仅限 `.txt` 和 `.md` 格式。
-    - 系统需限制文件数量（最多10个）和大小（最大1MB），并对超出限制的情况给予明确提示。
-    - 上传的文件应在输入框上方以卡片形式预览，并支持移除。
-  - **A1.4 (消息交互)**:
-    - 用户消息显示在右侧，AI回复显示在左侧。
-    - AI回复应以流式方式实时渲染，并正确解析Markdown格式。
-    - AI回复结束后，应提供“复制”和“重新生成”的快捷操作。
-  - **A1.5 (上下文管理)**:
-    - 系统需支持连续对话，并将历史对话作为上下文。
-    - 对于长对话，系统应自动生成摘要以管理上下文长度（例如，保留最近5轮对话 + 历史摘要）。
-  - **A1.6 (错误处理)**: 当API调用超时或失败时，系统需给出友好提示，并保留用户已输入的内容。
+1. WHEN a user sends a message THEN the system SHALL support multiple content parts in sequence
+2. WHEN rendering text content THEN the system SHALL support full Markdown rendering including code blocks, lists, tables, and quotes
+3. WHEN displaying code blocks THEN the system SHALL provide syntax highlighting and one-click copy functionality
+4. WHEN rendering images THEN the system SHALL display image previews for user-uploaded images
+5. WHEN AI responds with citations THEN the system SHALL display citation source tags with special styling
+6. WHEN AI generates a response THEN the system SHALL render the response in streaming mode token-by-token
+7. WHEN a message is complete THEN the system SHALL optionally display metadata like token consumption and generation time
 
-#### **用户故事 2: 作为用户，我希望能方便地管理我的聊天会话，并对已发送的内容进行修正。**
+### Requirement 3: Message Interaction Operations
 
-- **验收标准:**
-  - **A2.1 (会话命名)**: 对于新会话，系统应在首轮对话后自动生成标题。用户也可以随时对会话进行重命名。
-  - **A2.2 (消息编辑)**: 用户可以对自己发送的消息进行编辑。编辑后，原消息及AI的相应回复将被替换，不保留历史版本。
-  - **A2.3 (会话管理)**: 用户可以删除会话，或将会话在不同项目及“未归类”区域之间移动。
+**User Story:** As a user, I want to interact with individual messages through contextual operations, so that I can edit, regenerate, fork, copy, or delete messages as needed.
 
-### **模块 B: 项目空间 (Project Workspace)**
+#### Acceptance Criteria
 
-此模块是产品的核心差异化所在，它将AI能力从通用问答扩展到特定领域的深度助理。每个项目都是一个包含专属数据和功能的独立工作区。
+1. WHEN the user hovers over any message bubble THEN the system SHALL display an operations menu
+2. WHEN the user clicks "Edit & Retry" THEN the system SHALL allow editing the message content and resubmit the request
+3. WHEN the user clicks "Regenerate" THEN the system SHALL generate a new AI response for the same user input
+4. WHEN the user clicks "Fork from here" THEN the system SHALL create a conversation copy with history up to the current message
+5. WHEN the user clicks "Copy" THEN the system SHALL copy the message's Markdown content to clipboard
+6. WHEN the user clicks "Delete" THEN the system SHALL remove the message and its corresponding response if applicable
 
-#### **用户故事 3: 作为用户，我希望能创建并进入一个项目空间，以聚合管理所有相关信息。**
+### Requirement 4: Session Context Management
 
-- **验收标准:**
-  - **B1.1 (项目创建与管理)**:
-    - 用户可以创建项目，项目名称唯一。
-    - 用户可以为项目添加描述，该描述将作为项目的首条“记忆”。
-    - 用户可以重命名或删除项目（删除时需二次确认，并将清除所有关联数据）。
-  - **B1.2 (项目概览视图)**:
-    - 点击项目名称时，用户会进入该项目的概览视图（Dashboard）。
-    - 此视图应提供一个中心化的入口，包含：
-      - **快速开始**: “新建项目聊天”的醒目按钮。
-      - **核心模块入口**: 清晰的导航入口，分别指向“文件管理”、“记忆与知识”两大功能区。
-      - **近期动态**: 简要展示最近添加的文件和最近更新的知识卡片。
-  - **B1.3 (项目内对话)**: 在项目空间内（无论是概览页还是其他子页面）发起的聊天，将自动归属于该项目，并自动启用该项目的记忆和RAG知识库。
+**User Story:** As a user, I want to move conversations between projects and configure session-specific settings, so that I can organize conversations and customize AI behavior per session.
 
-#### **用户故事 4: 作为用户，我希望在项目空间内有一个专门的文件管理视图，用于上传、查看和管理所有与项目相关的文档，并让它们自动为AI所用。**
+#### Acceptance Criteria
 
-- **验收标准:**
-  - **B2.1 (文件管理界面)**: 用户可从项目概览页进入专属的文件管理视图，该视图以列表形式展示与本项目关联的所有文件。
-  - **B2.2 (文件状态与操作)**:
-    - 列表应清晰显示每个文件的名称、大小、上传日期以及**处理状态**（如：处理中、向量化完成、转换失败）。
-    - 用户在此界面可以进行批量上传、单个删除（需二次确认）和预览文件等操作。
-  - **B2.3 (后台处理流程-RAG)**:
-    - 所有上传至项目的文件都会进入一个自动化的后台处理流程：**文本分块 -> 向量化 -> 存入该项目的专属向量数据库**。
-    - 系统应能通过MD5校验处理重复文件，避免重复存储和处理。
-  - **B2.4 (引用与溯源)**:
-    - 在项目聊天中，当AI的回答引用了项目文件时，必须在回复下方明确展示**引用来源**（如可点击的文件名标签）。
-    - 用户点击引用标签，可以快速预览到文件中的相关原文高亮片段。
+1. WHEN a conversation is moved into a project THEN the system SHALL preserve conversation history and apply project memory as System Prompt
+2. WHEN a conversation is moved into a project THEN the system SHALL enable RAG functionality for that project's files
+3. WHEN a conversation is moved out of a project THEN the system SHALL preserve history but switch to standard mode without project memory or RAG
+4. WHEN the user clicks the session settings icon THEN the system SHALL open a configuration dialog for the current session
+5. WHEN the user modifies session settings THEN the system SHALL allow overriding global or project System Prompt for that session only
 
-#### **用户故事 5: 作为用户，我希望在项目空间内有一个专门的记忆与知识视图，用于沉淀和管理项目的核心背景信息和知识笔记。**
+### Requirement 5: Unclassified Chat Mode
 
-- **验收标准:**
-  - **B3.1 (记忆与知识界面)**: 用户可从项目概览页进入专属的记忆与知识视图，该视图分为“项目记忆”和“知识卡片”两个区域。
-  - **B3.2 (项目记忆管理)**:
-    - 用户在此可以添加、编辑和删除“记忆”。记忆是简短的关键信息（如项目目标、核心定义等），有数量限制（如10条）。
-    - 所有项目记忆将组合成一个高级`system prompt`，在**本项目所有对话中**持续生效，确保AI时刻“牢记”项目背景。
-  - **B3.3 (知识卡片管理)**:
-    - 用户可以在此创建、编辑和删除“知识卡片”。卡片支持完整的Markdown格式，适合记录更复杂的知识。
-    - 用户不仅可以在此从零创建知识卡片，更重要的是，可以在任何项目聊天中，通过框选一段有价值的对话，使用右键菜单或悬浮按钮“存为知识”，快速将对话内容沉淀为知识卡片。
+**User Story:** As a user, I want to have quick conversations with temporary file uploads outside of projects, so that I can get immediate AI assistance without project setup.
 
-### **模块 C: 全局信息检索**
+#### Acceptance Criteria
 
-当项目和聊天增多后，快速找到所需信息变得至关重要。
+1. WHEN the user creates a new unclassified chat THEN the system SHALL load the standard chat interface
+2. WHEN the user uploads files in unclassified chat THEN the system SHALL support text and Office files (.txt, .md, .docx, .csv, .pptx, .xlsx)
+3. WHEN processing files in unclassified chat THEN the system SHALL extract plain text content and attach it to the user's question context
+4. WHEN the user uploads images THEN the system SHALL support image files (.png, .jpg, .webp)
+5. WHEN processing images THEN the system SHALL convert images to Base64 strings and submit with text to multimodal models
+6. WHEN in unclassified chat mode THEN the system SHALL NOT execute RAG functionality
 
-#### **用户故事 6: 作为用户，我希望能跨所有项目和会话进行关键词搜索，快速定位到我需要的历史对话。**
+### Requirement 6: Project RAG Mode
 
-- **验收标准:**
-  - **C1.1 (搜索入口)**: 提供全局搜索入口（图标或快捷键 `⌘/Ctrl+P`）。
-  - **C1.2 (搜索体验)**:
-    - 采用延迟执行（debounce）的全文搜索（FTS5），仅搜索会话文本。
-    - 搜索结果应按更新时间倒序排列，并高亮关键词、展示上下文摘要。
-    - 对于大量结果，应使用虚拟列表和无限滚动进行性能优化。
-  - **C1.3 (结果跳转)**: 点击任一搜索结果，应能直接跳转到该会话中的具体位置。
+**User Story:** As a user, I want project conversations to automatically use RAG with project files and memory, so that I can have contextually-aware conversations based on my project knowledge.
 
-### **模块 D: 系统与配置**
+#### Acceptance Criteria
 
-提供基础的个性化设置和系统管理能力，确保应用的可用性和良好体验。
+1. WHEN the user opens a project conversation THEN the system SHALL automatically enter RAG mode
+2. WHEN in RAG mode THEN the system SHALL construct context from user question + retrieved file segments + project memory System Prompt
+3. WHEN AI responds in RAG mode THEN the system SHALL clearly display citation sources below the response
+4. WHEN the user clicks a citation THEN the system SHALL navigate to the referenced Markdown content segment
+5. WHEN retrieving context THEN the system SHALL search the project's vector database for relevant file segments
 
-#### **用户故事 7: 作为用户，我希望能对应用进行个性化配置，并确保我的数据安全地存储在本地。**
+### Requirement 7: File Management System
 
-- **验收标准:**
-  - **D1.1 (API配置)**: 用户可以配置和测试与大模型（Chat/Embedding）的连接，并在连接失败时获得明确的错误反馈。
-  - **D1.2 (外观设置)**: 支持浅色、深色、跟随系统三种主题模式，切换后立即生效。
-  - **D1.3 (国际化)**: 支持中英文界面切换。
-  - **D1.4 (数据管理)**:
-    - 所有用户数据（元数据、文件、向量）默认存储在本地，应用需明确告知用户数据存储路径。
-    - 数据库应采用稳定方案保证数据写入的稳定性。
-  - **D1.5 (导航界面)**:
-    - 应用拥有一个固定宽度的左侧边栏，用于清晰地展示项目、会话列表和设置入口。
-    - 边栏的交互逻辑（如悬浮、点击、菜单等）需清晰、一致且符合用户直觉。
-  - **D1.6 (跨平台与更新)**: 应用需在主流桌面操作系统（macOS, Windows）上表现一致，并预留自动更新机制。
+**User Story:** As a user, I want to manage project files with automatic indexing and editing capabilities, so that I can maintain an up-to-date knowledge base for my projects.
+
+#### Acceptance Criteria
+
+1. WHEN the user accesses file management THEN the system SHALL display all imported project files in card or list format
+2. WHEN displaying files THEN the system SHALL show indexing status (queued, indexing, ready, failed) for each file
+3. WHEN the user imports files THEN the system SHALL support batch import of multiple text and Office files
+4. WHEN files are imported THEN the system SHALL extract text content and convert to Markdown format for storage
+5. WHEN files are processed THEN the system SHALL perform chunking and vectorization in the background using libsql vector database
+6. WHEN the user clicks a file THEN the system SHALL open a Markdown editor in a popup or new view
+7. WHEN the user saves edited content THEN the system SHALL automatically re-vectorize the modified Markdown content and update the vector database
+
+### Requirement 8: Project Configuration System
+
+**User Story:** As a user, I want to configure project-specific memory and notes, so that I can maintain project context and capture important information.
+
+#### Acceptance Criteria
+
+1. WHEN the user accesses project settings THEN the system SHALL display a project configuration view with plugin modules
+2. WHEN viewing the Memory plugin THEN the system SHALL display structured key information in list format (project goals, constraints, terminology)
+3. WHEN Memory plugin content exists THEN the system SHALL automatically merge it as System Prompt for all project conversations
+4. WHEN the user modifies memory THEN the system SHALL support add, delete, edit, and query operations on memory entries
+5. WHEN viewing the Notes plugin THEN the system SHALL display notes in card format
+6. WHEN the user clicks "+" in Notes THEN the system SHALL open a minimal Markdown editor for creating new notes
+7. WHEN the user selects text in project chat THEN the system SHALL show an "Add to Notes" shortcut button for one-click capture
+8. WHEN notes are created THEN the system SHALL store them for user reference but NOT include them in AI conversation context
+
+### Requirement 9: Settings and Configuration
+
+**User Story:** As a user, I want to configure API connections, appearance, and view application information, so that I can customize the application to my preferences and requirements.
+
+#### Acceptance Criteria
+
+1. WHEN the user accesses API Configuration THEN the system SHALL provide separate configuration areas for Chat Model and Embedding Model
+2. WHEN configuring models THEN the system SHALL require Base URL, API Key, and Model Name for each
+3. WHEN the user clicks "Test Connection" THEN the system SHALL verify the API connection and display results
+4. WHEN viewing Data Management THEN the system SHALL display the local data storage path (not modifiable in MVP)
+5. WHEN in Data Management THEN the system SHALL NOT provide automatic cloud backup and recovery functionality
+6. WHEN the user accesses Appearance settings THEN the system SHALL provide Light, Dark, and System theme options
+7. WHEN viewing Plugins & Integrations THEN the system SHALL display "Coming Soon" for MCP functionality as future extension point
+8. WHEN the user accesses About THEN the system SHALL display application logo, version number, official website, and open source license
+
+### Requirement 10: File Import and Processing Workflow
+
+**User Story:** As a system, I want to handle file imports through a robust background processing pipeline, so that users get reliable file indexing with clear status feedback.
+
+#### Acceptance Criteria
+
+1. WHEN the user uploads files THEN the renderer process SHALL send file paths and project ID to main process via IPC
+2. WHEN the main process receives upload request THEN the system SHALL immediately create a database record with 'pending' status
+3. WHEN processing files THEN the system SHALL extract readable text using file parsing libraries
+4. WHEN text is extracted THEN the system SHALL convert to Markdown format and update database with file metadata
+5. WHEN vectorization begins THEN the system SHALL push tasks to async processing queue and update status to 'processing'
+6. WHEN worker processes vectorization THEN the system SHALL perform intelligent chunking and call Embedding Model API
+7. WHEN vectorization completes THEN the system SHALL store vectors and metadata in libsql vector index table and update status to 'done'
+8. WHEN vectorization fails THEN the system SHALL update status to 'failed' and record error details
+9. WHEN status changes THEN the renderer process SHALL receive updates via IPC events and update file list UI
+
+### Requirement 11: Conversation Workflow Management
+
+**User Story:** As a system, I want to handle different conversation modes with appropriate context and RAG functionality, so that users get the right AI assistance based on their current context.
+
+#### Acceptance Criteria
+
+1. WHEN in project-external conversation THEN the system SHALL construct message objects with optional files/images and call Chat Model directly
+2. WHEN processing files in external conversation THEN the system SHALL read plain text or convert images to Base64
+3. WHEN in project-internal conversation THEN the system SHALL execute RAG by vectorizing user questions and searching project vector database
+4. WHEN RAG retrieves content THEN the system SHALL construct final prompt with memory + retrieved segments + question
+5. WHEN AI responds THEN the system SHALL stream responses back to renderer process with citation data for project conversations
+
+### Requirement 12: System Performance and Reliability
+
+**User Story:** As a user, I want the application to be responsive and reliable, so that I can work efficiently without interruptions or data loss.
+
+#### Acceptance Criteria
+
+1. WHEN performing time-consuming operations THEN the system SHALL execute them asynchronously in main process or worker processes
+2. WHEN making external API requests THEN the system SHALL implement exponential backoff retry mechanisms
+3. WHEN API requests fail after retries THEN the system SHALL display clear, actionable error messages with retry options
+4. WHEN the application closes THEN the system SHALL persist all settings, session lists, conversation history, and unsent drafts
+5. WHEN the application reopens THEN the system SHALL restore all previous state perfectly
+
+### Requirement 13: Automatic Title Generation
+
+**User Story:** As a user, I want conversations to automatically get meaningful titles, so that I can easily identify and organize my conversations.
+
+#### Acceptance Criteria
+
+1. WHEN any conversation completes its first valid exchange THEN the system SHALL trigger title generation
+2. WHEN generating titles THEN the system SHALL send user's first question and AI's first response to main process via IPC
+3. WHEN main process receives title request THEN the system SHALL call Chat Model to generate a concise conversation title
+4. WHEN title generation succeeds THEN the system SHALL send new title back to renderer process via IPC
+5. WHEN title is received THEN the system SHALL update the temporary title (like "Untitled Chat") in the sidebar
