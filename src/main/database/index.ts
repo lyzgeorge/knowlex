@@ -129,10 +129,27 @@ export async function executeTransaction(
   const database = await getDB()
 
   try {
-    await database.executeMultiple(
-      queries.map((q) => ({ sql: q.sql, args: q.params || [] })).join(';')
-    )
+    // Begin transaction
+    await database.execute('BEGIN TRANSACTION')
+
+    // Execute each query in sequence
+    for (const query of queries) {
+      await database.execute({
+        sql: query.sql,
+        args: query.params || []
+      })
+    }
+
+    // Commit transaction
+    await database.execute('COMMIT')
   } catch (error) {
+    // Rollback on error
+    try {
+      await database.execute('ROLLBACK')
+    } catch (rollbackError) {
+      console.error('Failed to rollback transaction:', rollbackError)
+    }
+
     console.error('Transaction failed:', { queries, error })
     throw new Error(
       `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`

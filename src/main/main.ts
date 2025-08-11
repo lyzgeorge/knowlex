@@ -2,6 +2,8 @@ import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow, createDebugWindow } from './window'
 import { setupApplicationMenu } from './menu'
+import { runMigrations } from './database/migrations'
+import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 
 // Application lifecycle management
 class Application {
@@ -11,6 +13,26 @@ class Application {
   async initialize(): Promise<void> {
     // Set app user model id for windows
     electronApp.setAppUserModelId('com.knowlex.desktop')
+
+    // Initialize database and run migrations
+    try {
+      console.log('Initializing database...')
+      await runMigrations()
+      console.log('Database initialized successfully')
+    } catch (error) {
+      console.error('Failed to initialize database:', error)
+      throw error
+    }
+
+    // Register IPC handlers
+    try {
+      console.log('Registering IPC handlers...')
+      registerProjectIPCHandlers()
+      console.log('IPC handlers registered successfully')
+    } catch (error) {
+      console.error('Failed to register IPC handlers:', error)
+      throw error
+    }
 
     // Setup application menu
     setupApplicationMenu()
@@ -62,6 +84,24 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// Cleanup on app quit
+app.on('before-quit', async () => {
+  console.log('Application shutting down...')
+
+  try {
+    // Unregister IPC handlers
+    unregisterProjectIPCHandlers()
+
+    // Close database connections
+    const { closeDB } = await import('./database/index')
+    await closeDB()
+
+    console.log('Application cleanup completed')
+  } catch (error) {
+    console.error('Error during application cleanup:', error)
   }
 })
 
