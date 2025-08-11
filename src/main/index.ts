@@ -3,8 +3,10 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { DatabaseService } from './services/database.service'
 import { IPCService } from './services/ipc.service'
-import { MockManagerService } from './services/mock-manager.service'
+import { MockManagerService } from './services/mocks/mock-manager.service'
+import { registerLLMHandlers, initializeLLMService } from './services/llm-ipc.handlers'
 import { IPC_CHANNELS } from '@shared'
+import type { LLMConfig } from '@shared'
 
 let mainWindow: BrowserWindow | null = null
 let debugWindow: BrowserWindow | null = null
@@ -226,13 +228,38 @@ async function initializeServices(): Promise<void> {
     throw new Error(`Database initialization failed: ${error}`)
   }
 
+  // Initialize LLM service with default config
+  try {
+    const defaultLLMConfig: LLMConfig = {
+      apiKey: '', // Will be set by user in UI
+      baseURL: 'https://api.openai.com/v1',
+      model: 'gpt-4o',
+      embeddingModel: 'text-embedding-3-small',
+      temperature: 0.7,
+      maxTokens: 2000,
+      timeout: 30000,
+      maxRetries: 3
+    }
+    await initializeLLMService(defaultLLMConfig)
+    console.log('✓ LLM service initialized with default config')
+  } catch (error) {
+    console.warn(
+      '⚠️  LLM service initialization failed (will work once API key is provided):',
+      error
+    )
+  }
+
   // Register all IPC handlers (only if not using mocks)
   if (!is.dev) {
     await registerIPCHandlers()
+    // Register LLM handlers in production
+    registerLLMHandlers()
   } else {
     console.log('✓ Using Mock IPC handlers in development mode')
     // Still need to register Mock Manager control handlers in development
     await registerMockManagerHandlers()
+    // Register LLM handlers in development too (they can work with mocks)
+    registerLLMHandlers()
   }
 }
 

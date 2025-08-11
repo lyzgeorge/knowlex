@@ -21,7 +21,7 @@ import type {
 import { IPC_CHANNELS, IPC_ERROR_CODES } from '@shared'
 import { MockService } from './mock.service'
 import { OpenAIMockService } from './openai-mock.service'
-import { IPCService } from './ipc.service'
+import { IPCService } from '../ipc.service'
 
 // IPC Mock 配置
 export interface IPCMockConfig {
@@ -567,12 +567,22 @@ export class IPCMockService {
           stream: false
         })
 
+        console.log('📤 Mock LLM Chat Response:', {
+          id: response.id,
+          model: response.model,
+          usage: response.usage,
+          contentLength: response.choices[0].message.content.length
+        })
+
         return {
           id: response.id,
           content: response.choices[0].message.content,
-          role: 'assistant',
-          usage: response.usage,
-          model: response.model
+          model: response.model,
+          usage: {
+            prompt_tokens: response.usage?.prompt_tokens || 0,
+            completion_tokens: response.usage?.completion_tokens || 0,
+            total_tokens: response.usage?.total_tokens || 0
+          }
         }
       }
     })
@@ -614,8 +624,11 @@ export class IPCMockService {
 
         return {
           embeddings: response.data.map((item) => item.embedding),
-          usage: response.usage,
-          model: response.model
+          model: response.model,
+          usage: {
+            prompt_tokens: response.usage?.prompt_tokens || 0,
+            total_tokens: response.usage?.total_tokens || 0
+          }
         }
       }
     })

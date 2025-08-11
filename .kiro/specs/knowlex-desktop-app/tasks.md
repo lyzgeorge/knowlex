@@ -1,69 +1,294 @@
-# Knowlex 桌面智能助理 - 实现任务列表
+# Knowlex 桌面智能助理 - 核心功能任务列表
 
 ## 任务概述
 
-本任务列表基于需求文档和技术设计文档，将 Knowlex 桌面智能助理的开发工作分解为具体的编码任务。任务按照依赖关系和优先级排序，确保团队能够高效协作开发。
+基于 Chatbox 架构文档，重新梳理 Knowlex 的核心功能实现任务。专注于最小可行产品(MVP)，去除复杂的 mock 系统，采用简化的三层架构设计。
 
-**当前状态**: 项目处于初始阶段，尚未开始实际代码实现。所有任务都需要从零开始构建。
+**技术栈**：
+- 应用框架：Electron + React + TypeScript
+- 状态管理：Jotai 原子化状态管理
+- 数据存储：SQLite + 向量数据库
+- AI 集成：OpenAI SDK
+- UI 组件：Mantine UI
 
-## 开发任务
+## 核心开发任务
 
-### 阶段一：基础架构搭建
+### 任务 1：基础架构搭建
 
-- [x] 1. 项目初始化和开发环境配置
-  - 创建 Electron + React + TypeScript 项目结构
-  - 配置 Vite 构建工具和开发服务器 (electron-vite)
-  - 设置 ESLint、Prettier 代码规范，集成 husky + lint-staged 钩子
-  - 配置 Vitest 测试框架
-  - 创建基础目录结构：src/（统一源码目录，包含 main/, preload/, renderer/, shared/）
-  - 配置 pnpm workspace 和 monorepo 结构
-  - 实现基础的 Electron 主进程和渲染进程通信
-  - _需求: D1.6 (跨平台与更新), D1.4 (数据管理)_
+**目标**：建立 Electron 三层架构基础，实现安全的进程间通信
 
-- [x] 2. 数据库架构实现（更新为 libsql）
-  - 集成 @libsql/client 作为主数据库客户端
-  - 创建数据库表结构：projects, conversations, messages, project_files, text_chunks, project_memories, knowledge_cards, app_settings
-  - 更新 text_chunks 表的 embedding 字段为 VECTOR 类型
-  - 实现数据库迁移机制和版本管理
-  - 启用 libsql WAL 模式确保数据写入稳定性
-  - 实现 libsql 原生向量索引创建和管理
-  - 实现数据库服务类 (DatabaseService)，支持向量操作
-  - 添加向量数据库操作方法（插入、相似度搜索、删除向量）
-  - 实现向量索引优化和查询性能调优
-  - _需求: D1.4 (数据管理), B2.3 (后台处理流程-RAG)_
+**1.1 项目结构初始化**
+- [x] 创建标准 Electron + React + TypeScript 项目
+- [x] 配置 electron-vite 构建工具
+- [x] 设置代码规范：ESLint + Prettier + husky
+- [x] 创建三层目录结构：
+  ```
+  src/
+  ├── main/          # 主进程 (Node.js + Electron)
+  ├── renderer/      # 渲染进程 (React + TypeScript)
+  ├── preload/       # 预加载脚本 (安全桥接)
+  └── shared/        # 共享类型和工具
+  ```
 
-- [x] 3. IPC 通信框架搭建
-  - 定义 IPC 通道接口和类型 (src/shared/)
-  - 实现预加载脚本 (preload) 安全桥梁
-  - 实现主进程 IPC 处理器基础框架
-  - 实现渲染进程 IPC 客户端
-  - 添加 IPC 消息验证和错误处理
-  - 实现流式数据传输支持
-  - 编写文档：IPC接口定义、通信协议、错误处理机制 (docs/ipc-communication.md)
-  - _需求: D1.4 (数据管理)_
+**1.2 IPC 通信框架**
+- [x] 实现 preload.ts 安全桥接层
+- [x] 定义核心 IPC 通道接口：
+  ```typescript
+  // 系统信息
+  'getVersion' | 'getPlatform'
+  // 数据存储  
+  'store:get' | 'store:set' | 'store:delete'
+  // AI 服务
+  'ai:chat' | 'ai:stream'
+  ```
+- [x] 实现主进程 IPC 处理器框架
+- [x] 实现渲染进程调用封装
 
-### 阶段二：核心 AI 功能实现
+**1.3 数据存储基础**
+- [x] 集成 SQLite 数据库
+- [x] 实现 electron-store 配置存储
+- [x] 创建基础数据表结构：
+  ```sql
+  sessions (id, name, messages, created_at, updated_at)
+  settings (key, value)
+  ```
 
-- [x] 4. Mock 服务实现
-  - 实现 IPC Mock 服务，基于 @knowlex/types 自动生成 Mock 数据
-  - 实现 OpenAI Mock 服务，支持流式和非流式响应模拟
-  - 实现数据库 Mock 服务，提供预定义测试场景
-  - 创建 Mock 数据管理器，支持多种测试场景切换
-  - 实现开发模式下的 Mock 服务自动切换机制
-  - _需求: A1.6 (错误处理)_
+**验收标准**：
+- Electron 应用可正常启动
+- 主进程和渲染进程通信正常
+- 数据库可读写操作
+- 配置可持久化存储
 
-- [ ] 5. OpenAI JS SDK 集成
-  - 使用标准的 OpenAI JS SDK 替代复杂的 Agents SDK
-  - 后端代码在 src/main/ 前端代码在 src/renderer/
-  - 集成 OpenAI JS SDK 并配置客户端
-  - 实现基础聊天功能（非流式和流式）
-  - 实现流式响应处理和前端渲染
-  - 实现标题生成和摘要生成功能（使用标准 Chat Completions API）
-  - 实现聊天文件导入处理：读取文件内容为纯文本并添加到消息上下文
-  - 添加 API 连接测试功能
-  - 实现错误处理和重试机制（指数退避）
-  - 编写文档：LLM服务接口、聊天功能API、错误处理策略 (docs/llm-service.md)
-  - _需求: A1.1, A1.2, A1.3, A1.4, A1.5, A1.6, D1.1_
+### 任务 2：AI 聊天核心功能
+
+**目标**：实现基础的 AI 对话功能，支持流式响应
+
+**2.1 OpenAI SDK 集成**
+- [ ] 在主进程集成 OpenAI SDK
+- [ ] 实现 AI 服务类：
+  ```typescript
+  class AIService {
+    async chat(messages: Message[]): Promise<string>
+    async streamChat(messages: Message[], onChunk: (chunk: string) => void): Promise<void>
+  }
+  ```
+- [ ] 实现 API 配置管理和验证
+- [ ] 添加错误处理和重试机制
+
+**2.2 消息系统设计**
+- [ ] 定义消息数据结构：
+  ```typescript
+  interface Message {
+    id: string
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    timestamp: number
+  }
+  
+  interface Session {
+    id: string
+    name: string
+    messages: Message[]
+    created_at: number
+    updated_at: number
+  }
+  ```
+- [ ] 实现消息存储和检索
+- [ ] 实现会话管理功能
+
+**2.3 流式响应处理**
+- [ ] 实现主进程流式数据处理
+- [ ] 通过 IPC 实时推送数据到渲染进程
+- [ ] 实现渲染进程流式内容显示
+
+**验收标准**：
+- 可发送消息获得 AI 回复
+- 支持流式响应实时显示
+- 消息可持久化存储
+- 支持多会话管理
+
+### 任务 3：用户界面实现
+
+**目标**：实现简洁的聊天界面，支持基础交互
+
+**3.1 UI 框架搭建**
+- [ ] 集成 Mantine UI 组件库
+- [ ] 集成 Jotai 状态管理
+- [ ] 实现基础主题系统（明暗主题）
+- [ ] 创建应用整体布局
+
+**3.2 侧边栏组件**
+- [ ] 实现会话列表显示
+- [ ] 实现新建会话功能
+- [ ] 实现会话切换和删除
+- [ ] 实现会话重命名功能
+
+**3.3 聊天界面组件**
+- [ ] 实现消息列表显示：
+  ```typescript
+  const MessageList = () => {
+    // 虚拟滚动优化
+    // 消息气泡样式
+    // 用户/AI 消息区分
+  }
+  ```
+- [ ] 实现消息输入框：
+  ```typescript
+  const MessageInput = () => {
+    // 文本输入
+    // 发送按钮
+    // 快捷键支持 (Ctrl+Enter)
+  }
+  ```
+- [ ] 实现 Markdown 渲染
+- [ ] 实现代码高亮显示
+
+**3.4 状态管理**
+- [ ] 实现 Jotai 原子状态：
+  ```typescript
+  const sessionsAtom = atom<Session[]>([])
+  const currentSessionAtom = atom<Session | null>(null)
+  const messagesAtom = atom<Message[]>([])
+  const isStreamingAtom = atom<boolean>(false)
+  ```
+- [ ] 实现状态持久化
+- [ ] 实现状态同步机制
+
+**验收标准**：
+- 界面美观，交互流畅
+- 支持多会话切换
+- 消息显示正确，支持 Markdown
+- 流式响应有打字机效果
+- 支持明暗主题切换
+
+### 任务 5：知识库 RAG 功能
+
+**目标**：实现文档上传、向量化存储和检索增强生成
+
+**5.1 向量数据库集成**
+- [ ] 选择轻量级向量数据库方案：
+  - 方案A：SQLite + sqlite-vss 扩展
+  - 方案B：本地 Chroma 数据库
+  - 方案C：内存向量存储 + 持久化
+- [ ] 实现向量存储服务：
+  ```typescript
+  class VectorService {
+    async addDocument(content: string, metadata: any): Promise<string>
+    async search(query: string, limit: number): Promise<SearchResult[]>
+    async deleteDocument(id: string): Promise<void>
+  }
+  ```
+
+**5.2 文档处理系统**
+- [ ] 实现文件上传功能（支持 .txt, .md 文件）
+- [ ] 实现文本分块算法：
+  ```typescript
+  class TextSplitter {
+    splitText(text: string, chunkSize: number, overlap: number): string[]
+  }
+  ```
+- [ ] 集成 OpenAI Embeddings API
+- [ ] 实现批量向量化处理
+
+**5.3 RAG 检索系统**
+- [ ] 实现语义搜索功能
+- [ ] 实现检索结果排序和过滤
+- [ ] 集成到聊天流程：
+  ```typescript
+  async function enhancedChat(query: string, sessionId: string) {
+    // 1. 检索相关文档
+    const docs = await vectorService.search(query, 5)
+    
+    // 2. 构建增强提示
+    const enhancedPrompt = buildRAGPrompt(query, docs)
+    
+    // 3. 调用 AI 生成回复
+    return await aiService.chat(enhancedPrompt)
+  }
+  ```
+
+**5.4 知识库管理界面**
+- [ ] 实现文档上传界面
+- [ ] 实现文档列表显示
+- [ ] 实现文档删除功能
+- [ ] 实现 RAG 开关控制
+
+**验收标准**：
+- 可上传文档并自动向量化
+- 聊天时可检索相关文档内容
+- RAG 回复质量明显提升
+- 支持文档管理操作
+
+## 开发里程碑
+
+### 里程碑 1：基础架构完成（任务 1）
+- **时间**：1-2 周
+- **交付物**：可运行的 Electron 应用框架
+- **验收**：应用启动正常，IPC 通信正常，数据存储正常
+
+### 里程碑 2：AI 聊天功能完成（任务 2）
+- **时间**：1-2 周  
+- **交付物**：具备基础聊天能力的应用
+- **验收**：可与 AI 进行对话，支持流式响应，消息持久化
+
+### 里程碑 3：用户界面完成（任务 3）
+- **时间**：2-3 周
+- **交付物**：功能完整的聊天界面
+- **验收**：界面美观易用，交互流畅，支持多会话管理
+
+### 里程碑 4：RAG 功能完成（任务 5）
+- **时间**：2-3 周
+- **交付物**：支持知识库的智能助理
+- **验收**：可上传文档，RAG 检索正常，回复质量提升
+
+## 技术架构简化
+
+### 主进程服务 (src/main/)
+```
+main/
+├── index.ts              # 应用入口
+├── services/
+│   ├── ai-service.ts     # AI 服务
+│   ├── vector-service.ts # 向量服务  
+│   ├── db-service.ts     # 数据库服务
+│   └── file-service.ts   # 文件服务
+└── ipc/
+    └── handlers.ts       # IPC 处理器
+```
+
+### 渲染进程组件 (src/renderer/)
+```
+renderer/
+├── App.tsx              # 应用根组件
+├── components/
+│   ├── Sidebar.tsx      # 侧边栏
+│   ├── ChatInterface.tsx # 聊天界面
+│   ├── MessageList.tsx  # 消息列表
+│   ├── MessageInput.tsx # 消息输入
+│   └── KnowledgeBase.tsx # 知识库管理
+├── stores/
+│   └── atoms.ts         # Jotai 状态原子
+└── utils/
+    └── api.ts           # IPC 调用封装
+```
+
+### 共享类型 (src/shared/)
+```
+shared/
+├── types.ts             # 核心数据类型
+├── constants.ts         # 常量定义
+└── utils.ts             # 工具函数
+```
+
+## 开发原则
+
+1. **最小可行产品**：专注核心功能，避免过度设计
+2. **渐进式开发**：按里程碑逐步迭代，确保每个阶段都可用
+3. **代码简洁**：优先可读性和可维护性，避免过度抽象
+4. **用户体验**：界面简洁直观，交互响应迅速
+5. **错误处理**：完善的错误提示和降级方案
+
+这个简化的任务列表专注于核心功能实现，去除了复杂的 mock 系统和非必要功能，确保团队能够快速交付可用的 MVP 版本。
 
 - [ ] 6. 向量化和嵌入服务实现
   - 实现 Embedding API 客户端

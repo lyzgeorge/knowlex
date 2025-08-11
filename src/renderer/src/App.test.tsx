@@ -4,7 +4,54 @@ import { ChakraProvider } from '@chakra-ui/react'
 import App from './App'
 
 // Mock the IPC client
+const mockIPCClientInstance = {
+  isReady: true,
+  invoke: vi.fn().mockResolvedValue('pong'),
+  onStream: vi.fn().mockReturnValue(() => {}),
+  onEvent: vi.fn().mockReturnValue(() => {}),
+  system: {
+    ping: vi.fn().mockResolvedValue('pong'),
+    getAppInfo: vi.fn().mockResolvedValue({
+      name: 'Knowlex Desktop',
+      version: '0.1.0',
+      platform: 'darwin',
+      arch: 'x64',
+      nodeVersion: '18.0.0',
+      electronVersion: '28.1.0',
+      uptime: 100
+    })
+  },
+  database: {
+    healthCheck: vi.fn().mockResolvedValue({
+      status: 'healthy',
+      details: {
+        connection: true,
+        vectorSupport: true,
+        tables: ['projects', 'conversations'],
+        dbPath: '/test/path'
+      }
+    }),
+    getStats: vi.fn().mockResolvedValue({
+      projects: { count: 0 },
+      conversations: { count: 0 },
+      messages: { count: 0 },
+      files: { count: 0 },
+      chunks: { count: 0 },
+      memories: { count: 0 },
+      knowledgeCards: { count: 0 },
+      vectors: { available: true, documentCount: 0 }
+    }),
+    createSampleData: vi.fn().mockResolvedValue(undefined),
+    clearAllData: vi.fn().mockResolvedValue(undefined),
+    resetDatabase: vi.fn().mockResolvedValue(undefined),
+    searchVectors: vi.fn().mockResolvedValue([])
+  }
+}
+
 vi.mock('./lib/ipc-client', () => ({
+  IPCClient: {
+    getInstance: vi.fn().mockReturnValue(mockIPCClientInstance)
+  },
   ipcClient: {
     ready: true,
     system: {

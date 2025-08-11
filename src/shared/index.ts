@@ -249,6 +249,57 @@ export interface OpenAIConfig {
   maxRetries?: number
 }
 
+// LLM 服务配置接口
+export interface LLMConfig {
+  apiKey: string
+  baseURL?: string
+  model: string
+  embeddingModel: string
+  timeout?: number
+  maxRetries?: number
+  temperature?: number
+  maxTokens?: number
+}
+
+// 流式响应数据接口
+export interface StreamChunk {
+  id: string
+  type: 'start' | 'token' | 'complete' | 'error'
+  content?: string
+  error?: IPCError
+  metadata?: {
+    model?: string
+    usage?: {
+      prompt_tokens?: number
+      completion_tokens?: number
+      total_tokens?: number
+    }
+  }
+}
+
+// 聊天响应接口
+export interface ChatResponse {
+  id: string
+  content: string
+  model: string
+  usage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+  metadata?: Record<string, any>
+}
+
+// 嵌入响应接口
+export interface EmbeddingResponse {
+  embeddings: number[][]
+  model: string
+  usage: {
+    prompt_tokens: number
+    total_tokens: number
+  }
+}
+
 // 应用配置类型
 export interface AppConfig {
   theme: 'light' | 'dark' | 'system'

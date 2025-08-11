@@ -262,11 +262,11 @@ const api = {
         data,
         timestamp: Date.now()
       }),
-    testConnection: () =>
+    testConnection: (config: any) =>
       ipcRenderer.invoke('ipc-request', {
         id: Math.random().toString(36).substr(2, 9),
         channel: 'llm:test-connection',
-        data: null,
+        data: config,
         timestamp: Date.now()
       })
   },
