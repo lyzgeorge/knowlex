@@ -11,6 +11,7 @@ import type {
   ProjectMemory,
   ProjectNote
 } from '../../../shared/types/project'
+import { generateMockProjects } from '../utils/mockData'
 
 export interface ProjectState {
   // Data state
@@ -76,7 +77,7 @@ export interface UpdateProjectData {
 }
 
 const initialState = {
-  projects: [],
+  projects: generateMockProjects(),
   currentProjectId: null,
   isLoading: false,
   isCreating: false,

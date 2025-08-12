@@ -4,14 +4,16 @@ This documentation covers the basic UI components implemented for the Knowlex de
 
 ## Overview
 
-The UI component library includes:
-- **Button**: Multi-variant button with loading states
-- **Input**: Form input with validation and error handling
-- **Modal**: Overlay component for dialogs and forms
-- **FileCard**: File display component with action buttons
-- **MessageBubble**: Chat message component with multi-part content
+The UI component library is located in `src/renderer/src/components/ui/`. It includes:
+- **Button**: `Button.tsx` - Multi-variant button with loading states
+- **Input**: `Input.tsx` - Form input with validation and error handling
+- **Modal**: `Modal.tsx` - Overlay component for dialogs and forms
+- **FileCard**: `FileCard.tsx` - File display component with action buttons
+- **MessageBubble**: `MessageBubble.tsx` - Chat message component with multi-part content
 
 ## Button Component
+
+**File:** `src/renderer/src/components/ui/Button.tsx`
 
 ### Interface
 ```typescript
@@ -65,6 +67,8 @@ import { Button } from '../components/ui'
 - Disabled state handling
 
 ## Input Component
+
+**File:** `src/renderer/src/components/ui/Input.tsx`
 
 ### Interface
 ```typescript
@@ -132,6 +136,8 @@ import { SearchIcon, EmailIcon } from '@chakra-ui/icons'
 - Focus management and keyboard navigation
 
 ## Modal Component
+
+**File:** `src/renderer/src/components/ui/Modal.tsx`
 
 ### Interface
 ```typescript
@@ -205,6 +211,8 @@ function MyComponent() {
 
 ## FileCard Component
 
+**File:** `src/renderer/src/components/ui/FileCard.tsx`
+
 ### Interface
 ```typescript
 interface FileCardProps {
@@ -263,6 +271,8 @@ import { FileCard } from '../components/ui'
 - **failed**: Processing failed with error message
 
 ## MessageBubble Component
+
+**File:** `src/renderer/src/components/ui/MessageBubble.tsx`
 
 ### Interface
 ```typescript
@@ -370,7 +380,7 @@ All components integrate with the Chakra UI theme system:
 
 ### Import Strategy
 ```tsx
-// Import specific components
+// Import specific components from `src/renderer/src/components/ui/index.ts`
 import { Button, Input, Modal } from '../components/ui'
 
 // Or import everything

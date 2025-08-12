@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { Conversation, SessionSettings } from '../../../shared/types/conversation'
 import type { Message, MessageContent } from '../../../shared/types/message'
+import { generateMockConversations } from '../utils/mockData'
 
 export interface ConversationState {
   // Data state
@@ -70,7 +71,7 @@ export interface SendMessageData {
 }
 
 const initialState = {
-  conversations: [],
+  conversations: generateMockConversations(),
   messages: {},
   currentConversationId: null,
   isStreaming: false,

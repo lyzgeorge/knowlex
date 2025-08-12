@@ -1,57 +1,23 @@
 # Knowlex Desktop Documentation
 
-This directory contains comprehensive documentation for the Knowlex Desktop application.
+Welcome to the documentation for the Knowlex Desktop application. This collection of documents provides a comprehensive overview of the project's architecture, APIs, and features.
 
-## Architecture Documentation
+## Table of Contents
 
-- **[Architecture Overview](./architecture.md)** - Complete architectural documentation including three-layer design, directory structure, development standards, and communication patterns
-- **[Module Dependencies](./module-dependencies.md)** - Visual diagrams and detailed explanation of how modules depend on each other across the application
+1.  **[Getting Started](./01-getting-started.md)**
+    *   Learn how to set up your development environment, run the application, and build it for production.
 
-## Implementation Documentation
+2.  **[Architecture](./02-architecture.md)**
+    *   An in-depth look at the application's architecture, including the three-layer design, directory structure with file paths, and communication patterns.
 
-- **[Project Setup](./project-setup.md)** - Initial project setup and development environment configuration
+3.  **[API Reference](./03-api-reference.md)**
+    *   A detailed reference for the application's services and APIs, including project management, conversation handling, and database operations, with file paths and function signatures.
 
-## Documentation Standards
+4.  **[AI Integration](./04-ai-integration.md)**
+    *   Documentation on the AI framework, including how to integrate and use different AI model providers like OpenAI and Claude, with file paths and function signatures.
 
-Each major feature or module should have corresponding documentation that includes:
+5.  **[UI Components](./05-ui-components.md)**
+    *   A guide to the reusable UI components that make up the application's user interface, with file paths.
 
-1. **Purpose and Scope** - What the module does and why it exists
-2. **API Reference** - Public interfaces and key functions
-3. **Usage Examples** - How to use the module correctly
-4. **Architecture Decisions** - Key design choices and rationale
-5. **Testing Strategy** - How the module is tested
-6. **Known Limitations** - Current constraints and future improvements
-
-## File Organization
-
-```
-docs/
-├── README.md              # This file - documentation index
-├── architecture.md        # System architecture and design
-├── module-dependencies.md # Dependency diagrams and flow
-├── project-setup.md       # Project setup documentation
-└── [future modules]/      # Module-specific documentation
-    ├── database.md        # Database design and queries
-    ├── ai-integration.md  # AI model integration
-    ├── file-processing.md # File handling and RAG
-    ├── ui-components.md   # Component library
-    └── ipc-communication.md # Inter-process communication
-```
-
-## Contributing to Documentation
-
-When adding new features or modifying existing ones:
-
-1. **Update Architecture**: Modify `architecture.md` if the change affects overall system design
-2. **Update Dependencies**: Modify `module-dependencies.md` if new dependencies are introduced
-3. **Create Module Docs**: Add specific documentation for new major modules
-4. **Update Examples**: Ensure all code examples remain current and functional
-5. **Review Standards**: Ensure documentation follows the established patterns and conventions
-
-## Quick Reference
-
-- **Project Structure**: See [Architecture - Directory Structure](./architecture.md#directory-structure-and-responsibilities)
-- **Type Definitions**: All types are defined in `src/shared/types/`
-- **Constants**: Application constants in `src/shared/constants/`
-- **Development Standards**: See [Architecture - Development Standards](./architecture.md#development-standards-and-conventions)
-- **IPC Patterns**: See [Architecture - Communication Patterns](./architecture.md#communication-patterns)
+6.  **[Mock Data System](./06-mock-data.md)**
+    *   Documentation for the mock data system used in development and testing, including realistic sample projects and conversations.
