@@ -4,6 +4,10 @@ import { createMainWindow, createDebugWindow } from './window'
 import { setupApplicationMenu } from './menu'
 import { runMigrations } from './database/migrations'
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
+import {
+  registerConversationIPCHandlers,
+  unregisterConversationIPCHandlers
+} from './ipc/conversation'
 
 // Application lifecycle management
 class Application {
@@ -28,6 +32,7 @@ class Application {
     try {
       console.log('Registering IPC handlers...')
       registerProjectIPCHandlers()
+      registerConversationIPCHandlers()
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -94,6 +99,7 @@ app.on('before-quit', async () => {
   try {
     // Unregister IPC handlers
     unregisterProjectIPCHandlers()
+    unregisterConversationIPCHandlers()
 
     // Close database connections
     const { closeDB } = await import('./database/index')
