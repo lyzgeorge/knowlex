@@ -111,6 +111,15 @@ const mockProvider: AIProvider = {
 
   getSupportedModels(): string[] {
     return ['mock-gpt', 'mock-claude']
+  },
+
+  getModelCapabilities(modelName: string): ModelCapabilities {
+    return {
+      supportVision: modelName === 'mock-gpt',
+      supportReasoning: modelName === 'mock-claude',
+      supportToolCalls: true,
+      maxContextLength: 8192
+    }
   }
 }
 

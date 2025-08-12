@@ -297,6 +297,7 @@ export interface AIProvider {
   validateConfig: (config: AIConfig) => boolean
   getDefaultConfig: () => Partial<AIConfig>
   getSupportedModels: () => string[]
+  getModelCapabilities: (modelName: string) => ModelCapabilities
 }
 
 /**

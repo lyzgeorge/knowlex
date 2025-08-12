@@ -388,7 +388,7 @@ class AIModelManager {
   /**
    * Gets model capabilities from constants or defaults
    */
-  private getModelCapabilities(_providerName: string, modelName: string): ModelCapabilities {
+  private getModelCapabilities(providerName: string, modelName: string): ModelCapabilities {
     const defaultCapabilities: ModelCapabilities = {
       supportVision: false,
       supportReasoning: false,
