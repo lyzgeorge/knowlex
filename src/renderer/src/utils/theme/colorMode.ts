@@ -179,11 +179,16 @@ export class ThemeManager {
     this.notifyCallbacks(resolvedTheme)
   }
 
-  subscribe(callback: (theme: 'light' | 'dark') => void): () => void {
+  subscribe(callback: (theme: 'light' | 'dark') => void, immediate: boolean = true): () => void {
     this.callbacks.add(callback)
 
-    // Immediately call with current theme
-    callback(this.getResolvedTheme())
+    // Optionally call immediately with current theme
+    if (immediate) {
+      // Use setTimeout to avoid sync issues during initialization
+      setTimeout(() => {
+        callback(this.getResolvedTheme())
+      }, 0)
+    }
 
     return () => {
       this.callbacks.delete(callback)

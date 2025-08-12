@@ -10,7 +10,15 @@ import useProjectStoreInternal from './project'
 import useConversationStoreInternal from './conversation'
 
 // Store exports
-export { default as useAppStore, useTheme, useLanguage, useSidebar, useAppStatus } from './app'
+export {
+  default as useAppStore,
+  useTheme,
+  useLanguage,
+  useSidebar,
+  useAppStatus,
+  initializeThemeSync,
+  cleanupThemeSync
+} from './app'
 export {
   default as useProjectStore,
   useCurrentProject,
@@ -52,7 +60,11 @@ export const initializeStores = async () => {
   const appStore = useAppStoreInternal.getState()
 
   try {
-    // Load settings first
+    // Initialize theme synchronization first
+    const { initializeThemeSync } = await import('./app')
+    initializeThemeSync()
+
+    // Load settings
     await settingsStore.loadSettings()
 
     // Mark app as initialized

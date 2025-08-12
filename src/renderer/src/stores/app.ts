@@ -157,12 +157,28 @@ export const useAppStore = create<AppState>()(
 )
 
 // Initialize theme manager synchronization
-themeManager.subscribe((resolvedTheme) => {
-  useAppStore.setState({ resolvedTheme })
-})
+let themeUnsubscribe: (() => void) | null = null
 
-// Set initial resolved theme
-useAppStore.setState({ resolvedTheme: themeManager.getResolvedTheme() })
+// Initialize theme synchronization in a safe way
+export const initializeThemeSync = () => {
+  if (themeUnsubscribe) return // Already initialized
+
+  // Set initial resolved theme
+  useAppStore.setState({ resolvedTheme: themeManager.getResolvedTheme() })
+
+  // Subscribe to theme changes (don't call immediately since we set it above)
+  themeUnsubscribe = themeManager.subscribe((resolvedTheme) => {
+    useAppStore.setState({ resolvedTheme })
+  }, false)
+}
+
+// Cleanup function
+export const cleanupThemeSync = () => {
+  if (themeUnsubscribe) {
+    themeUnsubscribe()
+    themeUnsubscribe = null
+  }
+}
 
 // Listen for online/offline events
 if (typeof window !== 'undefined') {

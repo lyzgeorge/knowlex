@@ -91,8 +91,6 @@ function useAppInitialization() {
   const [initState, setInitState] = React.useState<'loading' | 'success' | 'error'>('loading')
   const [error, setError] = React.useState<Error | null>(null)
 
-  const appStore = useAppStore()
-
   const initialize = React.useCallback(async () => {
     try {
       setInitState('loading')
@@ -104,7 +102,9 @@ function useAppInitialization() {
       // Set window mode based on URL params
       const urlParams = new URLSearchParams(window.location.search)
       const mode = urlParams.get('mode')
-      appStore.setWindowMode(mode === 'debug' ? 'debug' : 'main')
+
+      // Use getState() to avoid subscribing during initialization
+      useAppStore.getState().setWindowMode(mode === 'debug' ? 'debug' : 'main')
 
       setInitState('success')
     } catch (err) {
@@ -112,7 +112,7 @@ function useAppInitialization() {
       setError(err instanceof Error ? err : new Error('Unknown initialization error'))
       setInitState('error')
     }
-  }, [appStore])
+  }, [])
 
   useEffect(() => {
     initialize()
