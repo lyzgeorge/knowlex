@@ -79,7 +79,8 @@ class AIModelManager {
     }
 
     this.providers[providerKey] = provider
-    console.log(`AI Provider registered: ${provider.name} (${provider.displayName})`)
+    console.log(`🔌 AI Provider registered: ${provider.name} (${provider.displayName})`)
+    console.log(`   Supported models: ${provider.getSupportedModels().join(', ')}`)
   }
 
   /**
@@ -135,7 +136,12 @@ class AIModelManager {
       // Cache the model
       this.cacheModel(cacheKey, model, config)
 
-      console.log(`AI Model created: ${provider.name}/${config.model}`)
+      console.log(`✅ AI Model loaded successfully: ${provider.name}/${config.model}`)
+      console.log(`   Provider: ${provider.displayName}`)
+      console.log(`   Model: ${config.model}`)
+      console.log(`   Base URL: ${config.baseURL || 'default'}`)
+      console.log(`   Max Tokens: ${config.maxTokens || 'default'}`)
+      console.log(`   Temperature: ${config.temperature || 'default'}`)
       return model
     } catch (error) {
       throw new AIConfigurationError(
@@ -294,6 +300,16 @@ class AIModelManager {
 
     if (modelLower.includes('claude')) {
       return this.providers['claude'] || null
+    }
+
+    // For custom APIs (non-default base URLs), try to match by provider name patterns or default to OpenAI
+    const isCustomAPI =
+      config.baseURL &&
+      !config.baseURL.includes('api.openai.com') &&
+      !config.baseURL.includes('api.anthropic.com')
+    if (isCustomAPI) {
+      // If using a custom base URL, default to OpenAI provider (most common for custom APIs)
+      return this.providers['openai'] || null
     }
 
     return null

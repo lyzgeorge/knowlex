@@ -204,6 +204,62 @@ const migrations: Migration[] = [
       'DROP INDEX IF EXISTS idx_project_files_status',
       'DROP INDEX IF EXISTS idx_project_files_project_id'
     ]
+  },
+
+  {
+    version: 3,
+    name: 'fix_fts_triggers',
+    up: [
+      // Drop the existing problematic FTS table and triggers
+      'DROP TRIGGER IF EXISTS messages_fts_delete',
+      'DROP TRIGGER IF EXISTS messages_fts_update',
+      'DROP TRIGGER IF EXISTS messages_fts_insert',
+      'DROP TABLE IF EXISTS messages_fts',
+
+      // Create a simpler FTS table that works correctly
+      `CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        message_id UNINDEXED,
+        content,
+        conversation_title UNINDEXED,
+        project_name UNINDEXED
+      )`,
+
+      // Create corrected triggers
+      `CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+        INSERT INTO messages_fts (message_id, content, conversation_title, project_name)
+        SELECT 
+          NEW.id,
+          NEW.content,
+          c.title,
+          COALESCE(p.name, '')
+        FROM conversations c
+        LEFT JOIN projects p ON c.project_id = p.id
+        WHERE c.id = NEW.conversation_id;
+      END`,
+
+      `CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+        DELETE FROM messages_fts WHERE message_id = NEW.id;
+        INSERT INTO messages_fts (message_id, content, conversation_title, project_name)
+        SELECT 
+          NEW.id,
+          NEW.content,
+          c.title,
+          COALESCE(p.name, '')
+        FROM conversations c
+        LEFT JOIN projects p ON c.project_id = p.id
+        WHERE c.id = NEW.conversation_id;
+      END`,
+
+      `CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+        DELETE FROM messages_fts WHERE message_id = OLD.id;
+      END`
+    ],
+    down: [
+      'DROP TRIGGER IF EXISTS messages_fts_delete',
+      'DROP TRIGGER IF EXISTS messages_fts_update',
+      'DROP TRIGGER IF EXISTS messages_fts_insert',
+      'DROP TABLE IF EXISTS messages_fts'
+    ]
   }
 ]
 

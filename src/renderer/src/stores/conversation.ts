@@ -3,17 +3,27 @@
  * Manages conversations, messages, and chat functionality
  */
 
+import React from 'react'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { Conversation, SessionSettings } from '../../../shared/types/conversation'
 import type { Message, MessageContent } from '../../../shared/types/message'
-import { generateMockConversations } from '../utils/mockData'
+
+const EMPTY_MESSAGES: Message[] = []
 
 export interface ConversationState {
   // Data state
   conversations: Conversation[]
   messages: Record<string, Message[]> // conversationId -> messages
   currentConversationId: string | null
+
+  // Temporary conversation state (no DB record until first AI response)
+  pendingConversation: {
+    id: string
+    projectId?: string
+    title: string
+    createdAt: string
+  } | null
 
   // Streaming state
   isStreaming: boolean
@@ -33,6 +43,10 @@ export interface ConversationState {
   moveConversation: (conversationId: string, projectId: string | null) => Promise<void>
   updateConversationTitle: (conversationId: string, title: string) => Promise<void>
   generateConversationTitle: (conversationId: string) => Promise<void>
+
+  // Pending conversation operations
+  startNewChat: (projectId?: string) => void
+  clearPendingConversation: () => void
 
   // Session settings
   updateSessionSettings: (
@@ -62,6 +76,7 @@ export interface ConversationState {
   // Utilities
   clearError: () => void
   reset: () => void
+  initialize: () => Promise<void>
 }
 
 export interface SendMessageData {
@@ -71,15 +86,55 @@ export interface SendMessageData {
 }
 
 const initialState = {
-  conversations: generateMockConversations(),
+  conversations: [], // Start with empty conversations, load from DB
   messages: {},
   currentConversationId: null,
+  pendingConversation: null,
   isStreaming: false,
   streamingMessageId: null,
   isLoading: false,
   isLoadingMessages: false,
   isSending: false,
   error: null
+}
+
+/**
+ * Set up event listeners for real-time conversation updates
+ * Handles events sent from the main process via IPC
+ */
+function setupEventListeners() {
+  // Listen for title generation events
+  window.knowlex.events.on('conversation:title_generated', (_, data: any) => {
+    console.log('Received title generation event:', data)
+
+    if (data && data.conversationId && data.title) {
+      // Update the conversation title directly in the store state
+      console.log(`Updating conversation title in store: ${data.conversationId} -> "${data.title}"`)
+
+      useConversationStore.setState((state) => {
+        const conv = state.conversations.find((c) => c.id === data.conversationId)
+        if (conv) {
+          console.log(
+            `Found conversation ${data.conversationId}, updating title from "${conv.title}" to "${data.title}"`
+          )
+          conv.title = data.title
+          conv.updatedAt = new Date().toISOString()
+        } else {
+          console.warn(`Conversation ${data.conversationId} not found in store`)
+        }
+      })
+    } else {
+      console.warn('Invalid title generation event data:', data)
+    }
+  })
+
+  // Listen for conversation update events
+  window.knowlex.events.on('conversation:updated', (_, data: any) => {
+    console.log('Received conversation update event:', data)
+    // Handle other conversation updates if needed
+  })
+
+  console.log('Conversation event listeners set up')
 }
 
 export const useConversationStore = create<ConversationState>()(
@@ -94,10 +149,20 @@ export const useConversationStore = create<ConversationState>()(
       })
 
       try {
-        const conversation = await window.electronAPI?.invoke('conversation:create', {
+        console.log('Creating conversation with:', { projectId, title: title || 'New Chat' })
+        const result = await window.knowlex.conversation.create({
           projectId,
           title: title || 'New Chat'
         })
+
+        console.log('Conversation creation result:', result)
+
+        if (!result?.success || !result.data) {
+          throw new Error(result?.error || 'Failed to create conversation')
+        }
+
+        const conversation = result.data
+        console.log('Conversation created:', conversation)
 
         set((state) => {
           state.conversations.push(conversation)
@@ -118,7 +183,10 @@ export const useConversationStore = create<ConversationState>()(
 
     deleteConversation: async (conversationId: string) => {
       try {
-        await window.electronAPI?.invoke('conversation:delete', conversationId)
+        const result = await window.knowlex.conversation.delete(conversationId)
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to delete conversation')
+        }
 
         set((state) => {
           state.conversations = state.conversations.filter((c) => c.id !== conversationId)
@@ -137,7 +205,7 @@ export const useConversationStore = create<ConversationState>()(
 
     moveConversation: async (conversationId: string, projectId: string | null) => {
       try {
-        await window.electronAPI?.invoke('conversation:move', conversationId, projectId)
+        await window.knowlex.conversation.move(conversationId, projectId)
 
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
@@ -156,7 +224,7 @@ export const useConversationStore = create<ConversationState>()(
 
     updateConversationTitle: async (conversationId: string, title: string) => {
       try {
-        await window.electronAPI?.invoke('conversation:update-title', conversationId, title)
+        await window.knowlex.conversation.updateTitle(conversationId, title)
 
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
@@ -176,10 +244,13 @@ export const useConversationStore = create<ConversationState>()(
 
     generateConversationTitle: async (conversationId: string) => {
       try {
-        const title = await window.electronAPI?.invoke(
-          'conversation:generate-title',
-          conversationId
-        )
+        const result = await window.knowlex.conversation.generateTitle(conversationId)
+
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to generate title')
+        }
+
+        const title = result.data
 
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
@@ -197,10 +268,44 @@ export const useConversationStore = create<ConversationState>()(
       }
     },
 
+    // Pending Conversation Operations
+    startNewChat: (projectId?: string) => {
+      set((state) => {
+        // Generate temporary ID
+        const tempId = `pending-${Date.now()}`
+        state.pendingConversation = {
+          id: tempId,
+          projectId,
+          title: 'New Chat',
+          createdAt: new Date().toISOString()
+        }
+        state.currentConversationId = tempId
+        // Clear any existing messages for this temp ID
+        if (state.messages[tempId]) {
+          delete state.messages[tempId]
+        }
+      })
+    },
+
+    clearPendingConversation: () => {
+      set((state) => {
+        if (state.pendingConversation) {
+          // Clean up any messages for the pending conversation
+          if (state.messages[state.pendingConversation.id]) {
+            delete state.messages[state.pendingConversation.id]
+          }
+          state.pendingConversation = null
+          if (state.currentConversationId?.startsWith('pending-')) {
+            state.currentConversationId = null
+          }
+        }
+      })
+    },
+
     // Session Settings
     updateSessionSettings: async (conversationId: string, settings: Partial<SessionSettings>) => {
       try {
-        await window.electronAPI?.invoke('conversation:update-settings', conversationId, settings)
+        await window.knowlex.conversation.updateSettings(conversationId, settings)
 
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
@@ -225,10 +330,50 @@ export const useConversationStore = create<ConversationState>()(
       })
 
       try {
+        let actualConversationId = conversationId
+
+        // Check if this is a pending conversation that needs to be created
+        const currentState = get()
+        if (conversationId.startsWith('pending-') && currentState.pendingConversation) {
+          console.log(
+            'Creating actual conversation for pending conversation:',
+            currentState.pendingConversation
+          )
+
+          // Create the actual conversation record in database
+          const result = await window.knowlex.conversation.create({
+            projectId: currentState.pendingConversation.projectId,
+            title: currentState.pendingConversation.title
+          })
+
+          if (!result?.success || !result.data) {
+            throw new Error(result?.error || 'Failed to create conversation')
+          }
+
+          const newConversation = result.data
+          console.log('Actual conversation created:', newConversation)
+
+          // Update state: add to conversations, clear pending, update current ID
+          set((state) => {
+            state.conversations.push(newConversation)
+            // Transfer any existing messages from pending to actual conversation
+            const pendingMessages = state.messages[conversationId] || []
+            state.messages[newConversation.id] = pendingMessages
+            delete state.messages[conversationId]
+
+            // Clear pending conversation and update current ID
+            // IMPORTANT: Set currentConversationId BEFORE clearing pendingConversation
+            // to maintain UI state consistency
+            state.currentConversationId = newConversation.id
+            state.pendingConversation = null
+          })
+
+          actualConversationId = newConversation.id
+        }
         // Optimistically add user message
         const userMessage: Message = {
           id: `temp-${Date.now()}`,
-          conversationId,
+          conversationId: actualConversationId,
           role: 'user',
           content,
           createdAt: new Date().toISOString(),
@@ -236,26 +381,41 @@ export const useConversationStore = create<ConversationState>()(
         }
 
         set((state) => {
-          if (!state.messages[conversationId]) {
-            state.messages[conversationId] = []
+          if (!state.messages[actualConversationId]) {
+            state.messages[actualConversationId] = []
           }
-          state.messages[conversationId].push(userMessage)
+          state.messages[actualConversationId].push(userMessage)
         })
 
         // Send message and handle streaming response
-        await window.electronAPI?.invoke('message:send', {
-          conversationId,
+        const result = await window.knowlex.message.send({
+          conversationId: actualConversationId,
           content,
           files
         })
 
-        set((state) => {
-          state.isSending = false
-        })
+        // Handle successful response
+        if (result?.success && result.data) {
+          set((state) => {
+            // Remove the temporary message and add the real messages from server
+            const messages = state.messages[actualConversationId] || []
+            // Remove the temporary user message
+            const filteredMessages = messages.filter((m) => !m.id.startsWith('temp-'))
+            // Add the real messages from server (user + assistant)
+            state.messages[actualConversationId] = [...filteredMessages, ...result.data]
+            state.isSending = false
+          })
+        } else {
+          // Handle error response
+          set((state) => {
+            state.isSending = false
+          })
+          throw new Error(result?.error || 'Failed to send message')
+        }
 
         // Update conversation timestamp
         set((state) => {
-          const conversation = state.conversations.find((c) => c.id === conversationId)
+          const conversation = state.conversations.find((c) => c.id === actualConversationId)
           if (conversation) {
             conversation.updatedAt = new Date().toISOString()
           }
@@ -271,7 +431,7 @@ export const useConversationStore = create<ConversationState>()(
 
     regenerateMessage: async (messageId: string) => {
       try {
-        await window.electronAPI?.invoke('message:regenerate', messageId)
+        await window.knowlex.message.regenerate(messageId)
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to regenerate message'
@@ -282,7 +442,7 @@ export const useConversationStore = create<ConversationState>()(
 
     editMessage: async (messageId: string, content: MessageContent) => {
       try {
-        await window.electronAPI?.invoke('message:edit', messageId, content)
+        await window.knowlex.message.edit(messageId, content)
 
         // Update message in local state
         set((state) => {
@@ -305,7 +465,7 @@ export const useConversationStore = create<ConversationState>()(
 
     deleteMessage: async (messageId: string) => {
       try {
-        await window.electronAPI?.invoke('message:delete', messageId)
+        await window.knowlex.message.delete(messageId)
 
         // Remove message from local state
         set((state) => {
@@ -327,7 +487,11 @@ export const useConversationStore = create<ConversationState>()(
 
     forkConversation: async (messageId: string) => {
       try {
-        const newConversation = await window.electronAPI?.invoke('conversation:fork', messageId)
+        const result = await window.knowlex.conversation.fork(messageId)
+        if (!result?.success || !result.data) {
+          throw new Error(result?.error || 'Failed to fork conversation')
+        }
+        const newConversation = result.data
 
         set((state) => {
           state.conversations.push(newConversation)
@@ -351,7 +515,11 @@ export const useConversationStore = create<ConversationState>()(
       })
 
       try {
-        const messages = (await window.electronAPI?.invoke('message:list', conversationId)) || []
+        const result = await window.knowlex.message.list(conversationId)
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to load messages')
+        }
+        const messages = result.data || []
 
         set((state) => {
           state.messages[conversationId] = messages
@@ -367,24 +535,51 @@ export const useConversationStore = create<ConversationState>()(
 
     // Selection and Navigation
     setCurrentConversation: (conversationId: string | null) => {
+      const currentState = get()
+
+      // Prevent infinite loops - only update if conversation actually changed
+      if (currentState.currentConversationId === conversationId) {
+        return
+      }
+
       set((state) => {
         state.currentConversationId = conversationId
       })
 
-      // Load messages for the selected conversation
-      if (conversationId && !get().messages[conversationId]) {
+      // Load messages for the selected conversation (avoid loading during initialization)
+      if (
+        conversationId &&
+        !currentState.messages[conversationId] &&
+        !currentState.isLoadingMessages
+      ) {
         get().loadMessages(conversationId)
       }
     },
 
     getCurrentConversation: () => {
       const state = get()
+
+      // Check if current ID is a pending conversation
+      if (state.currentConversationId?.startsWith('pending-') && state.pendingConversation) {
+        // Return a conversation-like object for the pending conversation
+        return {
+          id: state.pendingConversation.id,
+          title: state.pendingConversation.title,
+          projectId: state.pendingConversation.projectId || null,
+          createdAt: state.pendingConversation.createdAt,
+          updatedAt: state.pendingConversation.createdAt,
+          settings: {} as any // Default settings
+        } as Conversation
+      }
+
       return state.conversations.find((c) => c.id === state.currentConversationId) || null
     },
 
     getCurrentMessages: () => {
       const state = get()
-      return state.currentConversationId ? state.messages[state.currentConversationId] || [] : []
+      return state.currentConversationId
+        ? state.messages[state.currentConversationId] || EMPTY_MESSAGES
+        : EMPTY_MESSAGES
     },
 
     // Streaming Support
@@ -425,42 +620,141 @@ export const useConversationStore = create<ConversationState>()(
       set((state) => {
         Object.assign(state, initialState)
       })
+    },
+
+    // Initialize store by loading conversations from database
+    initialize: async () => {
+      set((state) => {
+        state.isLoading = true
+        state.error = null
+      })
+
+      try {
+        // Load conversations from database
+        const result = await window.knowlex.conversation.list()
+
+        if (result?.success) {
+          const conversations = result.data || []
+          set((state) => {
+            state.conversations = conversations
+            state.isLoading = false
+
+            // Don't automatically create pending conversation on initialization
+            // Let the user action trigger conversation creation for better UX
+            // if (conversations.length === 0 && !state.pendingConversation) {
+            //   const tempId = `pending-${Date.now()}`
+            //   state.pendingConversation = {
+            //     id: tempId,
+            //     title: 'New Chat',
+            //     createdAt: new Date().toISOString()
+            //   }
+            //   state.currentConversationId = tempId
+            // }
+          })
+        } else {
+          // If database is empty, start with empty state
+          set((state) => {
+            state.conversations = []
+            state.isLoading = false
+
+            // Don't automatically create pending conversation on initialization
+            // Let the user action trigger conversation creation for better UX
+            // if (!state.pendingConversation) {
+            //   const tempId = `pending-${Date.now()}`
+            //   state.pendingConversation = {
+            //     id: tempId,
+            //     title: 'New Chat',
+            //     createdAt: new Date().toISOString()
+            //   }
+            //   state.currentConversationId = tempId
+            // }
+          })
+        }
+
+        // Set up event listeners for real-time updates
+        setupEventListeners()
+      } catch (error) {
+        console.error('Failed to initialize conversations:', error)
+        set((state) => {
+          state.conversations = []
+          state.isLoading = false
+          state.error = error instanceof Error ? error.message : 'Failed to load conversations'
+
+          // Don't automatically create pending conversation on error
+          // Let the user action trigger conversation creation for better UX
+          // if (!state.pendingConversation) {
+          //   const tempId = `pending-${Date.now()}`
+          //   state.pendingConversation = {
+          //     id: tempId,
+          //     title: 'New Chat',
+          //     createdAt: new Date().toISOString()
+          //   }
+          //   state.currentConversationId = tempId
+          // }
+        })
+      }
     }
   }))
 )
 
-// Convenience hooks
-export const useCurrentConversation = () =>
-  useConversationStore((state) => ({
-    currentConversation: state.getCurrentConversation(),
-    currentMessages: state.getCurrentMessages(),
-    setCurrentConversation: state.setCurrentConversation,
-    isLoadingMessages: state.isLoadingMessages
-  }))
+// Individual selectors to avoid object creation in selectors
+export const useCurrentConversation = () => {
+  const currentConversationId = useConversationStore((state) => state.currentConversationId)
+  const conversations = useConversationStore((state) => state.conversations)
+  const pendingConversation = useConversationStore((state) => state.pendingConversation)
+  const messages = useConversationStore((state) => state.messages)
+  const setCurrentConversation = useConversationStore((state) => state.setCurrentConversation)
+  const isLoadingMessages = useConversationStore((state) => state.isLoadingMessages)
 
-export const useConversations = () =>
-  useConversationStore((state) => ({
-    conversations: state.conversations,
-    isLoading: state.isLoading,
-    error: state.error
-  }))
+  const currentConversation = React.useMemo(() => {
+    if (!currentConversationId) return null
 
-export const useMessageActions = () =>
-  useConversationStore((state) => ({
-    sendMessage: state.sendMessage,
-    regenerateMessage: state.regenerateMessage,
-    editMessage: state.editMessage,
-    deleteMessage: state.deleteMessage,
-    forkConversation: state.forkConversation,
-    isSending: state.isSending
-  }))
+    if (currentConversationId.startsWith('pending-') && pendingConversation) {
+      return {
+        id: pendingConversation.id,
+        title: pendingConversation.title,
+        projectId: pendingConversation.projectId || null,
+        createdAt: pendingConversation.createdAt,
+        updatedAt: pendingConversation.createdAt,
+        settings: {} as any
+      } as Conversation
+    }
 
-export const useStreamingState = () =>
-  useConversationStore((state) => ({
-    isStreaming: state.isStreaming,
-    streamingMessageId: state.streamingMessageId,
-    onStreamingUpdate: state.onStreamingUpdate,
-    setStreamingState: state.setStreamingState
-  }))
+    return conversations.find((c) => c.id === currentConversationId) || null
+  }, [currentConversationId, conversations, pendingConversation])
+
+  const currentMessages = React.useMemo(() => {
+    return currentConversationId
+      ? messages[currentConversationId] || EMPTY_MESSAGES
+      : EMPTY_MESSAGES
+  }, [currentConversationId, messages])
+
+  return {
+    currentConversation,
+    currentMessages,
+    setCurrentConversation,
+    isLoadingMessages
+  }
+}
+
+// Individual selectors to prevent re-render loops
+export const useConversations = () => useConversationStore((state) => state.conversations)
+export const useConversationsLoading = () => useConversationStore((state) => state.isLoading)
+export const useConversationsError = () => useConversationStore((state) => state.error)
+export const useStartNewChat = () => useConversationStore((state) => state.startNewChat)
+
+// Individual selectors to prevent re-render loops
+export const useSendMessage = () => useConversationStore((state) => state.sendMessage)
+export const useRegenerateMessage = () => useConversationStore((state) => state.regenerateMessage)
+export const useEditMessage = () => useConversationStore((state) => state.editMessage)
+export const useDeleteMessage = () => useConversationStore((state) => state.deleteMessage)
+export const useForkConversation = () => useConversationStore((state) => state.forkConversation)
+export const useIsSending = () => useConversationStore((state) => state.isSending)
+
+// Individual selectors to prevent re-render loops
+export const useIsStreaming = () => useConversationStore((state) => state.isStreaming)
+export const useStreamingMessageId = () => useConversationStore((state) => state.streamingMessageId)
+export const useOnStreamingUpdate = () => useConversationStore((state) => state.onStreamingUpdate)
+export const useSetStreamingState = () => useConversationStore((state) => state.setStreamingState)
 
 export default useConversationStore

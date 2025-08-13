@@ -45,16 +45,24 @@ export interface KnowlexAPI {
     create: (data: ConversationCreateRequest) => Promise<IPCResult>
     list: (projectId?: string) => Promise<IPCResult>
     get: (id: string) => Promise<IPCResult>
+    update: (data: any) => Promise<IPCResult>
+    updateTitle: (conversationId: string, title: string) => Promise<IPCResult>
+    updateSettings: (conversationId: string, settings: any) => Promise<IPCResult>
+    generateTitle: (conversationId: string) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
     move: (conversationId: string, projectId: string | null) => Promise<IPCResult>
+    fork: (messageId: string) => Promise<IPCResult>
   }
 
   // Message IPC
   message: {
     add: (data: MessageAddRequest) => Promise<IPCResult>
+    send: (data: any) => Promise<IPCResult>
     list: (conversationId: string) => Promise<IPCResult>
     update: (id: string, content: any) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
+    regenerate: (messageId: string) => Promise<IPCResult>
+    edit: (messageId: string, content: any) => Promise<IPCResult>
   }
 
   // File IPC
@@ -149,17 +157,28 @@ const knowlexAPI: KnowlexAPI = {
     create: (data) => ipcRenderer.invoke('conversation:create', data),
     list: (projectId) => ipcRenderer.invoke('conversation:list', projectId),
     get: (id) => ipcRenderer.invoke('conversation:get', id),
+    update: (data) => ipcRenderer.invoke('conversation:update', data),
+    updateTitle: (conversationId, title) =>
+      ipcRenderer.invoke('conversation:update-title', conversationId, title),
+    updateSettings: (conversationId, settings) =>
+      ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
+    generateTitle: (conversationId) =>
+      ipcRenderer.invoke('conversation:generate-title', conversationId),
     delete: (id) => ipcRenderer.invoke('conversation:delete', id),
     move: (conversationId, projectId) =>
-      ipcRenderer.invoke('conversation:move', conversationId, projectId)
+      ipcRenderer.invoke('conversation:move', conversationId, projectId),
+    fork: (messageId) => ipcRenderer.invoke('conversation:fork', messageId)
   },
 
   // Message IPC
   message: {
     add: (data) => ipcRenderer.invoke('message:add', data),
+    send: (data) => ipcRenderer.invoke('message:send', data),
     list: (conversationId) => ipcRenderer.invoke('message:list', conversationId),
     update: (id, content) => ipcRenderer.invoke('message:update', id, content),
-    delete: (id) => ipcRenderer.invoke('message:delete', id)
+    delete: (id) => ipcRenderer.invoke('message:delete', id),
+    regenerate: (messageId) => ipcRenderer.invoke('message:regenerate', messageId),
+    edit: (messageId, content) => ipcRenderer.invoke('message:edit', messageId, content)
   },
 
   // File IPC

@@ -488,17 +488,15 @@ export const useAdvancedSettings = () =>
     updateSettings: state.updateAdvancedSettings
   }))
 
-export const useSettingsActions = () =>
-  useSettingsStore((state) => ({
-    loadSettings: state.loadSettings,
-    saveSettings: state.saveSettings,
-    resetToDefaults: state.resetToDefaults,
-    validateSettings: state.validateSettings,
-    hasUnsavedChanges: state.hasUnsavedChanges,
-    isLoading: state.isLoading,
-    isSaving: state.isSaving,
-    error: state.error,
-    clearError: state.clearError
-  }))
+// Individual selectors to prevent re-render loops
+export const useLoadSettings = () => useSettingsStore((state) => state.loadSettings)
+export const useSaveSettings = () => useSettingsStore((state) => state.saveSettings)
+export const useResetToDefaults = () => useSettingsStore((state) => state.resetToDefaults)
+export const useValidateSettings = () => useSettingsStore((state) => state.validateSettings)
+export const useHasUnsavedChanges = () => useSettingsStore((state) => state.hasUnsavedChanges)
+export const useSettingsLoading = () => useSettingsStore((state) => state.isLoading)
+export const useSettingsSaving = () => useSettingsStore((state) => state.isSaving)
+export const useSettingsError = () => useSettingsStore((state) => state.error)
+export const useClearSettingsError = () => useSettingsStore((state) => state.clearError)
 
 export default useSettingsStore

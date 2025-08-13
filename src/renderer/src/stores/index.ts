@@ -23,14 +23,29 @@ export {
   default as useProjectStore,
   useCurrentProject,
   useProjects,
-  useProjectActions
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
+  useIsCreating,
+  useIsUpdating,
+  useIsDeleting
 } from './project'
 export {
   default as useConversationStore,
   useCurrentConversation,
   useConversations,
-  useMessageActions,
-  useStreamingState
+  useConversationsLoading,
+  useConversationsError,
+  useSendMessage,
+  useRegenerateMessage,
+  useEditMessage,
+  useDeleteMessage,
+  useForkConversation,
+  useIsSending,
+  useIsStreaming,
+  useStreamingMessageId,
+  useOnStreamingUpdate,
+  useSetStreamingState
 } from './conversation'
 export {
   default as useSettingsStore,
@@ -38,7 +53,15 @@ export {
   useGeneralSettings,
   useShortcutSettings,
   useAdvancedSettings,
-  useSettingsActions
+  useLoadSettings,
+  useSaveSettings,
+  useResetToDefaults,
+  useValidateSettings,
+  useHasUnsavedChanges,
+  useSettingsLoading,
+  useSettingsSaving,
+  useSettingsError,
+  useClearSettingsError
 } from './settings'
 
 // Type exports
@@ -57,6 +80,8 @@ export type {
 export const initializeStores = async () => {
   // Initialize stores that need async setup
   const settingsStore = useSettingsStoreInternal.getState()
+  const conversationStore = useConversationStoreInternal.getState()
+  const projectStore = useProjectStoreInternal.getState()
   const appStore = useAppStoreInternal.getState()
 
   try {
@@ -67,6 +92,9 @@ export const initializeStores = async () => {
     // Load settings
     await settingsStore.loadSettings()
 
+    // Initialize data stores
+    await Promise.all([conversationStore.initialize(), projectStore.initialize()])
+
     // Mark app as initialized
     appStore.setInitialized(true)
 
@@ -75,11 +103,11 @@ export const initializeStores = async () => {
     console.error('Failed to initialize stores:', error)
 
     // Still mark as initialized to prevent infinite loading
-    // The settings store will handle its own error state
+    // The stores will handle their own error states
     appStore.setInitialized(true)
 
     // Don't re-throw the error to allow the app to continue
-    console.warn('App initialized with settings loading failure')
+    console.warn('App initialized with store loading failures')
   }
 }
 

@@ -11,7 +11,6 @@ import type {
   ProjectMemory,
   ProjectNote
 } from '../../../shared/types/project'
-import { generateMockProjects } from '../utils/mockData'
 
 export interface ProjectState {
   // Data state
@@ -64,6 +63,7 @@ export interface ProjectState {
   // Utilities
   clearError: () => void
   reset: () => void
+  initialize: () => Promise<void>
 }
 
 export interface CreateProjectData {
@@ -77,7 +77,7 @@ export interface UpdateProjectData {
 }
 
 const initialState = {
-  projects: generateMockProjects(),
+  projects: [], // Start with empty, load from DB
   currentProjectId: null,
   isLoading: false,
   isCreating: false,
@@ -362,6 +362,39 @@ export const useProjectStore = create<ProjectState>()(
       set((state) => {
         Object.assign(state, initialState)
       })
+    },
+
+    // Initialize store by loading projects from database
+    initialize: async () => {
+      set((state) => {
+        state.isLoading = true
+        state.error = null
+      })
+
+      try {
+        // Load projects from database
+        const result = await window.electronAPI?.invoke('project:list')
+
+        if (result?.success) {
+          set((state) => {
+            state.projects = result.data || []
+            state.isLoading = false
+          })
+        } else {
+          // If database is empty, start with empty state
+          set((state) => {
+            state.projects = []
+            state.isLoading = false
+          })
+        }
+      } catch (error) {
+        console.error('Failed to initialize projects:', error)
+        set((state) => {
+          state.projects = []
+          state.isLoading = false
+          state.error = error instanceof Error ? error.message : 'Failed to load projects'
+        })
+      }
     }
   }))
 )
@@ -382,15 +415,13 @@ export const useProjects = () =>
     clearError: state.clearError
   }))
 
-export const useProjectActions = () =>
-  useProjectStore((state) => ({
-    createProject: state.createProject,
-    updateProject: state.updateProject,
-    deleteProject: state.deleteProject,
-    isCreating: state.isCreating,
-    isUpdating: state.isUpdating,
-    isDeleting: state.isDeleting
-  }))
+// Individual selectors to prevent re-render loops
+export const useCreateProject = () => useProjectStore((state) => state.createProject)
+export const useUpdateProject = () => useProjectStore((state) => state.updateProject)
+export const useDeleteProject = () => useProjectStore((state) => state.deleteProject)
+export const useIsCreating = () => useProjectStore((state) => state.isCreating)
+export const useIsUpdating = () => useProjectStore((state) => state.isUpdating)
+export const useIsDeleting = () => useProjectStore((state) => state.isDeleting)
 
 // Global declarations for electron API (will be properly typed later)
 declare global {

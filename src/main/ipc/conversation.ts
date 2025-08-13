@@ -24,6 +24,7 @@ import type {
   MessageAddRequest
 } from '../../shared/types/ipc'
 import type { Conversation, Message, SessionSettings, MessageContent } from '../../shared/types'
+import { generateAIResponse, testAIConfiguration } from '../services/ai-chat'
 
 /**
  * Conversation and Message IPC Handler
@@ -197,6 +198,26 @@ export function registerConversationIPCHandlers(): void {
           title: data.title,
           projectId: data.projectId,
           settings: data.settings
+        })
+      })
+    }
+  )
+
+  // Update conversation title (convenience method)
+  ipcMain.handle(
+    'conversation:update-title',
+    async (_, conversationId: unknown, title: unknown): Promise<IPCResult<Conversation>> => {
+      return handleIPCCall(async () => {
+        if (!validateConversationId(conversationId)) {
+          throw new Error('Invalid conversation ID')
+        }
+
+        if (!title || typeof title !== 'string' || title.trim().length === 0) {
+          throw new Error('Invalid title')
+        }
+
+        return await updateConversation(conversationId, {
+          title: title.trim()
         })
       })
     }
@@ -411,6 +432,252 @@ export function registerConversationIPCHandlers(): void {
     })
   })
 
+  // Send message (user input + AI response)
+  ipcMain.handle('message:send', async (_, data: unknown): Promise<IPCResult<Message[]>> => {
+    return handleIPCCall(async () => {
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid send message data')
+      }
+
+      const request = data as any
+      if (!validateConversationId(request.conversationId)) {
+        throw new Error('Invalid conversation ID')
+      }
+
+      if (!validateMessageContent(request.content)) {
+        throw new Error('Invalid message content')
+      }
+
+      // Add user message
+      const userMessage = await addMessage({
+        conversationId: request.conversationId,
+        role: 'user',
+        content: request.content
+      })
+
+      // Send event for user message added
+      sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
+
+      // Get all messages in the conversation for AI context
+      const allMessages = await getMessages(request.conversationId)
+
+      const messages = [userMessage]
+
+      try {
+        // Generate AI response using the conversation context
+        const aiResponseContent = await generateAIResponse(allMessages)
+
+        const assistantMessage = await addMessage({
+          conversationId: request.conversationId,
+          role: 'assistant',
+          content: aiResponseContent
+        })
+
+        messages.push(assistantMessage)
+        sendMessageEvent(MESSAGE_EVENTS.ADDED, assistantMessage)
+
+        // Check if this is the first complete exchange and trigger title generation
+        // We want to generate a title after the first AI response
+        const totalMessages = await getMessages(request.conversationId)
+        const userMessages = totalMessages.filter((m) => m.role === 'user')
+        const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
+
+        // Trigger title generation if we have exactly 1 user message and 1 assistant message
+        // (the first complete exchange)
+        if (userMessages.length === 1 && assistantMessages.length === 1) {
+          console.log(
+            `Triggering automatic title generation for conversation ${request.conversationId} after first exchange`
+          )
+          try {
+            const newTitle = await generateConversationTitle(request.conversationId)
+
+            // Only update if we got a meaningful title (not generic fallback)
+            const isGenericFallback =
+              newTitle === 'New Chat' ||
+              newTitle.includes('Conversation ') ||
+              /^Chat \d{1,2}\/\d{1,2}\/\d{4}$/.test(newTitle)
+
+            if (newTitle && !isGenericFallback) {
+              await updateConversation(request.conversationId, { title: newTitle })
+
+              // Send title update event to renderer
+              sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
+                conversationId: request.conversationId,
+                title: newTitle
+              })
+
+              console.log(
+                `Successfully auto-generated title for conversation ${request.conversationId}: "${newTitle}"`
+              )
+            } else {
+              console.log(
+                `Skipping title update for conversation ${request.conversationId}: got fallback title "${newTitle}"`
+              )
+            }
+          } catch (titleError) {
+            console.error('Failed to automatically generate title:', titleError)
+            // Don't fail the entire send operation if title generation fails
+          }
+        } else {
+          console.log(
+            `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
+          )
+        }
+      } catch (error) {
+        console.error('Failed to generate AI response:', error)
+
+        // Add error message as assistant response
+        const errorContent = [
+          {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
+          }
+        ]
+
+        const errorMessage = await addMessage({
+          conversationId: request.conversationId,
+          role: 'assistant',
+          content: errorContent
+        })
+
+        messages.push(errorMessage)
+        sendMessageEvent(MESSAGE_EVENTS.ADDED, errorMessage)
+      }
+
+      return messages
+    })
+  })
+
+  // Regenerate message (AI response)
+  ipcMain.handle(
+    'message:regenerate',
+    async (_, messageId: unknown): Promise<IPCResult<Message>> => {
+      return handleIPCCall(async () => {
+        if (!validateMessageId(messageId)) {
+          throw new Error('Invalid message ID')
+        }
+
+        // Get the message to regenerate
+        const message = await getMessage(messageId)
+        if (!message) {
+          throw new Error('Message not found')
+        }
+
+        if (message.role !== 'assistant') {
+          throw new Error('Can only regenerate assistant messages')
+        }
+
+        let updatedMessage: Message
+
+        try {
+          // Get conversation messages up to the point before this assistant message
+          const allMessages = await getMessages(message.conversationId)
+          const messageIndex = allMessages.findIndex((m) => m.id === messageId)
+          const contextMessages = allMessages.slice(0, messageIndex)
+
+          // Generate new AI response
+          const newContent = await generateAIResponse(contextMessages)
+
+          updatedMessage = await updateMessage(messageId, {
+            content: newContent
+          })
+        } catch (error) {
+          console.error('Failed to regenerate AI response:', error)
+
+          // Fall back to error message
+          const errorContent = [
+            {
+              type: 'text',
+              text: `Error regenerating response: ${error instanceof Error ? error.message : 'Please check your AI configuration.'}`
+            }
+          ]
+
+          updatedMessage = await updateMessage(messageId, {
+            content: errorContent
+          })
+        }
+
+        sendMessageEvent(MESSAGE_EVENTS.UPDATED, updatedMessage)
+        return updatedMessage
+      })
+    }
+  )
+
+  // Fork conversation
+  ipcMain.handle(
+    'conversation:fork',
+    async (_, messageId: unknown): Promise<IPCResult<Conversation>> => {
+      return handleIPCCall(async () => {
+        if (!validateMessageId(messageId)) {
+          throw new Error('Invalid message ID')
+        }
+
+        // Get the message to fork from
+        const message = await getMessage(messageId)
+        if (!message) {
+          throw new Error('Message not found')
+        }
+
+        // Create new conversation
+        const newConversation = await createConversation({
+          title: 'Forked Conversation',
+          projectId: undefined
+        })
+
+        // Copy messages up to the fork point
+        const messages = await getMessages(message.conversationId)
+        const messagesToCopy = messages.filter((m, index) => {
+          const messageIndex = messages.findIndex((msg) => msg.id === messageId)
+          return index <= messageIndex
+        })
+
+        for (const msg of messagesToCopy) {
+          await addMessage({
+            conversationId: newConversation.id,
+            role: msg.role,
+            content: msg.content
+          })
+        }
+
+        sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConversation)
+        return newConversation
+      })
+    }
+  )
+
+  // Edit message
+  ipcMain.handle(
+    'message:edit',
+    async (_, messageId: unknown, content: unknown): Promise<IPCResult<Message>> => {
+      return handleIPCCall(async () => {
+        if (!validateMessageId(messageId)) {
+          throw new Error('Invalid message ID')
+        }
+
+        if (!validateMessageContent(content)) {
+          throw new Error('Invalid message content')
+        }
+
+        const updatedMessage = await updateMessage(messageId, {
+          content: content as MessageContent
+        })
+
+        sendMessageEvent(MESSAGE_EVENTS.UPDATED, updatedMessage)
+        return updatedMessage
+      })
+    }
+  )
+
+  // Test AI configuration
+  ipcMain.handle(
+    'ai:test-configuration',
+    async (): Promise<IPCResult<{ success: boolean; error?: string; model?: string }>> => {
+      return handleIPCCall(async () => {
+        return await testAIConfiguration()
+      })
+    }
+  )
+
   console.log('Conversation and message IPC handlers registered successfully')
 }
 
@@ -427,10 +694,12 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:list',
     'conversation:get',
     'conversation:update',
+    'conversation:update-title',
     'conversation:delete',
     'conversation:move',
     'conversation:update-settings',
     'conversation:generate-title',
+    'conversation:fork',
 
     // Message channels
     'message:add',
@@ -439,7 +708,13 @@ export function unregisterConversationIPCHandlers(): void {
     'message:get',
     'message:list',
     'message:update',
-    'message:delete'
+    'message:delete',
+    'message:send',
+    'message:regenerate',
+    'message:edit',
+
+    // AI channels
+    'ai:test-configuration'
   ]
 
   channels.forEach((channel) => {

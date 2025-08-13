@@ -1,0 +1,140 @@
+import React from 'react'
+import { Box, VStack, Spinner, Text } from '@chakra-ui/react'
+import { useCurrentConversation } from '../../../stores/conversation'
+import MessageList from './MessageList'
+import ChatInputBox from './ChatInputBox'
+import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
+
+export interface ChatInterfaceProps {
+  /** Additional CSS classes */
+  className?: string
+}
+
+/**
+ * 聊天界面核心组件 - Task 17
+ *
+ * 实现要求:
+ * - 聊天容器，当前会话检查，空状态处理
+ * - 消息渲染，虚拟滚动，自动滚动
+ * - 多部分内容渲染，Markdown支持，流式显示
+ * - 支持MessageContentParts结构：text, image, citation, tool-call等
+ */
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
+  const { currentConversation, currentMessages, isLoadingMessages } = useCurrentConversation()
+  const sendMessage = useSendMessage()
+  const startNewChat = useStartNewChat()
+  const conversationStore = useConversationStore()
+
+  // Handle sending message from entrance
+  const handleSendMessage = async (message: string, files: File[] = []) => {
+    // Prepare message content
+    const content = [{ type: 'text' as const, text: message }]
+
+    let conversationId = conversationStore.currentConversationId
+
+    // Create new conversation if none exists
+    if (!conversationId) {
+      startNewChat()
+      // Get the fresh pending conversation ID after startNewChat
+      conversationId = useConversationStore.getState().pendingConversation?.id
+    }
+
+    if (conversationId) {
+      await sendMessage(conversationId, content, files)
+    }
+  }
+
+  // No conversation or pending conversation - show main welcome state
+  if (!currentConversation) {
+    return (
+      <VStack
+        spacing={8}
+        textAlign="center"
+        w="full"
+        h="full"
+        justify="center"
+        align="center"
+        px={8}
+        className={className}
+      >
+        {/* Welcome Message */}
+        <Text fontSize="3xl" fontWeight="medium" color="text.primary">
+          您在忙什么?
+        </Text>
+
+        {/* Chat Entrance */}
+        <ChatInputBox
+          variant="main-entrance"
+          onSendMessage={handleSendMessage}
+          showFileAttachment={true}
+        />
+      </VStack>
+    )
+  }
+
+  // Loading state
+  if (isLoadingMessages) {
+    return (
+      <Box
+        flex={1}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        className={className}
+      >
+        <VStack spacing={4}>
+          <Spinner size="lg" color="primary.500" />
+          <Text color="text.secondary">Loading messages...</Text>
+        </VStack>
+      </Box>
+    )
+  }
+
+  // Startup state: No messages but has conversation (including pending) - show welcome screen with conversation input
+  if (currentMessages.length === 0) {
+    // Use the main entrance handler for consistency, regardless of conversation state
+    return (
+      <VStack
+        spacing={8}
+        textAlign="center"
+        w="full"
+        h="full"
+        justify="center"
+        align="center"
+        px={8}
+        className={className}
+      >
+        {/* Welcome Message */}
+        <Text fontSize="3xl" fontWeight="medium" color="text.primary">
+          您在忙什么?
+        </Text>
+
+        {/* Chat Input - Always use main-entrance variant for consistency */}
+        <ChatInputBox
+          variant="main-entrance"
+          onSendMessage={handleSendMessage}
+          showFileAttachment={true}
+        />
+      </VStack>
+    )
+  }
+
+  // Chat state: Messages exist - show conversation with bottom input
+  return (
+    <Box flex={1} display="flex" flexDirection="column" h="100%" className={className}>
+      {/* Messages Area */}
+      <Box flex={1} overflowY="auto" minH={0}>
+        <MessageList messages={currentMessages} />
+      </Box>
+
+      {/* Input Area */}
+      <Box flexShrink={0}>
+        <ChatInputBox conversationId={currentConversation.id} variant="conversation" />
+      </Box>
+    </Box>
+  )
+}
+
+ChatInterface.displayName = 'ChatInterface'
+
+export default ChatInterface

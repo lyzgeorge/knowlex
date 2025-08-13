@@ -234,7 +234,7 @@
   - _Requirements: 2.1, 2.2, 2.6, 2.7_
 
 - [ ] 18. 消息输入框
-  - 实现components/features/chat/InputBox.tsx：文本输入，文件上传按钮，发送按钮
+  - 实现components/features/chat/ChatInputBox.tsx：文本输入，文件上传按钮，发送按钮
   - 实现文件上传：拖拽支持，文件预览卡片，删除功能
   - 实现临时文件处理：格式验证，大小限制，内容提取
   - 定义InputBoxPayload接口：input, files, attachments等

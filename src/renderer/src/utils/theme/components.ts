@@ -11,7 +11,7 @@ export const components = {
       borderRadius: 'md',
       transition: 'all 0.2s ease-in-out',
       _focus: {
-        boxShadow: 'outline'
+        boxShadow: 'none'
       }
     },
     sizes: {
@@ -433,7 +433,7 @@ export const components = {
       track: {
         transition: 'all 0.2s ease-in-out',
         _focus: {
-          boxShadow: 'outline'
+          boxShadow: 'none'
         }
       }
     },
@@ -449,7 +449,7 @@ export const components = {
         borderRadius: 'sm',
         transition: 'all 0.2s ease-in-out',
         _focus: {
-          boxShadow: 'outline'
+          boxShadow: 'none'
         }
       }
     },
@@ -464,12 +464,25 @@ export const components = {
       control: {
         transition: 'all 0.2s ease-in-out',
         _focus: {
-          boxShadow: 'outline'
+          boxShadow: 'none'
         }
       }
     },
     defaultProps: {
       colorScheme: 'primary'
+    }
+  },
+
+  // Text component with timestamp variant
+  Text: {
+    variants: {
+      timestamp: {
+        fontSize: 'xs',
+        color: 'text.tertiary',
+        lineHeight: '1rem',
+        px: 1,
+        py: 1
+      }
     }
   }
 }

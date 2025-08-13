@@ -24,8 +24,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
       {sidebar || <Sidebar />}
 
       {/* Main Content Area - Flexible width */}
-      <Box flex={1} h="100vh" overflow="hidden" bg="background.primary">
-        {children}
+      <Box flex={1} h="100vh" overflow="hidden" bg="background.primary" position="relative">
+        {/* Draggable Top Area */}
+        <Box
+          h="2rem"
+          w="100%"
+          position="absolute"
+          top={0}
+          left={0}
+          zIndex={1000}
+          style={{ WebkitAppRegion: 'drag' }}
+          bg="transparent"
+          pointerEvents="all"
+        />
+
+        {/* Main Content with top padding */}
+        <Box h="100%" pt="2rem" overflow="hidden">
+          {children}
+        </Box>
       </Box>
     </HStack>
   )

@@ -60,19 +60,30 @@ import { ClaudeProvider } from './claude'
  * This ensures they are available when the AI module is imported
  */
 export const initializeAIProviders = (): void => {
+  console.log('🤖 Initializing AI providers...')
+
+  let successCount = 0
+  let totalCount = 0
+
   try {
+    totalCount++
     registerModel(OpenAIProvider)
-    console.log('OpenAI provider registered successfully')
+    successCount++
+    console.log('✅ OpenAI provider registered successfully')
   } catch (error) {
-    console.error('Failed to register OpenAI provider:', error)
+    console.error('❌ Failed to register OpenAI provider:', error)
   }
 
   try {
+    totalCount++
     registerModel(ClaudeProvider)
-    console.log('Claude provider registered successfully')
+    successCount++
+    console.log('✅ Claude provider registered successfully')
   } catch (error) {
-    console.error('Failed to register Claude provider:', error)
+    console.error('❌ Failed to register Claude provider:', error)
   }
+
+  console.log(`🎯 AI System ready: ${successCount}/${totalCount} providers loaded`)
 }
 
 // Auto-initialize providers when module is imported

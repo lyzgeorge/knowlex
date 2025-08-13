@@ -46,7 +46,7 @@ export async function createConversation(data: CreateConversationData): Promise<
   const newConversation: Conversation = {
     id: conversationId,
     projectId: data.projectId?.trim() || undefined,
-    title: data.title?.trim() || 'New Conversation',
+    title: data.title?.trim() || 'New Chat',
     settings: data.settings,
     createdAt: now,
     updatedAt: now
@@ -266,7 +266,7 @@ export async function updateConversationSettings(
 
 /**
  * Generates a meaningful title for a conversation based on its content
- * This would typically call an AI service to analyze the conversation and generate a title
+ * Uses AI to analyze the first exchange and create a concise, relevant title
  */
 export async function generateConversationTitle(id: string): Promise<string> {
   if (!id || id.trim().length === 0) {
@@ -280,17 +280,121 @@ export async function generateConversationTitle(id: string): Promise<string> {
   }
 
   try {
-    // TODO: Implement AI-based title generation
-    // For now, return a placeholder implementation
-    const timestamp = new Date().toLocaleDateString()
-    const fallbackTitle = `Conversation ${timestamp}`
+    // Import AI service dynamically to avoid circular dependencies
+    const { generateAIResponse, validateAIConfiguration } = await import('../services/ai-chat')
+    const { getMessages } = await import('../services/message')
 
-    console.log(`Generated title for conversation ${id}: ${fallbackTitle}`)
-    return fallbackTitle
+    // Validate AI configuration
+    const validation = validateAIConfiguration()
+    if (!validation.isValid) {
+      console.warn('AI not configured for title generation, using simple fallback based on content')
+
+      // Try to create a simple title from the user's first message
+      const messages = await getMessages(id)
+      const firstUserMessage = messages.find((m) => m.role === 'user')
+
+      if (firstUserMessage && firstUserMessage.content.length > 0) {
+        const userText = firstUserMessage.content
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join(' ')
+          .trim()
+          .slice(0, 50) // Limit length
+          .replace(/[^\w\s]/g, '') // Remove special characters
+          .trim()
+
+        if (userText.length > 0) {
+          const words = userText.split(/\s+/).slice(0, 4) // First 4 words
+          return words.join(' ')
+        }
+      }
+
+      const timestamp = new Date().toLocaleDateString()
+      return `Chat ${timestamp}`
+    }
+
+    // Get conversation messages
+    const messages = await getMessages(id)
+    if (messages.length < 2) {
+      // Not enough messages for meaningful title generation
+      return 'New Chat'
+    }
+
+    // Get first user message and first assistant response
+    const firstUserMessage = messages.find((m) => m.role === 'user')
+    const firstAssistantMessage = messages.find((m) => m.role === 'assistant')
+
+    if (!firstUserMessage || !firstAssistantMessage) {
+      return 'New Chat'
+    }
+
+    // Extract text content from messages
+    const userContent = firstUserMessage.content
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(' ')
+      .trim()
+
+    const assistantContent = firstAssistantMessage.content
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(' ')
+      .trim()
+
+    if (!userContent || !assistantContent) {
+      return 'New Chat'
+    }
+
+    // Prepare title generation prompt
+    const titlePrompt = [
+      {
+        role: 'system' as const,
+        content:
+          'You are a helpful assistant that generates concise, descriptive titles for conversations. Generate a title that is 2-6 words long and captures the main topic or question discussed. Return ONLY the title, no additional text or punctuation.'
+      },
+      {
+        role: 'user' as const,
+        content: `Based on this conversation exchange, generate a concise title:\n\nUser: ${userContent.slice(0, 500)}\n\nAssistant: ${assistantContent.slice(0, 500)}`
+      }
+    ]
+
+    // Generate title using AI
+    const response = await generateAIResponse(
+      titlePrompt.map((msg) => ({
+        id: `title-gen-${Date.now()}-${Math.random()}`,
+        conversationId: 'title-generation',
+        role: msg.role,
+        content: [{ type: 'text', text: msg.content }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }))
+    )
+
+    const generatedTitle = response
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(' ')
+      .trim()
+      .replace(/['"]/g, '') // Remove quotes
+      .slice(0, 100) // Limit length
+
+    if (generatedTitle && generatedTitle.length > 0) {
+      console.log(`AI-generated title for conversation ${id}: ${generatedTitle}`)
+      return generatedTitle
+    } else {
+      // Fallback if AI doesn't generate a valid title
+      const timestamp = new Date().toLocaleDateString()
+      const fallbackTitle = `Conversation ${timestamp}`
+      console.log(`Using fallback title for conversation ${id}: ${fallbackTitle}`)
+      return fallbackTitle
+    }
   } catch (error) {
     console.error(`Failed to generate title for conversation ${id}:`, error)
-    throw new Error(
-      `Failed to generate conversation title: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+
+    // Fallback to timestamp-based title
+    const timestamp = new Date().toLocaleDateString()
+    const fallbackTitle = `Conversation ${timestamp}`
+    console.log(`Using fallback title after error for conversation ${id}: ${fallbackTitle}`)
+    return fallbackTitle
   }
 }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   VStack,
@@ -10,10 +10,10 @@ import {
   Code,
   useColorModeValue,
   Skeleton,
-  Avatar,
-  Tooltip
+  Icon
 } from '@chakra-ui/react'
-import { ExternalLinkIcon, CopyIcon, LinkIcon } from '@chakra-ui/icons'
+import { ExternalLinkIcon, LinkIcon } from '@chakra-ui/icons'
+import { FaRobot } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -25,6 +25,7 @@ import {
   ToolCallContent,
   ImageContent
 } from '../../../shared/types/message'
+import MessageActionIcons from '../features/chat/MessageActionIcons'
 
 export interface MessageBubbleProps {
   /** Message data */
@@ -41,8 +42,6 @@ export interface MessageBubbleProps {
   onCitationClick?: (citation: CitationContent) => void
   /** Click handler for images */
   onImageClick?: (image: ImageContent) => void
-  /** Copy message handler */
-  onCopyMessage?: (message: Message) => void
 }
 
 /**
@@ -64,20 +63,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   showTimestamp = true,
   compact = false,
   onCitationClick,
-  onImageClick,
-  onCopyMessage
+  onImageClick
 }) => {
+  const [isHovered, setIsHovered] = useState(false)
+
+  // Color mode values (must be called at the top level)
+  const avatarBg = useColorModeValue('gray.100', 'gray.700')
+  const avatarBorder = useColorModeValue('gray.200', 'gray.600')
+  const iconColor = useColorModeValue('gray.600', 'gray.300')
   const isUser = message.role === 'user'
 
   // Theme colors
-  const userBg = useColorModeValue('blue.500', 'blue.600')
-  const assistantBg = useColorModeValue('surface.primary', 'surface.secondary')
-  const userTextColor = 'white'
+  const userBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)') // primary.500 with transparency
+  const userTextColor = useColorModeValue('text.primary', 'text.primary')
   const assistantTextColor = useColorModeValue('text.primary', 'text.primary')
-  const timestampColor = useColorModeValue('text.tertiary', 'text.tertiary')
   const codeBlockBg = useColorModeValue('gray.100', 'gray.800')
   const inlineCodeBg = useColorModeValue('gray.100', 'gray.700')
   const blockquoteBg = useColorModeValue('gray.50', 'gray.800')
+  const userCodeBlockBg = useColorModeValue('rgba(74, 124, 74, 0.15)', 'rgba(74, 124, 74, 0.2)')
+  const userInlineCodeBg = useColorModeValue('rgba(74, 124, 74, 0.12)', 'rgba(74, 124, 74, 0.18)')
+  const userBlockquoteBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)')
+  const userBorderColor = useColorModeValue('rgba(74, 124, 74, 0.2)', 'rgba(74, 124, 74, 0.3)')
   const citationBg = useColorModeValue('blue.50', 'blue.900')
   const citationHoverBg = useColorModeValue('blue.100', 'blue.800')
   const toolCallBg = useColorModeValue('purple.50', 'purple.900')
@@ -94,14 +100,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   // Render text content with markdown
-  const renderTextContent = (text: string) => (
+  const renderTextContent = (text: string, isUserMessage: boolean = false) => (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
       components={{
         // Custom components for consistent styling
         p: ({ children }) => (
-          <Text mb={2} lineHeight="tall">
+          <Text mb={0} lineHeight="tall">
             {children}
           </Text>
         ),
@@ -112,7 +118,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               whiteSpace="pre"
               p={4}
               borderRadius="md"
-              bg={codeBlockBg}
+              bg={isUserMessage ? userCodeBlockBg : codeBlockBg}
               overflowX="auto"
               fontSize="sm"
               className={className}
@@ -121,18 +127,37 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {children}
             </Code>
           ) : (
-            <Code px={1} py={0.5} borderRadius="sm" fontSize="sm" bg={inlineCodeBg} {...props}>
+            <Code
+              px={1}
+              py={1}
+              borderRadius="sm"
+              fontSize="sm"
+              bg={isUserMessage ? userInlineCodeBg : inlineCodeBg}
+              {...props}
+            >
               {children}
             </Code>
           )
         },
         blockquote: ({ children }) => (
-          <Box borderLeft="4px solid" borderColor="gray.300" pl={4} py={2} my={4} bg={blockquoteBg}>
+          <Box
+            borderLeft="4px solid"
+            borderColor={isUserMessage ? 'rgba(74, 124, 74, 0.4)' : 'gray.300'}
+            pl={4}
+            py={2}
+            my={4}
+            bg={isUserMessage ? userBlockquoteBg : blockquoteBg}
+          >
             {children}
           </Box>
         ),
         a: ({ href, children }) => (
-          <Link href={href} isExternal color="blue.500" textDecoration="underline">
+          <Link
+            href={href}
+            isExternal
+            color={isUserMessage ? 'primary.600' : 'blue.500'}
+            textDecoration="underline"
+          >
             {children}
             <ExternalLinkIcon mx="2px" />
           </Link>
@@ -238,13 +263,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   )
 
   // Render content parts
-  const renderContentParts = (content: MessageContent) => {
+  const renderContentParts = (content: MessageContent, isUserMessage: boolean = false) => {
     return content.map((part: MessageContentPart, index: number) => {
       const key = `part-${index}`
 
       switch (part.type) {
         case 'text':
-          return part.text ? <Box key={key}>{renderTextContent(part.text)}</Box> : null
+          return part.text ? (
+            <Box key={key}>{renderTextContent(part.text, isUserMessage)}</Box>
+          ) : null
 
         case 'image':
           return part.image ? renderImageContent(part.image) : null
@@ -261,49 +288,103 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     })
   }
 
+  // User messages: display in bubble on the right
+  if (isUser) {
+    return (
+      <HStack
+        align="flex-start"
+        spacing={3}
+        width="100%"
+        justify="flex-end"
+        mb={compact ? 2 : 4}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        role="group"
+      >
+        {/* User Message Bubble */}
+        <VStack align="flex-end" spacing={1} maxWidth="70%" minWidth="200px">
+          <Box
+            bg={userBg}
+            color={userTextColor}
+            px={4}
+            py={3}
+            borderRadius="lg"
+            borderBottomRightRadius="sm"
+            border="1px solid"
+            borderColor={userBorderColor}
+            position="relative"
+            width="100%"
+          >
+            <VStack align="flex-start" spacing={3}>
+              {renderContentParts(message.content, true)}
+            </VStack>
+          </Box>
+
+          {/* Timestamp or Action Icons */}
+          <Box px={2} minHeight="16px" display="flex" alignItems="center">
+            {isHovered ? (
+              <Box transformOrigin="right">
+                <MessageActionIcons message={message} isVisible={isHovered} />
+              </Box>
+            ) : (
+              showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+            )}
+          </Box>
+        </VStack>
+      </HStack>
+    )
+  }
+
+  // Assistant messages: display in bubble on the left with transparent background
   return (
     <HStack
       align="flex-start"
       spacing={3}
       width="100%"
-      justify={isUser ? 'flex-end' : 'flex-start'}
+      justify="flex-start"
       mb={compact ? 2 : 4}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      role="group"
     >
-      {/* Assistant Avatar */}
-      {showAvatar && !isUser && (
-        <Avatar
-          size={compact ? 'sm' : 'md'}
-          name="Assistant"
-          bg="brand.primary"
-          color="white"
+      {/* Assistant Avatar - 2rem rectangle with robot icon */}
+      {showAvatar && (
+        <Box
+          width="2rem"
+          height="2rem"
+          bg={avatarBg}
+          borderRadius="md"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
           flexShrink={0}
-        />
+          border="1px solid"
+          borderColor={avatarBorder}
+        >
+          <Icon as={FaRobot} boxSize={4} color={iconColor} />
+        </Box>
       )}
 
-      {/* Message Content */}
-      <VStack
-        align={isUser ? 'flex-end' : 'flex-start'}
-        spacing={1}
-        maxWidth="70%"
-        minWidth="200px"
-      >
-        {/* Message Bubble */}
+      {/* Assistant Message Bubble */}
+      <VStack align="flex-start" spacing={1} maxWidth="70%" minWidth="200px" flex={1}>
         <Box
-          bg={isUser ? userBg : assistantBg}
-          color={isUser ? userTextColor : assistantTextColor}
+          bg="transparent"
+          color={assistantTextColor}
           px={4}
-          py={3}
+          pt={0}
+          pb={3}
           borderRadius="lg"
-          borderBottomRightRadius={isUser ? 'sm' : 'lg'}
-          borderBottomLeftRadius={isUser ? 'lg' : 'sm'}
-          shadow="sm"
-          position="relative"
+          borderBottomLeftRadius="sm"
+          border="1px solid"
+          borderColor="transparent"
           width="100%"
-          border={!isUser ? '1px solid' : 'none'}
-          borderColor={!isUser ? 'border.primary' : 'transparent'}
+          outline="none"
+          _focus={{ outline: 'none', boxShadow: 'none' }}
+          _focusVisible={{ outline: 'none', boxShadow: 'none' }}
         >
+          {/* Assistant Message Content */}
           <VStack align="flex-start" spacing={3}>
-            {renderContentParts(message.content)}
+            {renderContentParts(message.content, false)}
 
             {/* Streaming indicator */}
             {isStreaming && (
@@ -313,47 +394,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </HStack>
             )}
           </VStack>
-
-          {/* Copy button */}
-          {onCopyMessage && (
-            <Tooltip label="Copy message">
-              <Box
-                position="absolute"
-                top={2}
-                right={2}
-                opacity={0}
-                _groupHover={{ opacity: 1 }}
-                transition="opacity 0.2s"
-              >
-                <CopyIcon
-                  boxSize={3}
-                  cursor="pointer"
-                  onClick={() => onCopyMessage(message)}
-                  _hover={{ color: 'blue.500' }}
-                />
-              </Box>
-            </Tooltip>
-          )}
         </Box>
 
-        {/* Timestamp */}
-        {showTimestamp && (
-          <Text fontSize="xs" color={timestampColor} px={2}>
-            {formatTime(message.createdAt)}
-          </Text>
-        )}
+        {/* Timestamp or Action Icons */}
+        <Box px={2} minHeight="16px" display="flex" alignItems="center">
+          {isHovered ? (
+            <Box transformOrigin="left">
+              <MessageActionIcons message={message} isVisible={isHovered} />
+            </Box>
+          ) : (
+            showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+          )}
+        </Box>
       </VStack>
-
-      {/* User Avatar */}
-      {showAvatar && isUser && (
-        <Avatar
-          size={compact ? 'sm' : 'md'}
-          name="User"
-          bg="blue.500"
-          color="white"
-          flexShrink={0}
-        />
-      )}
     </HStack>
   )
 }

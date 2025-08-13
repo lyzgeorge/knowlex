@@ -21,3 +21,6 @@ Welcome to the documentation for the Knowlex Desktop application. This collectio
 
 6.  **[Mock Data System](./06-mock-data.md)**
     *   Documentation for the mock data system used in development and testing, including realistic sample projects and conversations.
+
+7.  **[Chat Components](./07-chat-components.md)**
+    *   Complete documentation for the chat interface components, including ChatInterface, MessageList, InputBox, and message operations, with implementation details and usage examples.

@@ -584,7 +584,13 @@ export const OpenAIProvider: AIProvider = {
       return false
     }
 
-    // Check if model is supported
+    // If using a custom base URL (not the default OpenAI API), allow any model name
+    const isCustomAPI = config.baseURL && !config.baseURL.includes('api.openai.com')
+    if (isCustomAPI) {
+      return true
+    }
+
+    // For official OpenAI API, check against supported models
     const supportedModels = this.getSupportedModels()
     if (!supportedModels.includes(config.model)) {
       return false

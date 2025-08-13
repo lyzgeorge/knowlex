@@ -90,7 +90,7 @@ export async function updateProject(
 
   if (setParts.length === 0) return
 
-  setParts.push('updated_at = datetime("now")')
+  setParts.push("updated_at = datetime('now')")
   values.push(id)
 
   await executeQuery(
@@ -281,7 +281,7 @@ export async function updateProjectMemory(
 
   if (setParts.length === 0) return
 
-  setParts.push('updated_at = datetime("now")')
+  setParts.push("updated_at = datetime('now')")
   values.push(id)
 
   await executeQuery(
@@ -385,7 +385,7 @@ export async function updateConversation(
 
   if (setParts.length === 0) return
 
-  setParts.push('updated_at = datetime("now")')
+  setParts.push("updated_at = datetime('now')")
   values.push(id)
 
   await executeQuery(

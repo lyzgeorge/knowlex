@@ -1,6 +1,7 @@
+import 'dotenv/config'
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { createMainWindow, createDebugWindow } from './window'
+import { createMainWindow } from './window'
 import { setupApplicationMenu } from './menu'
 import { runMigrations } from './database/migrations'
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
@@ -8,6 +9,7 @@ import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
+import { initializeAIProviders, startCacheCleanup, stopCacheCleanup } from './ai'
 
 // Application lifecycle management
 class Application {
@@ -25,6 +27,17 @@ class Application {
       console.log('Database initialized successfully')
     } catch (error) {
       console.error('Failed to initialize database:', error)
+      throw error
+    }
+
+    // Initialize AI providers
+    try {
+      console.log('Initializing AI providers...')
+      initializeAIProviders()
+      startCacheCleanup()
+      console.log('AI providers initialized successfully')
+    } catch (error) {
+      console.error('Failed to initialize AI providers:', error)
       throw error
     }
 
@@ -62,10 +75,10 @@ class Application {
     // Always create main window
     this.mainWindow = await createMainWindow()
 
-    // Create debug window in development
-    if (process.env.NODE_ENV === 'development') {
-      this.debugWindow = await createDebugWindow()
-    }
+    // Debug window disabled - use browser DevTools instead
+    // if (process.env.NODE_ENV === 'development') {
+    //   this.debugWindow = await createDebugWindow()
+    // }
   }
 
   getMainWindow(): BrowserWindow | null {
@@ -97,6 +110,9 @@ app.on('before-quit', async () => {
   console.log('Application shutting down...')
 
   try {
+    // Stop AI cache cleanup
+    stopCacheCleanup()
+
     // Unregister IPC handlers
     unregisterProjectIPCHandlers()
     unregisterConversationIPCHandlers()
