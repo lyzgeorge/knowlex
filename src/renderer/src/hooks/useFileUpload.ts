@@ -40,7 +40,21 @@ export interface FileUploadHook {
 const MAX_FILES = 10
 const MAX_FILE_SIZE = 1024 * 1024 // 1MB
 const MAX_TOTAL_SIZE = 10 * 1024 * 1024 // 10MB
-const ALLOWED_TYPES = ['.txt', '.md']
+const ALLOWED_TYPES = [
+  '.txt',
+  '.md',
+  '.csv',
+  '.json',
+  '.xml',
+  '.html',
+  '.pdf',
+  '.docx',
+  '.pptx',
+  '.xlsx',
+  '.odt',
+  '.odp',
+  '.ods'
+]
 
 export const useFileUpload = (): FileUploadHook => {
   const [state, setState] = useState<FileUploadState>({
@@ -59,7 +73,7 @@ export const useFileUpload = (): FileUploadHook => {
 
     const extension = '.' + file.name.split('.').pop()?.toLowerCase()
     if (!ALLOWED_TYPES.includes(extension)) {
-      return `File "${file.name}" is not supported. Only .txt and .md files are allowed.`
+      return `File "${file.name}" is not supported. Supported formats: .txt, .md, .csv, .json, .xml, .html, .pdf, .docx, .pptx, .xlsx, .odt, .odp, .ods`
     }
 
     return null
@@ -231,7 +245,28 @@ export const useFileUpload = (): FileUploadHook => {
           const file = item.file
           // Read file content
           const buffer = await file.arrayBuffer()
-          const content = new TextDecoder().decode(buffer)
+
+          // Determine if file is binary based on extension
+          const extension = '.' + file.name.split('.').pop()?.toLowerCase()
+          const isBinaryFile = ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods'].includes(
+            extension
+          )
+
+          let content: string
+          if (isBinaryFile) {
+            // For binary files, encode as base64
+            const uint8Array = new Uint8Array(buffer)
+            // To avoid "Maximum call stack size exceeded" error, process in chunks
+            const CHUNK_SIZE = 8192
+            let binary = ''
+            for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+              binary += String.fromCharCode.apply(null, uint8Array.subarray(i, i + CHUNK_SIZE))
+            }
+            content = btoa(binary)
+          } else {
+            // For text files, decode as UTF-8
+            content = new TextDecoder().decode(buffer)
+          }
 
           // For temporary files, we'll pass the content directly to the main process
           // The main process will handle creating temporary files as needed
@@ -239,7 +274,7 @@ export const useFileUpload = (): FileUploadHook => {
             name: file.name,
             path: file.name, // Use filename as path for temporary processing
             size: file.size,
-            content // Pass content directly
+            content // Pass content directly (text or base64 for binary)
           }
         })
       )

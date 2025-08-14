@@ -106,14 +106,14 @@
   - 错误处理和验证机制
   - 使用示例和最佳实践
 
-- [ ] 8. 项目文件处理模块
+- [x] 8. 项目文件处理模块
   - 实现services/file-project.ts：`uploadProjectFiles()`, `processFileForRAG()`, `deleteProjectFile()`
   - 实现后台处理队列：`startProcessingQueue()`, `processNextFile()`, `updateFileStatus()`
   - 定义ProjectFile接口：id, projectId, filename, filepath, status, chunkCount等
   - 实现文件处理状态机：pending -> processing -> ready/failed
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.7_
 
-- [ ] 8.1 编写项目文件处理文档
+- [x] 8.1 编写项目文件处理文档
   - 文件上传和处理流程
   - 后台队列管理机制
   - 状态机转换说明

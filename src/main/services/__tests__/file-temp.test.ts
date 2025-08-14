@@ -6,62 +6,7 @@ import {
   extractTextContent,
   validateTemporaryFileConstraints
 } from '../file-temp'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { describe } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { describe } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { expect } from 'vitest'
-import { test } from 'vitest'
-import { describe } from 'vitest'
-import { afterAll } from 'vitest'
-import { beforeAll } from 'vitest'
-import { describe } from 'vitest'
+import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 describe('Temporary File Processing', () => {
   let tempDir: string
@@ -128,15 +73,26 @@ describe('Temporary File Processing', () => {
       expect(results[0].error).toContain('Failed to read file')
     })
 
-    test('rejects unsupported file types', async () => {
-      const pdfFile = await createTestFile('test.pdf', 'fake pdf content')
+    test('processes PDF files successfully', async () => {
+      // Copy a valid PDF from pdf-parse test files to our temp directory
+      const validPdfPath = path.join(
+        process.cwd(),
+        'node_modules/.pnpm/pdf-parse@1.1.1/node_modules/pdf-parse/test/data/01-valid.pdf'
+      )
+      const testPdfPath = path.join(tempDir, 'test.pdf')
 
-      const results = await processTemporaryFiles([pdfFile])
+      // Copy the file to our temp directory
+      const pdfBuffer = await fs.readFile(validPdfPath)
+      await fs.writeFile(testPdfPath, pdfBuffer)
+      testFiles.push(testPdfPath)
+
+      const results = await processTemporaryFiles([testPdfPath])
 
       expect(results).toHaveLength(1)
       expect(results[0].filename).toBe('test.pdf')
-      expect(results[0].content).toBe('')
-      expect(results[0].error).toContain('Unsupported file type')
+      expect(results[0].content.length).toBeGreaterThan(0) // Should have extracted some text
+      expect(results[0].mimeType).toBe('application/pdf')
+      expect(results[0].error).toBeUndefined()
     })
 
     test('handles mixed success and failure', async () => {
@@ -152,7 +108,9 @@ describe('Temporary File Processing', () => {
       const invalidResult = results.find((r) => r.filename === 'invalid.pdf')
 
       expect(validResult?.error).toBeUndefined()
-      expect(invalidResult?.error).toBeTruthy()
+      expect(validResult?.content).toBe('Valid content')
+      expect(invalidResult?.error).toBeTruthy() // Should fail because fake PDF content can't be parsed
+      expect(invalidResult?.content).toBe('') // Should have empty content on error
     })
   })
 
@@ -174,12 +132,23 @@ describe('Temporary File Processing', () => {
       expect(content).toBe(markdownContent)
     })
 
-    test('throws error for unsupported file types', async () => {
-      const filePath = await createTestFile('unsupported.pdf', 'fake content')
-
-      await expect(extractTextContent(filePath, 'unsupported.pdf')).rejects.toThrow(
-        'Unsupported file type'
+    test('extracts content from PDF files', async () => {
+      // Copy a valid PDF from pdf-parse test files to our temp directory
+      const validPdfPath = path.join(
+        process.cwd(),
+        'node_modules/.pnpm/pdf-parse@1.1.1/node_modules/pdf-parse/test/data/01-valid.pdf'
       )
+      const testPdfPath = path.join(tempDir, 'supported.pdf')
+
+      // Copy the file to our temp directory
+      const pdfBuffer = await fs.readFile(validPdfPath)
+      await fs.writeFile(testPdfPath, pdfBuffer)
+      testFiles.push(testPdfPath)
+
+      const content = await extractTextContent(testPdfPath, 'supported.pdf')
+
+      expect(content.length).toBeGreaterThan(0) // Should have extracted some text
+      expect(typeof content).toBe('string')
     })
 
     test('handles empty files', async () => {
@@ -233,13 +202,13 @@ describe('Temporary File Processing', () => {
     test('validates file types', () => {
       const files = [
         { name: 'valid.txt', size: 1000 },
-        { name: 'invalid.pdf', size: 1000 }
+        { name: 'valid.pdf', size: 1000 }
       ]
 
       const result = validateTemporaryFileConstraints(files)
 
-      expect(result.valid).toBe(false)
-      expect(result.errors[0]).toContain('Unsupported file type')
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
     })
 
     test('validates empty files', () => {

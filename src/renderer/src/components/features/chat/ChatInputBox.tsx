@@ -289,7 +289,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       // Clear current files and restore original files
       fileUpload.clearFiles()
       if (originalFiles.length > 0) {
-        fileUpload.addFiles(originalFiles)
+        // Extract File objects from FileUploadItem
+        const filesToRestore = originalFiles.map((item) => item.file)
+        fileUpload.addFiles(filesToRestore)
       }
       console.error('Failed to send message:', error)
     }
@@ -390,7 +392,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.md"
+                accept=".txt,.md,.csv,.json,.xml,.html,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

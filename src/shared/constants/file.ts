@@ -12,18 +12,43 @@ export const FILE_CONSTRAINTS = {
 } as const
 
 export const SUPPORTED_FILE_TYPES = {
-  TEMPORARY: ['.txt', '.md'],
-  PROJECT: [
+  TEMPORARY: [
+    // Plain text files
     '.txt',
     '.md',
-    '.pdf',
-    '.docx',
-    '.rtf',
-    '.html',
-    '.htm',
     '.csv',
     '.json',
     '.xml',
+    '.html',
+    // PDF files
+    '.pdf',
+    // Office documents
+    '.docx',
+    '.pptx',
+    '.xlsx',
+    '.odt',
+    '.odp',
+    '.ods'
+  ],
+  PROJECT: [
+    // Plain text files
+    '.txt',
+    '.md',
+    '.csv',
+    '.json',
+    '.xml',
+    '.html',
+    '.htm',
+    // PDF files
+    '.pdf',
+    // Office documents
+    '.docx',
+    '.pptx',
+    '.xlsx',
+    '.odt',
+    '.odp',
+    '.ods',
+    // Code files
     '.js',
     '.jsx',
     '.ts',
@@ -44,14 +69,29 @@ export const SUPPORTED_FILE_TYPES = {
 } as const
 
 export const MIME_TYPES = {
+  // Plain text files
   'text/plain': '.txt',
   'text/markdown': '.md',
-  'application/pdf': '.pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
   'text/html': '.html',
   'application/json': '.json',
   'text/csv': '.csv',
-  'application/xml': '.xml'
+  'application/xml': '.xml',
+  'text/xml': '.xml',
+
+  // PDF files
+  'application/pdf': '.pdf',
+
+  // Microsoft Office files
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+
+  // OpenDocument files
+  'application/vnd.oasis.opendocument.text': '.odt',
+  'application/vnd.oasis.opendocument.presentation': '.odp',
+  'application/vnd.oasis.opendocument.spreadsheet': '.ods'
 } as const
 
 export const CHUNK_SIZE = 1000 // characters per chunk for vectorization

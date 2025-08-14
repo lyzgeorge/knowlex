@@ -97,16 +97,19 @@ export function isValidTemporaryFileType(filename: string): boolean {
   return isValidFileType(filename, 'temporary')
 }
 
+export function isValidProjectFileType(filename: string): boolean {
+  return isValidFileType(filename, 'project')
+}
+
 export function getMimeTypeFromExtension(filename: string): string {
   const extension = getFileExtension(filename).toLowerCase()
 
   switch (extension) {
+    // Plain text files
     case '.txt':
       return 'text/plain'
     case '.md':
       return 'text/markdown'
-    case '.pdf':
-      return 'application/pdf'
     case '.html':
     case '.htm':
       return 'text/html'
@@ -116,6 +119,27 @@ export function getMimeTypeFromExtension(filename: string): string {
       return 'text/csv'
     case '.xml':
       return 'application/xml'
+
+    // PDF files
+    case '.pdf':
+      return 'application/pdf'
+
+    // Microsoft Office files
+    case '.docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    case '.pptx':
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    case '.xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    // OpenDocument files
+    case '.odt':
+      return 'application/vnd.oasis.opendocument.text'
+    case '.odp':
+      return 'application/vnd.oasis.opendocument.presentation'
+    case '.ods':
+      return 'application/vnd.oasis.opendocument.spreadsheet'
+
     default:
       return 'application/octet-stream'
   }

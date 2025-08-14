@@ -1,7 +1,16 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { processTemporaryFiles, processTemporaryFileContents } from '../services/file-temp'
+import {
+  uploadProjectFiles,
+  deleteProjectFile,
+  retryFileProcessing,
+  pauseFileProcessing,
+  resumeFileProcessing,
+  getProcessingQueueStatus
+} from '../services/file-project'
+import { listProjectFiles } from '../database/queries'
 import type { IPCResult, TemporaryFileRequest } from '../../shared/types/ipc'
-import type { TemporaryFileResult } from '../../shared/types/file'
+import type { TemporaryFileResult, ProjectFile } from '../../shared/types/file'
 
 /**
  * File IPC Handler
@@ -80,6 +89,40 @@ function validateTemporaryFileContentRequest(data: unknown): data is {
 }
 
 /**
+ * Validates project file upload request data
+ */
+function validateProjectFileUploadRequest(data: unknown): data is {
+  projectId: string
+  files: Array<{ name: string; content: string; size: number }>
+} {
+  if (!data || typeof data !== 'object') {
+    return false
+  }
+
+  const request = data as {
+    projectId: string
+    files: Array<{ name: string; content: string; size: number }>
+  }
+
+  return (
+    typeof request.projectId === 'string' &&
+    request.projectId.length > 0 &&
+    Array.isArray(request.files) &&
+    request.files.every(
+      (file) =>
+        file &&
+        typeof file === 'object' &&
+        'name' in file &&
+        'content' in file &&
+        'size' in file &&
+        typeof file.name === 'string' &&
+        typeof file.content === 'string' &&
+        typeof file.size === 'number'
+    )
+  )
+}
+
+/**
  * Registers all file-related IPC handlers
  * Called during application initialization
  */
@@ -107,11 +150,27 @@ export function registerFileIPCHandlers(): void {
   ipcMain.handle(
     'file:process-temp-content',
     async (_, data: unknown): Promise<IPCResult<TemporaryFileResult[]>> => {
-      console.log('[IPC] file:process-temp-content called with data:', data)
-      return handleIPCCall(async () => {
+      console.log(
+        '[IPC] file:process-temp-content called with data:',
+        data && typeof data === 'object' && 'files' in data && Array.isArray(data.files)
+          ? data.files.map((f: unknown) => ({
+              name: typeof f === 'object' && f && 'name' in f ? f.name : 'unknown',
+              size: typeof f === 'object' && f && 'size' in f ? f.size : 0,
+              contentLength:
+                typeof f === 'object' && f && 'content' in f && typeof f.content === 'string'
+                  ? f.content.length
+                  : 0
+            }))
+          : 'invalid data'
+      )
+
+      try {
         if (!validateTemporaryFileContentRequest(data)) {
           console.log('[IPC] Validation failed for temp file content request')
-          throw new Error('Invalid temporary file content processing request')
+          return {
+            success: false,
+            error: 'Invalid temporary file content processing request'
+          }
         }
 
         console.log('[IPC] Validation passed, calling processTemporaryFileContents...')
@@ -119,9 +178,105 @@ export function registerFileIPCHandlers(): void {
         const result = await processTemporaryFileContents(data.files)
         console.log(
           '[IPC] processTemporaryFileContents completed with result:',
-          result.map((r) => ({ filename: r.filename, error: r.error }))
+          result.map((r) => ({
+            filename: r.filename,
+            error: r.error,
+            contentLength: r.content?.length
+          }))
         )
-        return result
+        return {
+          success: true,
+          data: result
+        }
+      } catch (error) {
+        console.error('[IPC] Error in file:process-temp-content handler:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error occurred'
+        }
+      }
+    }
+  )
+
+  // Upload project files
+  ipcMain.handle(
+    'file:upload-project',
+    async (_, data: unknown): Promise<IPCResult<ProjectFile[]>> => {
+      console.log('[IPC] file:upload-project called')
+      return handleIPCCall(async () => {
+        if (!validateProjectFileUploadRequest(data)) {
+          throw new Error('Invalid project file upload request')
+        }
+
+        return await uploadProjectFiles(data.projectId, data.files)
+      })
+    }
+  )
+
+  // List project files
+  ipcMain.handle(
+    'file:list-project',
+    async (_, projectId: unknown): Promise<IPCResult<ProjectFile[]>> => {
+      return handleIPCCall(async () => {
+        if (typeof projectId !== 'string' || projectId.length === 0) {
+          throw new Error('Invalid project ID')
+        }
+
+        return await listProjectFiles(projectId)
+      })
+    }
+  )
+
+  // Delete project file
+  ipcMain.handle('file:delete-project', async (_, fileId: unknown): Promise<IPCResult<void>> => {
+    return handleIPCCall(async () => {
+      if (typeof fileId !== 'string' || fileId.length === 0) {
+        throw new Error('Invalid file ID')
+      }
+
+      await deleteProjectFile(fileId)
+    })
+  })
+
+  // Retry file processing
+  ipcMain.handle('file:retry-processing', async (_, fileId: unknown): Promise<IPCResult<void>> => {
+    return handleIPCCall(async () => {
+      if (typeof fileId !== 'string' || fileId.length === 0) {
+        throw new Error('Invalid file ID')
+      }
+
+      await retryFileProcessing(fileId)
+    })
+  })
+
+  // Pause file processing
+  ipcMain.handle('file:pause-processing', async (_, fileId: unknown): Promise<IPCResult<void>> => {
+    return handleIPCCall(async () => {
+      if (typeof fileId !== 'string' || fileId.length === 0) {
+        throw new Error('Invalid file ID')
+      }
+
+      await pauseFileProcessing(fileId)
+    })
+  })
+
+  // Resume file processing
+  ipcMain.handle('file:resume-processing', async (_, fileId: unknown): Promise<IPCResult<void>> => {
+    return handleIPCCall(async () => {
+      if (typeof fileId !== 'string' || fileId.length === 0) {
+        throw new Error('Invalid file ID')
+      }
+
+      await resumeFileProcessing(fileId)
+    })
+  })
+
+  // Get processing queue status
+  ipcMain.handle(
+    'file:queue-status',
+    async (): Promise<IPCResult<{ pending: number; processing: number; total: number }>> => {
+      return handleIPCCall(async () => {
+        return getProcessingQueueStatus()
       })
     }
   )
@@ -136,7 +291,17 @@ export function registerFileIPCHandlers(): void {
 export function unregisterFileIPCHandlers(): void {
   console.log('Unregistering file IPC handlers...')
 
-  const channels = ['file:process-temp', 'file:process-temp-content']
+  const channels = [
+    'file:process-temp',
+    'file:process-temp-content',
+    'file:upload-project',
+    'file:list-project',
+    'file:delete-project',
+    'file:retry-processing',
+    'file:pause-processing',
+    'file:resume-processing',
+    'file:queue-status'
+  ]
 
   channels.forEach((channel) => {
     ipcMain.removeAllListeners(channel)
@@ -165,5 +330,7 @@ export function sendFileEvent(eventType: string, data: unknown): void {
  */
 export const FILE_EVENTS = {
   TEMP_PROCESSED: 'temp_processed',
-  PROCESSING_ERROR: 'processing_error'
+  PROCESSING_ERROR: 'processing_error',
+  PROJECT_FILE_STATUS_CHANGED: 'project_file_status_changed',
+  PROCESSING_QUEUE_UPDATED: 'processing_queue_updated'
 } as const

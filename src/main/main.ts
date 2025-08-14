@@ -10,6 +10,7 @@ import {
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
+import { startProcessingQueue } from './services/file-project'
 import { initializeAIProviders, startCacheCleanup, stopCacheCleanup } from './ai'
 
 // Application lifecycle management
@@ -51,6 +52,16 @@ class Application {
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
+      throw error
+    }
+
+    // Start file processing queue
+    try {
+      console.log('Starting file processing queue...')
+      startProcessingQueue()
+      console.log('File processing queue started successfully')
+    } catch (error) {
+      console.error('Failed to start file processing queue:', error)
       throw error
     }
 

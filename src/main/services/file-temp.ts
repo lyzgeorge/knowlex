@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import path from 'path'
+import os from 'os'
 import { TemporaryFileResult } from '../../shared/types/file'
 import {
   getFileExtension,
@@ -7,6 +8,7 @@ import {
   getMimeTypeFromExtension
 } from '../../shared/utils/validation'
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../../shared/constants/file'
+import { parseFile, FileParserFactory } from './file-parser'
 
 /**
  * Temporary File Processing Service
@@ -35,41 +37,57 @@ export async function processTemporaryFileContents(
   )
   const results: TemporaryFileResult[] = []
 
-  // Validate file constraints first
-  console.log('[MAIN] Validating file constraints...')
-  if (!validateTemporaryFileContentConstraints(files)) {
-    throw new Error('File constraints validation failed')
-  }
-  console.log('[MAIN] File constraints validation passed')
-
-  // Process each file individually
-  for (const file of files) {
-    try {
-      console.log('[MAIN] Processing file:', file.name)
-      const result = await processSingleTemporaryFileContent(file.name, file.content, file.size)
-      console.log('[MAIN] File processing result:', {
-        filename: result.filename,
-        error: result.error,
-        contentLength: result.content?.length
-      })
-      results.push(result)
-    } catch (error) {
-      console.log('[MAIN] File processing error:', error)
-      results.push({
-        filename: file.name,
-        content: '',
-        size: file.size,
-        mimeType: '',
-        error: `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      })
+  try {
+    // Validate file constraints first
+    console.log('[MAIN] Validating file constraints...')
+    if (!validateTemporaryFileContentConstraints(files)) {
+      throw new Error('File constraints validation failed')
     }
-  }
+    console.log('[MAIN] File constraints validation passed')
 
-  console.log(
-    '[MAIN] All files processed, returning results:',
-    results.map((r) => ({ filename: r.filename, error: r.error, contentLength: r.content?.length }))
-  )
-  return results
+    // Process each file individually
+    for (const file of files) {
+      try {
+        console.log('[MAIN] Processing file:', file.name)
+        const result = await processSingleTemporaryFileContent(file.name, file.content, file.size)
+        console.log('[MAIN] File processing result:', {
+          filename: result.filename,
+          error: result.error,
+          contentLength: result.content?.length
+        })
+        results.push(result)
+      } catch (error) {
+        console.error('[MAIN] File processing error for', file.name, ':', error)
+        results.push({
+          filename: file.name,
+          content: '',
+          size: file.size,
+          mimeType: '',
+          error: `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        })
+      }
+    }
+
+    console.log(
+      '[MAIN] All files processed, returning results:',
+      results.map((r) => ({
+        filename: r.filename,
+        error: r.error,
+        contentLength: r.content?.length
+      }))
+    )
+    return results
+  } catch (error) {
+    console.error('[MAIN] Critical error in processTemporaryFileContents:', error)
+    // Return error results for all files if validation or other critical error occurs
+    return files.map((file) => ({
+      filename: file.name,
+      content: '',
+      size: file.size,
+      mimeType: '',
+      error: `Critical error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }))
+  }
 }
 
 export async function processTemporaryFiles(filePaths: string[]): Promise<TemporaryFileResult[]> {
@@ -195,91 +213,38 @@ async function processSingleTemporaryFile(
   }
 
   try {
-    const content = await extractTextContent(filePath, filename)
-    const mimeType = getMimeTypeFromExtension(filename)
+    const result = await parseFile(filePath, filename)
 
     return {
       filename,
-      content,
+      content: result.content,
       size,
-      mimeType
+      mimeType: result.mimeType
     }
   } catch (error) {
     return {
       filename,
       content: '',
       size,
-      mimeType: '',
+      mimeType: getMimeTypeFromExtension(filename),
       error: `Failed to extract content: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
   }
 }
 
 /**
- * Extract text content from a file
+ * Extract text content from a file using the file parser system
  * @param filePath Path to the file
  * @param filename Original filename for type detection
  * @returns Extracted text content
  */
 export async function extractTextContent(filePath: string, filename: string): Promise<string> {
-  const extension = getFileExtension(filename).toLowerCase()
-
   try {
-    switch (extension) {
-      case '.txt':
-      case '.md':
-        return await extractPlainTextContent(filePath)
-
-      default:
-        throw new Error(`Unsupported file type: ${extension}`)
-    }
+    const result = await parseFile(filePath, filename)
+    return result.content
   } catch (error) {
     throw new Error(
       `Failed to extract content from ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Extract content from plain text files (.txt, .md)
- * @param filePath Path to the file
- * @returns File content as string
- */
-async function extractPlainTextContent(filePath: string): Promise<string> {
-  try {
-    // Try different encodings
-    const encodings = ['utf8', 'utf16le', 'latin1'] as const
-
-    for (const encoding of encodings) {
-      try {
-        const content = await fs.readFile(filePath, encoding)
-
-        // Basic validation - check if content is a string
-        if (typeof content === 'string') {
-          // Remove null bytes and other control characters except newlines and tabs
-          // Using string operations instead of regex to avoid control character linting issues
-          let cleanContent = content
-          // Remove common control characters that can cause issues
-          for (let i = 0; i <= 31; i++) {
-            if (i === 9 || i === 10 || i === 13) continue // Keep tab, newline, carriage return
-            cleanContent = cleanContent.replaceAll(String.fromCharCode(i), '')
-          }
-          // Remove DEL character
-          cleanContent = cleanContent.replaceAll(String.fromCharCode(127), '')
-
-          // Return content even if empty - empty files are valid
-          return cleanContent
-        }
-      } catch (encodingError) {
-        // Try next encoding
-        continue
-      }
-    }
-
-    throw new Error('Unable to read file with any supported encoding')
-  } catch (error) {
-    throw new Error(
-      `Failed to read text file: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }
@@ -419,18 +384,95 @@ async function processSingleTemporaryFileContent(
   try {
     const mimeType = getMimeTypeFromExtension(filename)
 
-    return {
-      filename,
-      content: content.trim(), // Clean up whitespace
-      size,
-      mimeType
+    // Check if this file type needs parsing (binary files like DOCX, PDF, etc.)
+    const needsParsing = FileParserFactory.isBinary(filename)
+
+    if (needsParsing) {
+      console.log(`[MAIN] File ${filename} needs parsing, creating temporary file...`)
+
+      // Create a temporary file to use with the file parser
+      const tempDir = os.tmpdir()
+      const tempFilePath = path.join(tempDir, `knowlex_temp_${Date.now()}_${filename}`)
+
+      try {
+        // Write binary content to temporary file
+        // Content is base64 encoded binary data for binary files
+        console.log(`[MAIN] Decoding base64 content for ${filename} (${content.length} chars)...`)
+
+        let buffer: Buffer
+        try {
+          buffer = Buffer.from(content, 'base64')
+          console.log(`[MAIN] Successfully decoded base64 to buffer of ${buffer.length} bytes`)
+        } catch (bufferError) {
+          console.error(`[MAIN] Failed to decode base64 content for ${filename}:`, bufferError)
+          throw new Error(
+            `Failed to decode file content: ${bufferError instanceof Error ? bufferError.message : 'Unknown buffer error'}`
+          )
+        }
+
+        console.log(`[MAIN] Writing buffer to temporary file ${tempFilePath}...`)
+        await fs.writeFile(tempFilePath, buffer)
+        console.log(`[MAIN] Successfully wrote temporary file for ${filename}`)
+
+        // Parse the temporary file
+        console.log(`[MAIN] Parsing temporary file ${tempFilePath} for ${filename}...`)
+        const parseResult = await parseFile(tempFilePath, filename)
+        console.log(`[MAIN] Parse completed for ${filename}`)
+
+        // Clean up temporary file
+        await fs
+          .unlink(tempFilePath)
+          .catch((err) => console.warn(`[MAIN] Failed to cleanup temp file ${tempFilePath}:`, err))
+
+        console.log(
+          `[MAIN] Successfully parsed ${filename}, extracted ${parseResult.content.length} characters`
+        )
+
+        return {
+          filename,
+          content: parseResult.content,
+          size,
+          mimeType: parseResult.mimeType
+        }
+      } catch (parseError) {
+        console.error(`[MAIN] Parse error occurred for ${filename}:`, parseError)
+        // Clean up temporary file on error
+        await fs.unlink(tempFilePath).catch(() => {}) // Ignore cleanup errors
+
+        // Provide more specific error messages
+        if (parseError instanceof Error) {
+          if (parseError.message.includes('officeparser')) {
+            throw new Error(
+              `PDF/Office document parsing failed: ${parseError.message}. Please ensure the file is not corrupted.`
+            )
+          } else if (parseError.message.includes('base64')) {
+            throw new Error(
+              `File encoding error: ${parseError.message}. Please try re-uploading the file.`
+            )
+          } else {
+            throw new Error(`File processing error: ${parseError.message}`)
+          }
+        } else {
+          throw new Error(`Unknown file processing error occurred`)
+        }
+      }
+    } else {
+      // For plain text files, content is already text - just clean up
+      console.log(`[MAIN] File ${filename} is plain text, using content directly`)
+      return {
+        filename,
+        content: content.trim(),
+        size,
+        mimeType
+      }
     }
   } catch (error) {
+    console.log(`[MAIN] Error processing ${filename}:`, error)
     return {
       filename,
       content: '',
       size,
-      mimeType: '',
+      mimeType: getMimeTypeFromExtension(filename),
       error: `Failed to process content: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
   }
