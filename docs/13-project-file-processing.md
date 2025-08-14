@@ -30,8 +30,9 @@ File Upload → Validation → Storage → Queue → Processing → Vectorizatio
    - Emits events for real-time status updates
 
 3. **RAG Processing** (`processFileForRAG`)
-   - Extracts text content from various file formats
-   - Chunks content for optimal vectorization
+   - Uses dedicated file-parser service for robust content extraction
+   - Supports multiple formats: PDF, Office documents, plain text, code files
+   - Chunks content for optimal vectorization with metadata preservation
    - Stores chunks in database for similarity search
    - Updates file status and chunk count
 
@@ -73,10 +74,10 @@ The processing queue automatically handles files in the background:
 ```
 
 **Processing Steps:**
-1. Extract text content using appropriate parsers
+1. Parse file content using file-parser service (supports PDF, Office docs, text, code)
 2. Validate extracted content is not empty
 3. Chunk content for vectorization (1000 chars with 200 char overlap)
-4. Store chunks in database with metadata
+4. Store chunks in database with enhanced metadata (parser info, MIME type)
 5. Update file status to 'ready' or 'failed'
 
 ### 3. Error Handling and Retry
@@ -200,7 +201,11 @@ Pause or resume file processing.
 - **Max File Size:** 50MB per file
 - **Max Total Size:** 500MB per project
 - **Max File Count:** 100 files per project
-- **Supported Types:** .txt, .md, .pdf, .docx, .rtf, .html, .csv, .json, .xml, and code files
+- **Supported Types:** 
+  - **Plain Text:** .txt, .md, .csv, .json, .xml, .html, .htm
+  - **PDF Documents:** .pdf (using pdf-parse library)
+  - **Office Documents:** .docx, .pptx, .xlsx, .odt, .odp, .ods (using officeparser)
+  - **Code Files:** .js, .jsx, .ts, .tsx, .py, .java, .cpp, .c, .h, .cs, .php, .rb, .go, .rs, .swift, .kt
 
 ### Processing Limits
 - **Max Concurrent:** 2 files processed simultaneously
@@ -239,7 +244,11 @@ await deleteProjectFile(failedFileId)
 - **Optimal Size:** 1000 characters balances context and granularity
 - **Overlap:** 200 characters prevents information loss at boundaries
 - **Word Boundaries:** Chunks break at natural language boundaries
-- **Metadata:** Each chunk includes position and context information
+- **Enhanced Metadata:** Each chunk includes:
+  - Position information (start/end offsets)
+  - Parser metadata (extraction method, document properties)
+  - MIME type and file extension
+  - Original filename and chunk size
 
 ### Concurrent Processing
 - **Limit:** 2 concurrent files prevents resource exhaustion
@@ -250,6 +259,40 @@ await deleteProjectFile(failedFileId)
 - **File Deduplication:** Unique filenames prevent conflicts
 - **Directory Structure:** Project-based organization
 - **Cleanup:** Automatic cleanup on file deletion
+
+## File Parser Integration
+
+The project file processing module leverages the dedicated file-parser service for robust content extraction:
+
+### Parser Capabilities
+- **PlainTextParser:** Handles text files, code files, CSV, JSON, XML, HTML
+- **PDFParser:** Uses pdf-parse library for comprehensive PDF text extraction
+- **OfficeParser:** Uses officeparser for Microsoft Office and OpenDocument formats
+
+### Parser Benefits
+- **Format-Specific Optimization:** Each parser is optimized for its file types
+- **Rich Metadata:** Parsers provide detailed metadata about document structure
+- **Error Handling:** Robust error handling with fallback encoding support
+- **Extensibility:** Easy to add new file format support
+
+### Enhanced Chunk Metadata
+Each processed chunk now includes:
+```typescript
+{
+  filename: string,
+  chunkSize: number,
+  startOffset: number,
+  endOffset: number,
+  parserMetadata: {
+    extension: string,
+    parser: string,
+    pages?: number,        // For PDFs
+    version?: string,      // For PDFs
+    encoding?: string      // For text files
+  },
+  mimeType: string
+}
+```
 
 ## Integration Points
 

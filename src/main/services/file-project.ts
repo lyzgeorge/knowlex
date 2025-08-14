@@ -3,7 +3,7 @@ import path from 'path'
 import { app } from 'electron'
 import { EventEmitter } from 'events'
 import { generateId } from '../../shared/utils/id'
-import { extractTextContent } from './file-temp'
+import { parseFile } from './file-parser'
 import {
   createProjectFile,
   getProjectFile,
@@ -13,17 +13,9 @@ import {
   createFileChunk,
   deleteFileChunks
 } from '../database/queries'
-import {
-  getFileExtension,
-  isValidProjectFileType,
-  getMimeTypeFromExtension
-} from '../../shared/utils/validation'
-import {
-  SUPPORTED_FILE_TYPES,
-  FILE_CONSTRAINTS,
-  CHUNK_SIZE,
-  CHUNK_OVERLAP
-} from '../../shared/constants/file'
+import { getFileExtension, getMimeTypeFromExtension } from '../../shared/utils/validation'
+import { FILE_CONSTRAINTS, CHUNK_SIZE, CHUNK_OVERLAP } from '../../shared/constants/file'
+import { FileParserFactory } from './file-parser'
 import type { ProjectFile, FileStatus } from '../../shared/types/project'
 
 /**
@@ -274,9 +266,10 @@ export async function processFileForRAG(fileId: string): Promise<void> {
     // Update status to processing
     await updateProjectFileStatus(fileId, 'processing')
 
-    // Extract text content from file
-    console.log(`[FILE-PROJECT] Extracting text content from ${file.filename}`)
-    const textContent = await extractTextContent(file.filepath, file.filename)
+    // Parse file content using the file-parser service
+    console.log(`[FILE-PROJECT] Parsing file content from ${file.filename}`)
+    const parseResult = await parseFile(file.filepath, file.filename)
+    const textContent = parseResult.content
 
     if (!textContent || textContent.trim().length === 0) {
       throw new Error('No text content extracted from file')
@@ -303,7 +296,10 @@ export async function processFileForRAG(fileId: string): Promise<void> {
           filename: file.filename,
           chunkSize: chunk.content.length,
           startOffset: chunk.startOffset,
-          endOffset: chunk.endOffset
+          endOffset: chunk.endOffset,
+          // Include parser metadata
+          parserMetadata: parseResult.metadata,
+          mimeType: parseResult.mimeType
         }
       })
     }
@@ -527,10 +523,11 @@ function validateProjectFileConstraints(files: Array<{ name: string; size: numbe
 
   // Check individual files
   files.forEach((file, index) => {
-    if (!isValidProjectFileType(file.name)) {
+    if (!FileParserFactory.isSupported(file.name)) {
       const extension = getFileExtension(file.name)
+      const supportedTypes = FileParserFactory.getSupportedExtensions()
       throw new Error(
-        `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.PROJECT.join(', ')} files are supported.`
+        `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${supportedTypes.join(', ')} files are supported.`
       )
     }
 

@@ -260,6 +260,39 @@ const migrations: Migration[] = [
       'DROP TRIGGER IF EXISTS messages_fts_insert',
       'DROP TABLE IF EXISTS messages_fts'
     ]
+  },
+
+  {
+    version: 4,
+    name: 'add_vector_storage',
+    up: [
+      // Create project vectors table for RAG functionality
+      // Note: This uses JSON storage for embeddings as libsql vector support may vary
+      `CREATE TABLE IF NOT EXISTS project_vectors (
+        id TEXT PRIMARY KEY,
+        file_id TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        chunk_text TEXT NOT NULL,
+        embedding TEXT NOT NULL, -- JSON array of vector values
+        metadata TEXT, -- JSON string for additional metadata
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (file_id) REFERENCES project_files (id) ON DELETE CASCADE
+      )`,
+
+      // Create indexes for vector operations
+      'CREATE INDEX IF NOT EXISTS idx_project_vectors_file_id ON project_vectors (file_id)',
+      'CREATE INDEX IF NOT EXISTS idx_project_vectors_chunk_index ON project_vectors (file_id, chunk_index)',
+
+      // Update file_chunks table to remove embedding column (moved to project_vectors)
+      // Note: We keep both tables for now to maintain compatibility
+      'CREATE INDEX IF NOT EXISTS idx_file_chunks_chunk_index ON file_chunks (file_id, chunk_index)'
+    ],
+    down: [
+      'DROP INDEX IF EXISTS idx_file_chunks_chunk_index',
+      'DROP INDEX IF EXISTS idx_project_vectors_chunk_index',
+      'DROP INDEX IF EXISTS idx_project_vectors_file_id',
+      'DROP TABLE IF EXISTS project_vectors'
+    ]
   }
 ]
 

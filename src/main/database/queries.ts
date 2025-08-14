@@ -549,6 +549,100 @@ export async function deleteFileChunks(fileId: string): Promise<void> {
 }
 
 // ============================================================================
+// Vector Storage Queries (for RAG)
+// ============================================================================
+
+export interface ProjectVector {
+  id: string
+  fileId: string
+  chunkIndex: number
+  chunkText: string
+  embedding: number[]
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
+export async function createProjectVector(vector: Omit<ProjectVector, 'createdAt'>): Promise<void> {
+  await executeQuery(
+    `
+    INSERT INTO project_vectors (id, file_id, chunk_index, chunk_text, embedding, metadata)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `,
+    [
+      vector.id,
+      vector.fileId,
+      vector.chunkIndex,
+      vector.chunkText,
+      JSON.stringify(vector.embedding),
+      vector.metadata ? JSON.stringify(vector.metadata) : null
+    ]
+  )
+}
+
+export async function listProjectVectors(fileId: string): Promise<ProjectVector[]> {
+  const result = await executeQuery(
+    `
+    SELECT id, file_id, chunk_index, chunk_text, embedding, metadata, created_at
+    FROM project_vectors
+    WHERE file_id = ?
+    ORDER BY chunk_index ASC
+  `,
+    [fileId]
+  )
+
+  return result.rows.map((row) => {
+    const r = row as any
+    return {
+      id: r.id,
+      fileId: r.file_id,
+      chunkIndex: r.chunk_index,
+      chunkText: r.chunk_text,
+      embedding: JSON.parse(r.embedding),
+      metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
+      createdAt: r.created_at
+    }
+  })
+}
+
+export async function deleteProjectVectors(fileId: string): Promise<void> {
+  await executeQuery('DELETE FROM project_vectors WHERE file_id = ?', [fileId])
+}
+
+export async function updateProjectVector(
+  id: string,
+  updates: Partial<Pick<ProjectVector, 'chunkText' | 'embedding' | 'metadata'>>
+): Promise<void> {
+  const setParts: string[] = []
+  const values: unknown[] = []
+
+  if (updates.chunkText !== undefined) {
+    setParts.push('chunk_text = ?')
+    values.push(updates.chunkText)
+  }
+  if (updates.embedding !== undefined) {
+    setParts.push('embedding = ?')
+    values.push(JSON.stringify(updates.embedding))
+  }
+  if (updates.metadata !== undefined) {
+    setParts.push('metadata = ?')
+    values.push(updates.metadata ? JSON.stringify(updates.metadata) : null)
+  }
+
+  if (setParts.length === 0) return
+
+  values.push(id)
+
+  await executeQuery(
+    `
+    UPDATE project_vectors
+    SET ${setParts.join(', ')}
+    WHERE id = ?
+  `,
+    values
+  )
+}
+
+// ============================================================================
 // Search Queries
 // ============================================================================
 

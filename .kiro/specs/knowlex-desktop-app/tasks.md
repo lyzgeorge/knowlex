@@ -119,14 +119,14 @@
   - 状态机转换说明
   - 错误恢复和重试策略
 
-- [ ] 9. 向量化和RAG搜索
+- [x] 9. 向量化和RAG搜索
   - 实现services/embedding.ts：`generateEmbeddings()`, `batchInsertVectors()`, `queryVectorSimilarity()`
   - 实现services/search.ts：`searchProjectFiles()`, `buildSearchIndex()`, `searchGlobal()`
   - 集成libsql向量数据库：创建向量表，向量相似度查询
   - 定义SearchResult接口：content, filename, fileId, similarity, metadata
   - _Requirements: 6.1, 6.2, 6.4, 6.5_
 
-- [ ] 9.1 编写向量化和搜索文档
+- [x] 9.1 编写向量化和搜索文档
   - 向量化处理流程
   - 搜索算法和相似度计算
   - RAG检索机制说明
