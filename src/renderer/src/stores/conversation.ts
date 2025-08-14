@@ -98,11 +98,20 @@ const initialState = {
   error: null
 }
 
+// Flag to prevent duplicate event listener setup in React.StrictMode
+let eventListenersSetup = false
+
 /**
  * Set up event listeners for real-time conversation updates
  * Handles events sent from the main process via IPC
  */
 function setupEventListeners() {
+  // Prevent duplicate setup in React.StrictMode
+  if (eventListenersSetup) {
+    return
+  }
+  eventListenersSetup = true
+
   // Listen for title generation events
   window.knowlex.events.on('conversation:title_generated', (_, data: any) => {
     console.log('Received title generation event:', data)
@@ -324,6 +333,28 @@ export const useConversationStore = create<ConversationState>()(
 
     // Message Operations
     sendMessage: async (conversationId: string, content: MessageContent, files?: File[]) => {
+      console.log('sendMessage called with:', {
+        conversationId,
+        contentParts: content.length,
+        contentTypes: content.map((c) => c.type),
+        hasFiles: !!files,
+        fileCount: files?.length || 0
+      })
+      console.log(
+        'sendMessage content details:',
+        content.map((c) => ({
+          type: c.type,
+          ...(c.type === 'text'
+            ? { textLength: c.text.length }
+            : c.type === 'temporary-file'
+              ? {
+                  filename: c.temporaryFile.filename,
+                  contentLength: c.temporaryFile.content.length
+                }
+              : {})
+        }))
+      )
+
       set((state) => {
         state.isSending = true
         state.error = null

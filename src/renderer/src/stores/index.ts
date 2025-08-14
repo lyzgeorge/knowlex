@@ -76,8 +76,17 @@ export type {
   AdvancedSettings
 } from './settings'
 
+// Flag to prevent duplicate store initialization in React.StrictMode
+let storesInitialized = false
+
 // Store initialization and cleanup utilities
 export const initializeStores = async () => {
+  // Prevent duplicate initialization in React.StrictMode
+  if (storesInitialized) {
+    return
+  }
+  storesInitialized = true
+
   // Initialize stores that need async setup
   const settingsStore = useSettingsStoreInternal.getState()
   const conversationStore = useConversationStoreInternal.getState()

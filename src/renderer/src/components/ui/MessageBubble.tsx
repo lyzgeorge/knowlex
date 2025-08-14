@@ -12,7 +12,7 @@ import {
   Skeleton,
   Icon
 } from '@chakra-ui/react'
-import { ExternalLinkIcon, LinkIcon } from '@chakra-ui/icons'
+import { ExternalLinkIcon, LinkIcon, AttachmentIcon } from '@chakra-ui/icons'
 import { FaRobot } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,7 +23,8 @@ import {
   MessageContentPart,
   CitationContent,
   ToolCallContent,
-  ImageContent
+  ImageContent,
+  TemporaryFileContent
 } from '../../../shared/types/message'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 
@@ -42,6 +43,8 @@ export interface MessageBubbleProps {
   onCitationClick?: (citation: CitationContent) => void
   /** Click handler for images */
   onImageClick?: (image: ImageContent) => void
+  /** Click handler for files */
+  onFileClick?: (file: TemporaryFileContent) => void
 }
 
 /**
@@ -63,7 +66,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   showTimestamp = true,
   compact = false,
   onCitationClick,
-  onImageClick
+  onImageClick,
+  onFileClick
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -88,6 +92,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const citationHoverBg = useColorModeValue('blue.100', 'blue.800')
   const toolCallBg = useColorModeValue('purple.50', 'purple.900')
   const toolCallCodeBg = useColorModeValue('gray.100', 'gray.800')
+  const fileBg = useColorModeValue('gray.50', 'gray.800')
+  const fileBorder = useColorModeValue('gray.200', 'gray.600')
+  const fileHoverBg = useColorModeValue('gray.100', 'gray.700')
 
   // Format timestamp
   const formatTime = (timestamp: string): string => {
@@ -112,7 +119,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </Text>
         ),
         code: ({ inline, children, className, ...props }) => {
-          return !inline ? (
+          return inline === false ? (
             <Code
               display="block"
               whiteSpace="pre"
@@ -127,16 +134,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {children}
             </Code>
           ) : (
-            <Code
-              px={1}
-              py={1}
-              borderRadius="sm"
-              fontSize="sm"
+            <Box
+              as="code"
+              display="inline"
+              px="0.2em"
+              py="0.1em"
+              borderRadius="0.25rem"
+              fontSize="0.9em"
               bg={isUserMessage ? userInlineCodeBg : inlineCodeBg}
+              fontFamily="mono"
               {...props}
             >
               {children}
-            </Code>
+            </Box>
           )
         },
         blockquote: ({ children }) => (
@@ -157,10 +167,51 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isExternal
             color={isUserMessage ? 'primary.600' : 'blue.500'}
             textDecoration="underline"
+            _hover={{ textDecoration: 'none', opacity: 0.8 }}
           >
             {children}
             <ExternalLinkIcon mx="2px" />
           </Link>
+        ),
+        h1: ({ children }) => (
+          <Text fontSize="2xl" fontWeight="bold" mb={4} mt={6}>
+            {children}
+          </Text>
+        ),
+        h2: ({ children }) => (
+          <Text fontSize="xl" fontWeight="semibold" mb={3} mt={5}>
+            {children}
+          </Text>
+        ),
+        h3: ({ children }) => (
+          <Text fontSize="lg" fontWeight="medium" mb={2} mt={4}>
+            {children}
+          </Text>
+        ),
+        ul: ({ children }) => (
+          <Box as="ul" pl={4} mb={4}>
+            {children}
+          </Box>
+        ),
+        ol: ({ children }) => (
+          <Box as="ol" pl={4} mb={4}>
+            {children}
+          </Box>
+        ),
+        li: ({ children }) => (
+          <Text as="li" mb={1}>
+            {children}
+          </Text>
+        ),
+        strong: ({ children }) => (
+          <Text as="strong" fontWeight="semibold">
+            {children}
+          </Text>
+        ),
+        em: ({ children }) => (
+          <Text as="em" fontStyle="italic">
+            {children}
+          </Text>
         )
       }}
     >
@@ -262,6 +313,61 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </Box>
   )
 
+  // Render temporary file content
+  const renderTemporaryFileContent = (file: TemporaryFileContent) => {
+    const truncatedContent =
+      file.content.length > 150 ? file.content.substring(0, 150) + '...' : file.content
+
+    return (
+      <Box
+        key={`file-${file.filename}`}
+        width="8rem"
+        height="6rem"
+        p={2}
+        bg={fileBg}
+        borderRadius="md"
+        border="1px solid"
+        borderColor={fileBorder}
+        cursor={onFileClick ? 'pointer' : 'default'}
+        onClick={() => onFileClick && onFileClick(file)}
+        _hover={onFileClick ? { bg: fileHoverBg } : undefined}
+        transition="background 0.2s"
+        overflow="hidden"
+        flexShrink={0}
+        position="relative"
+      >
+        <VStack align="flex-start" spacing={1} height="100%">
+          <Text fontSize="xs" fontWeight="medium" noOfLines={1} width="100%" pr={4}>
+            {file.filename}
+          </Text>
+          <Text
+            fontSize="10px"
+            color="text.secondary"
+            flex={1}
+            overflow="hidden"
+            whiteSpace="pre-wrap"
+            fontFamily="mono"
+            lineHeight="1.2"
+            width="100%"
+            pb={4}
+          >
+            {truncatedContent}
+          </Text>
+        </VStack>
+
+        {/* Floating attachment icon and filesize in bottom right */}
+        <Box position="absolute" bottom={1} right={1} bg={fileBg} borderRadius="sm" px={1} py={0.5}>
+          <HStack spacing={1} align="center">
+            <AttachmentIcon boxSize={2.5} color="gray.500" />
+            <Text fontSize="9px" color="text.secondary" lineHeight={1}>
+              {(file.size / 1024).toFixed(1)}K
+            </Text>
+          </HStack>
+        </Box>
+      </Box>
+    )
+  }
+
   // Render content parts
   const renderContentParts = (content: MessageContent, isUserMessage: boolean = false) => {
     return content.map((part: MessageContentPart, index: number) => {
@@ -282,6 +388,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         case 'tool-call':
           return part.toolCall ? renderToolCallContent(part.toolCall) : null
 
+        case 'temporary-file':
+          return part.temporaryFile ? renderTemporaryFileContent(part.temporaryFile) : null
+
         default:
           return null
       }
@@ -290,6 +399,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // User messages: display in bubble on the right
   if (isUser) {
+    // Separate files from other content parts
+    const fileParts = message.content.filter((part) => part.type === 'temporary-file')
+    const otherParts = message.content.filter((part) => part.type !== 'temporary-file')
+
     return (
       <HStack
         align="flex-start"
@@ -315,8 +428,37 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             position="relative"
             width="100%"
           >
-            <VStack align="flex-start" spacing={3}>
-              {renderContentParts(message.content, true)}
+            <VStack align="flex-start" spacing={0} width="100%">
+              {/* File attachments - horizontal scrolling */}
+              {fileParts.length > 0 && (
+                <Box
+                  width="100%"
+                  overflowX="auto"
+                  overflowY="hidden"
+                  sx={{
+                    '&::-webkit-scrollbar': {
+                      height: '4px'
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: 'transparent'
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: userBorderColor,
+                      borderRadius: '2px'
+                    }
+                  }}
+                >
+                  <HStack spacing={2} pb={1}>
+                    {fileParts.map(
+                      (part, _index) =>
+                        part.temporaryFile && renderTemporaryFileContent(part.temporaryFile)
+                    )}
+                  </HStack>
+                </Box>
+              )}
+
+              {/* Text content */}
+              {renderContentParts(otherParts, true)}
             </VStack>
           </Box>
 

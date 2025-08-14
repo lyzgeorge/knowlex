@@ -7,6 +7,8 @@ export interface FilePreviewProps {
   file: File
   /** Callback when file is removed */
   onRemove: () => void
+  /** Display variant */
+  variant?: 'default' | 'compact'
   /** Additional CSS classes */
   className?: string
 }
@@ -20,7 +22,12 @@ export interface FilePreviewProps {
  * - Remove button
  * - Compact card layout
  */
-export const FilePreview: React.FC<FilePreviewProps> = ({ file, onRemove, className }) => {
+export const FilePreview: React.FC<FilePreviewProps> = ({
+  file,
+  onRemove,
+  variant = 'default',
+  className
+}) => {
   // Theme colors
   const bgColor = useColorModeValue('surface.secondary', 'surface.secondary')
   const borderColor = useColorModeValue('border.secondary', 'border.secondary')
@@ -36,6 +43,57 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, onRemove, classN
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i]
+  }
+
+  if (variant === 'compact') {
+    return (
+      <Box
+        bg={bgColor}
+        border="1px solid"
+        borderColor={borderColor}
+        borderRadius="md"
+        p={2}
+        minW="120px"
+        maxW="200px"
+        flexShrink={0}
+        className={className}
+      >
+        <HStack spacing={2} align="center">
+          {/* File Icon */}
+          <AttachmentIcon color={secondaryTextColor} flexShrink={0} boxSize={3} />
+
+          {/* File Info */}
+          <Box flex={1} minWidth={0}>
+            <Text
+              fontSize="xs"
+              fontWeight="medium"
+              color={textColor}
+              noOfLines={1}
+              title={file.name}
+            >
+              {file.name}
+            </Text>
+            <Text fontSize="2xs" color={secondaryTextColor}>
+              {formatFileSize(file.size)}
+            </Text>
+          </Box>
+
+          {/* Remove Button */}
+          <IconButton
+            aria-label={`Remove ${file.name}`}
+            icon={<CloseIcon />}
+            size="2xs"
+            variant="ghost"
+            colorScheme="red"
+            onClick={onRemove}
+            _hover={{ bg: 'red.50' }}
+            minW="auto"
+            h="auto"
+            p={1}
+          />
+        </HStack>
+      </Box>
+    )
   }
 
   return (

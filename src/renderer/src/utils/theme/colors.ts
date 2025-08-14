@@ -4,18 +4,18 @@
  */
 
 export const colors = {
-  // Brand primary colors (Deep Forest Green theme - reduces visual fatigue)
+  // Brand primary colors (Material Green - balanced and professional)
   primary: {
-    50: '#f0f7f0',
-    100: '#d8ebd8',
-    200: '#b8d6b8',
-    300: '#8fb98f',
-    400: '#6b9b6b',
-    500: '#4a7c4a', // Main brand color - deep forest green
-    600: '#3d6b3d',
-    700: '#2f5a2f',
-    800: '#234823',
-    900: '#1a371a'
+    50: '#e8f5e8',
+    100: '#c8e6c8',
+    200: '#a5d6a5',
+    300: '#81c784',
+    400: '#4caf50',
+    500: '#2E7D32', // Deep forest green
+    600: '#27682a',
+    700: '#1f5422',
+    800: '#18401a',
+    900: '#0f2c12'
   },
 
   // Secondary colors (Muted Blue - easier on eyes)
@@ -32,32 +32,32 @@ export const colors = {
     900: '#102a43'
   },
 
-  // Accent colors (Muted Purple - reduced saturation)
+  // Accent colors (Professional Teal - replaces purple for better harmony)
   accent: {
-    50: '#f7f5f9',
-    100: '#e9e5ed',
-    200: '#d3cce0',
-    300: '#b8aacf',
-    400: '#9b87ba',
-    500: '#7c63a4', // Accent color - muted purple
-    600: '#64528a',
-    700: '#4d4270',
-    800: '#3a3258',
-    900: '#2a2342'
+    50: '#f0f9f9',
+    100: '#cceded',
+    200: '#99dbdb',
+    300: '#66c2c2',
+    400: '#38a8a8',
+    500: '#2E6F6D', // Professional teal - harmonizes with forest green
+    600: '#266157',
+    700: '#1e4d47',
+    800: '#163937',
+    900: '#0e2827'
   },
 
-  // Success colors (Muted green - harmonizes with primary)
+  // Success colors (Harmonizes with Material Green primary)
   success: {
-    50: '#f0f7f0',
-    100: '#d8ebd8',
-    200: '#b8d6b8',
-    300: '#8fb98f',
-    400: '#6b9b6b',
-    500: '#4a7c4a', // Matches primary for consistency
-    600: '#3d6b3d',
-    700: '#2f5a2f',
-    800: '#234823',
-    900: '#1a371a'
+    50: '#e8f5e8',
+    100: '#c8e6c8',
+    200: '#a5d6a5',
+    300: '#81c784',
+    400: '#4caf50',
+    500: '#2E7D32', // Matches primary color
+    600: '#27682a',
+    700: '#1f5422',
+    800: '#18401a',
+    900: '#0f2c12'
   },
 
   // Warning colors (Muted amber/brown - softer than bright orange)
@@ -159,12 +159,12 @@ export const colors = {
   // Project colors (Muted palette for visual differentiation - easier on eyes)
   project: {
     blue: '#627d98', // Muted blue (matches secondary)
-    green: '#4a7c4a', // Deep forest green (matches primary)
-    purple: '#7c63a4', // Muted purple (matches accent)
+    green: '#2E7D32', // Deep forest green (matches primary)
+    teal: '#2E6F6D', // Professional teal (matches accent)
     orange: '#9b832a', // Muted amber (matches warning)
     red: '#8f5a5a', // Muted red (matches error)
     pink: '#9c6b82', // Muted rose
-    teal: '#5a7c7c', // Muted teal
+    purple: '#7c63a4', // Muted purple
     indigo: '#6b6b9c' // Muted indigo
   }
 }

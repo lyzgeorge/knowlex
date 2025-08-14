@@ -66,14 +66,22 @@ export function validateAIConfiguration(): { isValid: boolean; error?: string } 
 export function convertMessagesToAIFormat(messages: Message[]): AIMessage[] {
   return messages.map((message): AIMessage => {
     // Extract text content from message parts
-    const textContent = message.content
-      .filter((part) => part.type === 'text')
-      .map((part) => part.text)
-      .join('\n')
+    const contentParts: string[] = []
+
+    message.content.forEach((part) => {
+      if (part.type === 'text' && part.text) {
+        contentParts.push(part.text)
+      } else if (part.type === 'temporary-file' && part.temporaryFile) {
+        // Include temporary file content in AI context
+        contentParts.push(
+          `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
+        )
+      }
+    })
 
     return {
       role: message.role,
-      content: textContent
+      content: contentParts.join('\n\n')
     }
   })
 }

@@ -35,7 +35,11 @@ export interface FileUploadRequest {
 }
 
 export interface TemporaryFileRequest {
-  files: File[]
+  files: Array<{
+    name: string
+    path: string
+    size: number
+  }>
 }
 
 // Search IPC

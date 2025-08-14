@@ -4,6 +4,7 @@ import { useCurrentConversation } from '../../../stores/conversation'
 import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
 import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
+import type { TemporaryFileResult } from '../../../../../shared/types/file'
 
 export interface ChatInterfaceProps {
   /** Additional CSS classes */
@@ -26,9 +27,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const conversationStore = useConversationStore()
 
   // Handle sending message from entrance
-  const handleSendMessage = async (message: string, files: File[] = []) => {
+  const handleSendMessage = async (
+    message: string,
+    files: File[] = [],
+    temporaryFiles: TemporaryFileResult[] = []
+  ) => {
+    console.log('handleSendMessage called with:', {
+      message: message.substring(0, 50) + '...',
+      filesCount: files.length,
+      temporaryFilesCount: temporaryFiles.length
+    })
+
     // Prepare message content
     const content = [{ type: 'text' as const, text: message }]
+
+    // Add temporary file content parts
+    temporaryFiles.forEach((file) => {
+      if (!file.error) {
+        console.log('handleSendMessage: Adding temporary file to content:', {
+          filename: file.filename,
+          contentLength: file.content?.length
+        })
+        content.push({
+          type: 'temporary-file' as const,
+          temporaryFile: {
+            filename: file.filename,
+            content: file.content,
+            size: file.size,
+            mimeType: file.mimeType
+          }
+        })
+      } else {
+        console.log('handleSendMessage: Skipping file due to error:', {
+          filename: file.filename,
+          error: file.error
+        })
+      }
+    })
 
     let conversationId = conversationStore.currentConversationId
 
@@ -40,6 +75,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     }
 
     if (conversationId) {
+      console.log('handleSendMessage: Sending message with content parts:', content.length)
       await sendMessage(conversationId, content, files)
     }
   }
@@ -119,17 +155,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     )
   }
 
-  // Chat state: Messages exist - show conversation with bottom input
+  // Chat state: Messages exist - show conversation with floating input
   return (
-    <Box flex={1} display="flex" flexDirection="column" h="100%" className={className}>
-      {/* Messages Area */}
-      <Box flex={1} overflowY="auto" minH={0}>
+    <Box
+      flex={1}
+      display="flex"
+      flexDirection="column"
+      h="100%"
+      className={className}
+      position="relative"
+    >
+      {/* Messages Area - Full height with floating input */}
+      <Box flex={1} overflowY="auto" minH={0} h="100%">
         <MessageList messages={currentMessages} />
       </Box>
 
-      {/* Input Area */}
-      <Box flexShrink={0}>
-        <ChatInputBox conversationId={currentConversation.id} variant="conversation" />
+      {/* Floating Input Area */}
+      <Box position="absolute" bottom={0} left={0} right={0} zIndex={10} pointerEvents="none">
+        <Box pointerEvents="auto">
+          <ChatInputBox conversationId={currentConversation.id} variant="conversation" />
+        </Box>
       </Box>
     </Box>
   )

@@ -34,8 +34,8 @@ const themeOverrides: ThemeOverride = {
   styles: {
     global: (props: any) => ({
       body: {
-        bg: props.colorMode === 'dark' ? 'gray.900' : 'gray.50',
-        color: props.colorMode === 'dark' ? 'gray.100' : 'gray.900',
+        bg: props.colorMode === 'dark' ? '#0F1211' : '#FFFDF3', // Warm backgrounds
+        color: props.colorMode === 'dark' ? '#B8C0BB' : '#1A1A1A', // Better contrast
         fontSize: '14px',
         fontFamily: 'body'
       },
@@ -53,62 +53,62 @@ const themeOverrides: ThemeOverride = {
   // Semantic tokens for consistent theming
   semanticTokens: {
     colors: {
-      // Background colors
+      // Background colors - warm tones for comfort
       'background.primary': {
-        default: 'white',
-        _dark: 'gray.900'
+        default: 'white', // Keep content areas pure white for text clarity
+        _dark: '#0F1211' // Softer than pure black
       },
       'background.secondary': {
-        default: 'gray.50',
-        _dark: 'gray.800'
+        default: '#FFFDF3', // Extremely light warm yellow for canvas
+        _dark: '#1A1F1D'
       },
       'background.tertiary': {
-        default: 'gray.100',
-        _dark: 'gray.700'
+        default: '#FAFAF7', // Neutral micro-warm
+        _dark: '#1F2523'
       },
 
-      // Surface colors
+      // Surface colors - warm neutral palette
       'surface.primary': {
-        default: 'white',
-        _dark: 'gray.800'
+        default: 'white', // Keep content surfaces white
+        _dark: '#1A1F1D'
       },
       'surface.secondary': {
-        default: 'gray.50',
-        _dark: 'gray.700'
+        default: '#FAFAF7', // Neutral micro-warm
+        _dark: '#1F2523'
       },
       'surface.hover': {
-        default: 'gray.100',
-        _dark: 'gray.600'
+        default: '#F4F4EF', // Warm hover state
+        _dark: '#252A28'
       },
 
-      // Border colors
+      // Border colors - warm grays instead of cold
       'border.primary': {
-        default: 'gray.200',
+        default: '#E7E2D9', // Warm gray border
         _dark: 'gray.600'
       },
       'border.secondary': {
-        default: 'gray.100',
+        default: '#F0ECE4', // Lighter warm gray
         _dark: 'gray.700'
       },
 
-      // Text colors
+      // Text colors - non-pure black for reduced fatigue
       'text.primary': {
-        default: 'gray.900',
-        _dark: 'gray.100'
+        default: '#1A1A1A', // Non-pure black, charcoal
+        _dark: '#B8C0BB' // Soft readable color in dark mode
       },
       'text.secondary': {
-        default: 'gray.600',
-        _dark: 'gray.400'
+        default: '#4A4A4A', // Ensures ≥4.5:1 contrast with warm backgrounds
+        _dark: '#9CA3A0'
       },
       'text.tertiary': {
-        default: 'gray.500',
-        _dark: 'gray.500'
+        default: '#6B6B6B', // Only for meta information
+        _dark: '#7A817E'
       },
 
-      // Brand colors
-      'brand.primary': 'green.500',
-      'brand.secondary': 'blue.500',
-      'brand.accent': 'purple.500'
+      // Brand colors - updated with designer feedback
+      'brand.primary': 'primary.500', // Deep forest green #1F4E37
+      'brand.secondary': 'blue.600', // Softer professional blue for links
+      'brand.accent': 'accent.500' // Professional teal #2E6F6D
     }
   }
 }

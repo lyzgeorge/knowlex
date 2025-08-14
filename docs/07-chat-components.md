@@ -6,14 +6,16 @@ This documentation covers the chat interface components implemented in tasks 17-
 
 The chat components are located in `src/renderer/src/components/features/chat/`. The implementation follows atomic design principles with simple, focused components that have clear responsibilities.
 
-### Components Included
+### Components Included (VERIFIED)
 
-- **ChatInterface**: `ChatInterface.tsx` - Main container for chat functionality
-- **MessageList**: `MessageList.tsx` - Displays conversation messages with streaming support
-- **InputBox**: `InputBox.tsx` - Message input with file upload and keyboard shortcuts
-- **EmptyState**: `EmptyState.tsx` - Welcome screen when no conversation is selected
-- **MessageActionMenu**: `MessageActionMenu.tsx` - Context menu for message operations
-- **FilePreview**: `FilePreview.tsx` - File preview cards with remove functionality
+- **ChatInterface**: `ChatInterface.tsx` - Main container for chat functionality ✅
+- **MessageList**: `MessageList.tsx` - Displays conversation messages with streaming support ✅
+- **ChatInputBox**: `ChatInputBox.tsx` - Message input with file upload and keyboard shortcuts ✅
+- **MessageActionIcons**: `MessageActionIcons.tsx` - Context menu for message operations ✅
+- **MessageEditModal**: `MessageEditModal.tsx` - Message editing dialog ✅
+- **FilePreview**: `FilePreview.tsx` - File preview cards with remove functionality ✅
+
+**Note**: The actual filenames differ slightly from some documentation references (e.g., `ChatInputBox.tsx` instead of `InputBox.tsx`, `MessageActionIcons.tsx` instead of `MessageActionMenu.tsx`).
 
 ## ChatInterface Component
 
@@ -80,21 +82,27 @@ const { currentMessages } = useCurrentConversation()
 <MessageList messages={currentMessages} />
 ```
 
-## InputBox Component
+## ChatInputBox Component
 
-**File:** `src/renderer/src/components/features/chat/InputBox.tsx`
+**File:** `src/renderer/src/components/features/chat/ChatInputBox.tsx`
 
 Multi-functional input component with text input, file upload, and send functionality.
 
 ### Interface
 ```typescript
-interface InputBoxProps {
-  /** Current conversation ID */
-  conversationId: string
+interface ChatInputBoxProps {
+  /** Current conversation ID (optional for main entrance) */
+  conversationId?: string
+  /** Input variant - main-entrance or conversation */
+  variant?: 'main-entrance' | 'conversation'
+  /** Whether to show file attachment button */
+  showFileAttachment?: boolean
   /** Whether the input is disabled */
   disabled?: boolean
   /** Placeholder text */
   placeholder?: string
+  /** Callback for sending messages with files */
+  onSendMessage?: (message: string, files: File[], temporaryFiles: TemporaryFileResult[]) => void
   /** Additional CSS classes */
   className?: string
 }
@@ -102,23 +110,36 @@ interface InputBoxProps {
 
 ### Features
 - **Auto-resize Textarea**: Dynamically adjusts height up to 200px maximum
-- **File Upload**: Click-to-upload and drag-and-drop file support
+- **File Upload**: Click-to-upload and drag-and-drop file support ✅ **FULLY FUNCTIONAL**
+- **File Processing**: Automatic text extraction and content integration ✅ **COMPLETED**
 - **File Validation**: 
   - Maximum 10 files per message
-  - 1MB size limit per file
+  - 1MB size limit per file  
   - Supports .txt and .md files only
+- **AI Context Integration**: File contents automatically included in AI requests ✅ **WORKING**
 - **Keyboard Shortcuts**: Ctrl/Cmd+Enter to send message
 - **Visual Feedback**: Drag-over indicator, loading states, error toasts
 - **File Preview**: Shows uploaded files with remove functionality
+- **Two Variants**: Main entrance (welcome screen) and conversation mode
 
 ### Usage Example
 ```tsx
-import { InputBox } from '../components/features/chat'
+import { ChatInputBox } from '../components/features/chat'
 
-<InputBox 
+// Conversation mode
+<ChatInputBox 
   conversationId="conv-123"
+  variant="conversation"
   placeholder="Ask me anything..."
   disabled={false}
+/>
+
+// Main entrance mode (with file upload)
+<ChatInputBox 
+  variant="main-entrance"
+  showFileAttachment={true}
+  onSendMessage={handleSendMessage}
+  placeholder="您在忙什么?"
 />
 ```
 
@@ -130,15 +151,41 @@ const MAX_FILE_SIZE = 1024 * 1024 // 1MB
 const ALLOWED_TYPES = ['.txt', '.md']
 ```
 
-## MessageActionMenu Component
+### File Processing Integration ✅ **COMPLETED**
 
-**File:** `src/renderer/src/components/features/chat/MessageActionMenu.tsx`
+The ChatInputBox now includes complete integration with the temporary file processing system:
+
+1. **File Upload**: User selects files via drag-drop or file picker
+2. **Client Validation**: Files validated against size/type constraints
+3. **IPC Processing**: Files sent to main process for content extraction
+4. **Content Integration**: Processed file content included as `temporary-file` content parts
+5. **AI Context**: File content automatically available to AI models
+
+```typescript
+// File processing flow
+const handleSend = async () => {
+  // Process files if any
+  let processedFiles: TemporaryFileResult[] = []
+  if (files.length > 0) {
+    const filePaths = files.map(file => file.path)
+    const result = await window.knowlex.file.processTempContent({ files: filePaths })
+    processedFiles = result.success ? result.data : []
+  }
+  
+  // Send message with processed files
+  onSendMessage?.(message, files, processedFiles)
+}
+```
+
+## MessageActionIcons Component
+
+**File:** `src/renderer/src/components/features/chat/MessageActionIcons.tsx`
 
 Context menu providing message operations like edit, regenerate, copy, and delete.
 
 ### Interface
 ```typescript
-interface MessageActionMenuProps {
+interface MessageActionIconsProps {
   /** The message this menu acts on */
   message: Message
   /** Whether this menu is visible (for hover states) */
@@ -170,9 +217,9 @@ interface MessageActionMenuProps {
 
 ### Usage Example
 ```tsx
-import { MessageActionMenu } from '../components/features/chat'
+import { MessageActionIcons } from '../components/features/chat'
 
-<MessageActionMenu 
+<MessageActionIcons 
   message={message}
   isVisible={isHovered}
 />

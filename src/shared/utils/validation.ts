@@ -92,3 +92,31 @@ export function isValidUrl(url: string): boolean {
 export function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, '_')
 }
+
+export function isValidTemporaryFileType(filename: string): boolean {
+  return isValidFileType(filename, 'temporary')
+}
+
+export function getMimeTypeFromExtension(filename: string): string {
+  const extension = getFileExtension(filename).toLowerCase()
+
+  switch (extension) {
+    case '.txt':
+      return 'text/plain'
+    case '.md':
+      return 'text/markdown'
+    case '.pdf':
+      return 'application/pdf'
+    case '.html':
+    case '.htm':
+      return 'text/html'
+    case '.json':
+      return 'application/json'
+    case '.csv':
+      return 'text/csv'
+    case '.xml':
+      return 'application/xml'
+    default:
+      return 'application/octet-stream'
+  }
+}

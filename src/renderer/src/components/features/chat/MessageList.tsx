@@ -59,18 +59,37 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, className })
     // 2. First few messages (always scroll)
     // 3. Currently streaming (always follow streaming)
     if (isNewMessage && (messages.length <= 2 || isUserNearBottom() || streamingMessageId)) {
-      // Use immediate scroll for first message, smooth for others
-      scrollToBottom(messages.length <= 2 ? 'auto' : 'smooth')
+      // Add a small delay to ensure DOM is updated before scrolling
+      requestAnimationFrame(() => {
+        scrollToBottom(messages.length <= 2 ? 'auto' : 'smooth')
+      })
     }
   }, [messages, streamingMessageId])
 
   // Additional effect specifically for streaming updates
   useEffect(() => {
     if (streamingMessageId) {
-      // Always follow streaming messages
-      scrollToBottom('smooth')
+      // Always follow streaming messages with a small delay to ensure content is rendered
+      requestAnimationFrame(() => {
+        scrollToBottom('smooth')
+      })
     }
   }, [streamingMessageId])
+
+  // Effect to handle scroll when message content changes (e.g., during streaming)
+  useEffect(() => {
+    if (streamingMessageId && messages.length > 0) {
+      const streamingMessage = messages.find((msg) => msg.id === streamingMessageId)
+      if (streamingMessage && isUserNearBottom()) {
+        // Small delay to let the content render
+        const timeoutId = setTimeout(() => {
+          scrollToBottom('smooth')
+        }, 100)
+
+        return () => clearTimeout(timeoutId)
+      }
+    }
+  }, [messages, streamingMessageId])
 
   // Empty state
   if (messages.length === 0) {
@@ -98,6 +117,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, className })
       overflowY="auto"
       px={4}
       py={6}
+      pb="6rem"
       className={className}
       role="log"
       aria-label="Chat messages"

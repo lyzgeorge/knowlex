@@ -86,5 +86,5 @@ export const initializeAIProviders = (): void => {
   console.log(`🎯 AI System ready: ${successCount}/${totalCount} providers loaded`)
 }
 
-// Auto-initialize providers when module is imported
-initializeAIProviders()
+// Note: initializeAIProviders() should be called explicitly in main.ts
+// to avoid duplicate initialization

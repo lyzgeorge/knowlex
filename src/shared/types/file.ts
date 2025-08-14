@@ -21,6 +21,14 @@ export interface TemporaryFile {
   error?: string
 }
 
+export interface TemporaryFileResult {
+  filename: string
+  content: string
+  size: number
+  mimeType: string
+  error?: string
+}
+
 export interface ProcessingResult {
   success: boolean
   chunkCount?: number

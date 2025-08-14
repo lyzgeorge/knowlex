@@ -292,7 +292,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           <Button
             leftIcon={<AddIcon />}
             variant="solid"
-            colorScheme="green"
+            bg="primary.500"
+            color="white"
+            _hover={{ bg: 'primary.600' }}
+            _active={{ bg: 'primary.700' }}
             size="sm"
             isFullWidth
             justifyContent="flex-start"

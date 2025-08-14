@@ -9,6 +9,7 @@ import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
+import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { initializeAIProviders, startCacheCleanup, stopCacheCleanup } from './ai'
 
 // Application lifecycle management
@@ -46,6 +47,7 @@ class Application {
       console.log('Registering IPC handlers...')
       registerProjectIPCHandlers()
       registerConversationIPCHandlers()
+      registerFileIPCHandlers()
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -116,6 +118,7 @@ app.on('before-quit', async () => {
     // Unregister IPC handlers
     unregisterProjectIPCHandlers()
     unregisterConversationIPCHandlers()
+    unregisterFileIPCHandlers()
 
     // Close database connections
     const { closeDB } = await import('./database/index')

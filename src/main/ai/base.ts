@@ -139,6 +139,16 @@ export abstract class BaseAIModel implements AIModel {
           }
           break
 
+        case 'temporary-file':
+          // Convert temporary file to text representation for AI processing
+          if (part.temporaryFile) {
+            aiContent.push({
+              type: 'text',
+              text: `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}`
+            })
+          }
+          break
+
         default:
           console.warn(`Unknown content type: ${part.type}`)
       }

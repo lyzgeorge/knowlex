@@ -33,6 +33,18 @@ function validateMessageContent(content: MessageContent): void {
     throw new Error('Message content must be a non-empty array of content parts')
   }
 
+  // Check if there's at least one meaningful content part (not just empty text)
+  const hasMeaningfulContent = content.some((part) => {
+    if (part.type === 'text') {
+      return part.text && part.text.trim().length > 0
+    }
+    return true // Non-text parts are always considered meaningful
+  })
+
+  if (!hasMeaningfulContent) {
+    throw new Error('Message must contain at least one meaningful content part')
+  }
+
   // Validate each content part
   content.forEach((part, index) => {
     if (!part || typeof part !== 'object') {
@@ -48,8 +60,11 @@ function validateMessageContent(content: MessageContent): void {
         if (!part.text || typeof part.text !== 'string') {
           throw new Error(`Text content part at index ${index} must have valid text`)
         }
-        if (part.text.trim().length === 0) {
-          throw new Error(`Text content part at index ${index} cannot be empty`)
+        // Allow empty text content if there are other content parts (like files)
+        if (part.text.trim().length === 0 && content.length === 1) {
+          throw new Error(
+            `Text content part at index ${index} cannot be empty when it's the only content`
+          )
         }
         break
 
@@ -89,6 +104,24 @@ function validateMessageContent(content: MessageContent): void {
         }
         break
 
+      case 'temporary-file':
+        if (!part.temporaryFile || typeof part.temporaryFile !== 'object') {
+          throw new Error(`Temporary file content part at index ${index} must have valid file data`)
+        }
+        if (!part.temporaryFile.filename || typeof part.temporaryFile.filename !== 'string') {
+          throw new Error(`Temporary file content part at index ${index} must have valid filename`)
+        }
+        if (!part.temporaryFile.content || typeof part.temporaryFile.content !== 'string') {
+          throw new Error(`Temporary file content part at index ${index} must have valid content`)
+        }
+        if (typeof part.temporaryFile.size !== 'number' || part.temporaryFile.size < 0) {
+          throw new Error(`Temporary file content part at index ${index} must have valid size`)
+        }
+        if (!part.temporaryFile.mimeType || typeof part.temporaryFile.mimeType !== 'string') {
+          throw new Error(`Temporary file content part at index ${index} must have valid mime type`)
+        }
+        break
+
       default:
         throw new Error(`Unsupported content type "${part.type}" at index ${index}`)
     }
@@ -99,7 +132,7 @@ function validateMessageContent(content: MessageContent): void {
  * Checks if a content type is valid
  */
 function isValidContentType(type: string): type is ContentType {
-  return ['text', 'image', 'citation', 'tool-call'].includes(type)
+  return ['text', 'image', 'citation', 'tool-call', 'temporary-file'].includes(type)
 }
 
 /**
@@ -381,7 +414,8 @@ export function getContentStats(message: Message) {
     text: 0,
     image: 0,
     citation: 0,
-    toolCall: 0
+    toolCall: 0,
+    temporaryFile: 0
   }
 
   message.content.forEach((part) => {
@@ -397,6 +431,9 @@ export function getContentStats(message: Message) {
         break
       case 'tool-call':
         stats.toolCall++
+        break
+      case 'temporary-file':
+        stats.temporaryFile++
         break
     }
   })

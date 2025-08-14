@@ -16,9 +16,10 @@ export interface MessageContentPart {
   image?: ImageContent
   citation?: CitationContent
   toolCall?: ToolCallContent
+  temporaryFile?: TemporaryFileContent
 }
 
-export type ContentType = 'text' | 'image' | 'citation' | 'tool-call'
+export type ContentType = 'text' | 'image' | 'citation' | 'tool-call' | 'temporary-file'
 
 export interface ImageContent {
   url: string
@@ -40,4 +41,11 @@ export interface ToolCallContent {
   name: string
   arguments: Record<string, unknown>
   result?: unknown
+}
+
+export interface TemporaryFileContent {
+  filename: string
+  content: string
+  size: number
+  mimeType: string
 }

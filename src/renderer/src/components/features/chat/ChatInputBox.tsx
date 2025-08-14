@@ -1,34 +1,19 @@
 import React, { useState, useRef, useCallback } from 'react'
-import {
-  Box,
-  HStack,
-  VStack,
-  Textarea,
-  IconButton,
-  useColorModeValue,
-  Text,
-  useToast
-} from '@chakra-ui/react'
+import { Box, HStack, Textarea, IconButton, useColorModeValue } from '@chakra-ui/react'
 import { ArrowUpIcon, AttachmentIcon } from '@chakra-ui/icons'
 import { useSendMessage, useIsSending } from '../../../stores/conversation'
 import FilePreview from './FilePreview'
+import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
+import type { TemporaryFileResult } from '../../../../../shared/types/file'
 
-// File upload constants
+// File upload constants (for UI display)
 const MAX_FILES = 10
-const MAX_FILE_SIZE = 1024 * 1024 // 1MB
-const ALLOWED_TYPES = ['.txt', '.md', '.pdf', '.docx', '.json', '.csv']
 
 // ChatInputBoxPayload interface
 export interface ChatInputBoxPayload {
   input: string
   files: File[]
-  attachments?: FileAttachment[]
-}
-
-export interface FileAttachment {
-  file: File
-  content?: string
-  status: 'pending' | 'processing' | 'ready' | 'failed'
+  temporaryFiles?: TemporaryFileResult[]
 }
 
 export type ChatInputVariant = 'main-entrance' | 'conversation'
@@ -44,12 +29,14 @@ export interface ChatInputBoxProps {
   placeholder?: string
   /** Whether to show file attachment button */
   showFileAttachment?: boolean
-  /** Whether to show helper text */
-  showHelperText?: boolean
   /** Additional CSS classes */
   className?: string
   /** Custom send handler (used for main-entrance variant) */
-  onSendMessage?: (message: string, files: File[]) => Promise<void>
+  onSendMessage?: (
+    message: string,
+    files: File[],
+    temporaryFiles?: TemporaryFileResult[]
+  ) => Promise<void>
 }
 
 /**
@@ -65,23 +52,20 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   disabled = false,
   placeholder,
   showFileAttachment = true,
-  showHelperText = true,
   className,
   onSendMessage
 }) => {
   const [input, setInput] = useState('')
-  const [files, setFiles] = useState<File[]>([])
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [inputHistory, setInputHistory] = useState<string[]>([])
-  const [historyIndex, setHistoryIndex] = useState(-1)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const lastFileUploadRef = useRef<number>(0)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
-  const toast = useToast()
+
+  // Use the file upload hook
+  const fileUpload = useFileUpload()
 
   // Theme colors
-  const borderColor = useColorModeValue('border.secondary', 'border.secondary')
   const bgColor = useColorModeValue('surface.primary', 'surface.primary')
   const placeholderColor = useColorModeValue('text.tertiary', 'text.tertiary')
 
@@ -99,90 +83,38 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   const effectivePlaceholder = placeholder ?? getDefaultPlaceholder()
 
-  // File validation
-  const validateFile = (file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) {
-      return `File "${file.name}" is too large. Maximum size is 1MB.`
-    }
-
-    const extension = '.' + file.name.split('.').pop()?.toLowerCase()
-    if (!ALLOWED_TYPES.includes(extension)) {
-      return `File "${file.name}" is not supported. Only .txt and .md files are allowed.`
-    }
-
-    return null
-  }
-
-  // Handle file upload
+  // Handle file upload using the hook with deduplication
   const handleFileUpload = useCallback(
     (newFiles: FileList) => {
-      const fileArray = Array.from(newFiles)
-      const validFiles: File[] = []
-      const errors: string[] = []
-
-      // Check total file count
-      if (files.length + fileArray.length > MAX_FILES) {
-        toast({
-          title: 'Too many files',
-          description: `Maximum ${MAX_FILES} files allowed`,
-          status: 'error',
-          duration: 3000,
-          isClosable: true
-        })
+      const now = Date.now()
+      // Prevent duplicate calls within 100ms
+      if (now - lastFileUploadRef.current < 100) {
+        console.log('Preventing duplicate file upload call within 100ms')
         return
       }
+      lastFileUploadRef.current = now
 
-      // Validate each file
-      fileArray.forEach((file) => {
-        const error = validateFile(file)
-        if (error) {
-          errors.push(error)
-        } else {
-          validFiles.push(file)
-        }
-      })
-
-      // Show validation errors
-      if (errors.length > 0) {
-        errors.forEach((error) => {
-          toast({
-            title: 'File validation error',
-            description: error,
-            status: 'error',
-            duration: 4000,
-            isClosable: true
-          })
-        })
-      }
-
-      // Add valid files
-      if (validFiles.length > 0) {
-        setFiles((prev) => [...prev, ...validFiles])
-      }
+      console.log(
+        'handleFileUpload called with files:',
+        Array.from(newFiles).map((f) => f.name)
+      )
+      fileUpload.addFiles(newFiles)
     },
-    [files.length, toast]
+    [fileUpload]
   )
-
-  // Remove file
-  const removeFile = useCallback((fileToRemove: File) => {
-    setFiles((prev) => prev.filter((file) => file !== fileToRemove))
-  }, [])
 
   // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(true)
   }, [])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(false)
   }, [])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      setIsDragOver(false)
 
       const droppedFiles = e.dataTransfer.files
       if (droppedFiles.length > 0) {
@@ -220,57 +152,148 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Handle send message
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim()
-    if ((!trimmedInput && files.length === 0) || isSending || disabled) return
+    const hasFiles = fileUpload.state.files.length > 0
 
-    // Add to input history if not empty and not already in history
-    if (trimmedInput && !inputHistory.includes(trimmedInput)) {
-      setInputHistory((prev) => [trimmedInput, ...prev].slice(0, 50)) // Keep last 50 entries
-    }
-    setHistoryIndex(-1)
+    if ((!trimmedInput && !hasFiles) || isSending || disabled) return
 
     // Store original values for potential error recovery
     const originalInput = trimmedInput
-    const originalFiles = [...files]
+    const originalFiles = [...fileUpload.state.files]
 
     try {
+      console.log('handleSend: Starting message send process', {
+        trimmedInput,
+        hasFiles,
+        fileCount: fileUpload.state.files.length,
+        variant,
+        conversationId,
+        onSendMessage: !!onSendMessage
+      })
+
+      // Process temporary files if any
+      let processedFiles: TemporaryFileResult[] = []
+      if (hasFiles) {
+        console.log('handleSend: Processing files...')
+        processedFiles = await fileUpload.processFiles()
+        console.log(
+          'handleSend: Files processed:',
+          processedFiles.map((f) => ({ filename: f.filename, error: f.error }))
+        )
+      } else {
+        console.log('handleSend: No files to process')
+      }
+
       // Clear input and files immediately for better UX
       setInput('')
-      setFiles([])
+      fileUpload.clearFiles()
       if (textareaRef.current) {
         textareaRef.current.style.height = '2rem'
       }
 
       // Use custom handler for main-entrance variant
       if (onSendMessage && variant === 'main-entrance') {
-        await onSendMessage(originalInput, originalFiles)
+        console.log('handleSend: Using main-entrance variant with custom handler')
+        await onSendMessage(originalInput, [], processedFiles)
       }
       // Use store sendMessage for conversation variant
       else if (conversationId && variant === 'conversation') {
-        const content = [{ type: 'text' as const, text: originalInput }]
-        await sendMessage(conversationId, content, originalFiles)
+        console.log('handleSend: Using conversation variant, conversationId:', conversationId)
+        const content = []
+
+        // Add text content part only if there's actual text
+        if (originalInput.trim().length > 0) {
+          content.push({ type: 'text' as const, text: originalInput })
+        }
+
+        // Add temporary file content parts
+        console.log(
+          'handleSend: Adding file content to message, processedFiles count:',
+          processedFiles.length
+        )
+        processedFiles.forEach((file) => {
+          if (!file.error) {
+            console.log('handleSend: Adding file to content:', {
+              filename: file.filename,
+              contentLength: file.content?.length
+            })
+            content.push({
+              type: 'temporary-file' as const,
+              temporaryFile: {
+                filename: file.filename,
+                content: file.content,
+                size: file.size,
+                mimeType: file.mimeType
+              }
+            })
+          } else {
+            console.log('handleSend: Skipping file due to error:', {
+              filename: file.filename,
+              error: file.error
+            })
+          }
+        })
+
+        console.log(
+          'handleSend: Final message content structure:',
+          content.map((c) => ({
+            type: c.type,
+            ...(c.type === 'text'
+              ? { textLength: c.text.length }
+              : { filename: c.temporaryFile.filename })
+          }))
+        )
+        await sendMessage(conversationId, content)
       }
       // If conversationId is provided but variant is main-entrance, use store sendMessage
       else if (conversationId) {
-        const content = [{ type: 'text' as const, text: originalInput }]
-        await sendMessage(conversationId, content, originalFiles)
+        console.log(
+          'handleSend: Using fallback conversationId path, conversationId:',
+          conversationId,
+          'variant:',
+          variant
+        )
+        const content = []
+
+        // Add text content part only if there's actual text
+        if (originalInput.trim().length > 0) {
+          content.push({ type: 'text' as const, text: originalInput })
+        }
+
+        // Add temporary file content parts
+        processedFiles.forEach((file) => {
+          if (!file.error) {
+            content.push({
+              type: 'temporary-file' as const,
+              temporaryFile: {
+                filename: file.filename,
+                content: file.content,
+                size: file.size,
+                mimeType: file.mimeType
+              }
+            })
+          }
+        })
+
+        await sendMessage(conversationId, content)
+      } else {
+        console.log('handleSend: No matching path found!', {
+          onSendMessage: !!onSendMessage,
+          variant,
+          conversationId,
+          hasProcessedFiles: processedFiles.length > 0
+        })
       }
     } catch (error) {
       // If error, restore the input and files
       setInput(originalInput)
-      setFiles(originalFiles)
+      // Clear current files and restore original files
+      fileUpload.clearFiles()
+      if (originalFiles.length > 0) {
+        fileUpload.addFiles(originalFiles)
+      }
       console.error('Failed to send message:', error)
     }
-  }, [
-    input,
-    files,
-    isSending,
-    disabled,
-    conversationId,
-    sendMessage,
-    inputHistory,
-    onSendMessage,
-    variant
-  ])
+  }, [input, fileUpload, isSending, disabled, conversationId, sendMessage, onSendMessage, variant])
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -279,36 +302,17 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         // Enter key sends message for all variants (Shift+Enter for new line)
         e.preventDefault()
         handleSend()
-      } else if (e.key === 'ArrowUp' && e.altKey && inputHistory.length > 0) {
-        // Navigate input history with Alt+Up/Down
-        e.preventDefault()
-        const newIndex = Math.min(historyIndex + 1, inputHistory.length - 1)
-        setHistoryIndex(newIndex)
-        setInput(inputHistory[newIndex])
-      } else if (e.key === 'ArrowDown' && e.altKey && inputHistory.length > 0) {
-        e.preventDefault()
-        const newIndex = historyIndex > 0 ? historyIndex - 1 : -1
-        setHistoryIndex(newIndex)
-        setInput(newIndex >= 0 ? inputHistory[newIndex] : '')
       }
     },
-    [handleSend, inputHistory, historyIndex]
+    [handleSend]
   )
 
   // Can send message?
-  const canSend = (input.trim().length > 0 || files.length > 0) && !isSending && !disabled
-
-  // Get helper text based on variant
-  const getHelperText = (): string => {
-    switch (variant) {
-      case 'main-entrance':
-        return 'Press Enter to send • Drag & drop files'
-      case 'conversation':
-        return 'Press Enter to send • Alt+↑/↓ for history • Shift+Enter for new line'
-      default:
-        return 'Press Enter to send • Alt+↑/↓ for history • Shift+Enter for new line'
-    }
-  }
+  const canSend =
+    (input.trim().length > 0 || fileUpload.state.files.length > 0) &&
+    !isSending &&
+    !disabled &&
+    !fileUpload.state.isProcessing
 
   // Unified render - single implementation for all variants
   return (
@@ -320,30 +324,14 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       mx="auto"
       style={{ WebkitAppRegion: 'no-drag' }}
     >
-      {/* File Previews */}
-      {files.length > 0 && (
-        <VStack spacing={2} mb={4} align="stretch">
-          {files.map((file, index) => (
-            <FilePreview
-              key={`${file.name}-${index}`}
-              file={file}
-              onRemove={() => removeFile(file)}
-            />
-          ))}
-        </VStack>
-      )}
-
       {/* Unified Input Area */}
       <Box
         bg={bgColor}
-        border="1px solid"
-        borderColor={isDragOver ? 'blue.300' : borderColor}
         borderRadius="xl"
         p={3}
         shadow="sm"
         _hover={{ shadow: 'button-hover' }}
         _focusWithin={{
-          borderColor: 'primary.500',
           shadow: 'button-hover'
         }}
         transition="all 0.2s"
@@ -351,6 +339,39 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* File Previews - Inside chatbox, above input controls */}
+        {fileUpload.state.files.length > 0 && (
+          <Box mb={3}>
+            <HStack
+              spacing={2}
+              overflowX="auto"
+              maxW="100%"
+              pb={2}
+              sx={{
+                '&::-webkit-scrollbar': {
+                  height: '4px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  bg: 'transparent'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bg: 'gray.300',
+                  borderRadius: '2px'
+                }
+              }}
+            >
+              {fileUpload.state.files.map((fileItem: FileUploadItem) => (
+                <FilePreview
+                  key={fileItem.id}
+                  file={fileItem.file}
+                  onRemove={() => fileUpload.removeFile(fileItem)}
+                  variant="compact"
+                />
+              ))}
+            </HStack>
+          </Box>
+        )}
+
         <HStack spacing={3} align="end">
           {/* File Upload Button */}
           {showFileAttachment && (
@@ -361,7 +382,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 size="sm"
                 variant="ghost"
                 borderRadius="full"
-                isDisabled={disabled || files.length >= MAX_FILES}
+                isDisabled={disabled || fileUpload.state.files.length >= MAX_FILES}
                 onClick={() => fileInputRef.current?.click()}
               />
 
@@ -369,7 +390,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={ALLOWED_TYPES.join(',')}
+                accept=".txt,.md"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {
@@ -412,23 +433,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             size="sm"
             borderRadius="md"
             isDisabled={!canSend}
-            isLoading={isSending}
+            isLoading={isSending || fileUpload.state.isProcessing}
             onClick={handleSend}
           />
         </HStack>
       </Box>
-
-      {/* Helper Text */}
-      {showHelperText && (
-        <Text
-          fontSize="xs"
-          color="text.tertiary"
-          mt={2}
-          textAlign={variant === 'conversation' ? 'left' : 'center'}
-        >
-          {getHelperText()}
-        </Text>
-      )}
     </Box>
   )
 }

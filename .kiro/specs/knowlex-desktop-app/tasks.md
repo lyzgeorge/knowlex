@@ -11,96 +11,96 @@
 
 ## 项目设置和基础架构
 
-- [ ] 1. 项目初始化和开发环境搭建
-  - 创建Electron + Vite + React + TypeScript项目结构
-  - 配置ESLint、Prettier代码规范，设置严格的代码质量标准
-  - 设置开发和构建脚本，配置热重载和调试环境
-  - 配置electron-vite构建工具，优化开发体验
+- [x] 1. 项目初始化和开发环境搭建 ✅ **COMPLETED**
+  - ✅ 创建Electron + Vite + React + TypeScript项目结构
+  - ✅ 配置ESLint、Prettier代码规范，设置严格的代码质量标准
+  - ✅ 设置开发和构建脚本，配置热重载和调试环境
+  - ✅ 配置electron-vite构建工具，优化开发体验
   - _Requirements: 系统架构基础_
 
-- [ ] 1.1 编写项目设置文档
-  - 记录项目结构说明
-  - 开发环境配置步骤
-  - 构建和部署流程
-  - 代码规范和最佳实践
+- [x] 1.1 编写项目设置文档 ✅ **COMPLETED**
+  - ✅ 记录项目结构说明 (docs/01-getting-started.md)
+  - ✅ 开发环境配置步骤
+  - ✅ 构建和部署流程
+  - ✅ 代码规范和最佳实践
 
-- [ ] 2. 基础目录结构和配置文件
-  - 创建src/main、src/renderer、src/shared目录结构
-  - 配置electron.vite.config.ts构建配置，优化性能和开发体验
-  - 设置tsconfig.json TypeScript配置，启用严格模式
-  - 创建基础的类型定义文件，确保类型安全
+- [x] 2. 基础目录结构和配置文件 ✅ **COMPLETED**
+  - ✅ 创建src/main、src/renderer、src/shared目录结构
+  - ✅ 配置electron.vite.config.ts构建配置，优化性能和开发体验
+  - ✅ 设置tsconfig.json TypeScript配置，启用严格模式
+  - ✅ 创建基础的类型定义文件，确保类型安全
   - _Requirements: 2.1项目结构_
 
-- [ ] 2.1 编写架构文档
-  - 三层架构说明（主进程、渲染进程、共享代码）
-  - 目录结构和文件职责
-  - 模块依赖关系图
-  - 开发规范和约定
+- [x] 2.1 编写架构文档 ✅ **COMPLETED**
+  - ✅ 三层架构说明（主进程、渲染进程、共享代码） (docs/02-architecture.md)
+  - ✅ 目录结构和文件职责
+  - ✅ 模块依赖关系图
+  - ✅ 开发规范和约定
 
 ## 主进程核心功能
 
-- [ ] 3. Electron主进程基础框架
-  - 实现main.ts应用入口：`createWindow()`, `app.whenReady()`, 生命周期管理
-  - 实现preload.ts安全IPC桥接：`contextBridge.exposeInMainWorld()`, API暴露
-  - 实现window.ts窗口管理：窗口创建、最小化、全屏、主题适配
-  - 实现menu.ts菜单管理：应用菜单、上下文菜单、快捷键绑定
+- [x] 3. Electron主进程基础框架 ✅ **COMPLETED**
+  - ✅ 实现main.ts应用入口：`createWindow()`, `app.whenReady()`, 生命周期管理
+  - ✅ 实现preload.ts安全IPC桥接：`contextBridge.exposeInMainWorld()`, API暴露
+  - ✅ 实现window.ts窗口管理：窗口创建、最小化、全屏、主题适配
+  - ✅ 实现menu.ts菜单管理：应用菜单、上下文菜单、快捷键绑定
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 3.1 编写主进程架构文档
-  - 应用生命周期管理说明
-  - 窗口管理API文档
-  - IPC安全桥接机制
-  - 菜单和快捷键配置
+- [x] 3.1 编写主进程架构文档 ✅ **COMPLETED**
+  - ✅ 应用生命周期管理说明 (docs/02-architecture.md)
+  - ✅ 窗口管理API文档
+  - ✅ IPC安全桥接机制
+  - ✅ 菜单和快捷键配置
 
-- [ ] 4. 数据库模块实现
-  - 实现database/index.ts：`getDB()`, `closeDB()`, 连接管理
-  - 实现database/migrations.ts：`runMigrations()`, `getCurrentVersion()`, 版本控制
-  - 实现database/queries.ts：预定义查询函数，类型安全的数据库操作
-  - 创建libsql数据库表结构，支持向量存储
+- [x] 4. 数据库模块实现 ✅ **COMPLETED**
+  - ✅ 实现database/index.ts：`getDB()`, `closeDB()`, 连接管理
+  - ✅ 实现database/migrations.ts：`runMigrations()`, `getCurrentVersion()`, 版本控制
+  - ✅ 实现database/queries.ts：预定义查询函数，类型安全的数据库操作
+  - ✅ 创建libsql数据库表结构，支持向量存储
   - _Requirements: 10.1, 10.2_
 
-- [ ] 4.1 编写数据库模块文档
-  - 数据库连接管理API
-  - 迁移系统使用说明
-  - 查询模板和类型定义
-  - 表结构和索引设计
+- [x] 4.1 编写数据库模块文档 ✅ **COMPLETED**
+  - ✅ 数据库连接管理API (docs/03-api-reference.md)
+  - ✅ 迁移系统使用说明
+  - ✅ 查询模板和类型定义
+  - ✅ 表结构和索引设计
 
-- [ ] 5. 项目管理服务
-  - 实现services/project.ts：`createProject()`, `updateProject()`, `deleteProject()`, `listProjects()`
-  - 实现ipc/project.ts：IPC处理器 'project:create', 'project:list', 'project:update', 'project:delete'
-  - 定义Project数据结构：id, name, description, createdAt, updatedAt
-  - 创建项目数据库表和索引
+- [x] 5. 项目管理服务 ✅ **COMPLETED**
+  - ✅ 实现services/project.ts：`createProject()`, `updateProject()`, `deleteProject()`, `listProjects()`
+  - ✅ 实现ipc/project.ts：IPC处理器 'project:create', 'project:list', 'project:update', 'project:delete'
+  - ✅ 定义Project数据结构：id, name, description, createdAt, updatedAt
+  - ✅ 创建项目数据库表和索引
   - _Requirements: 1.1, 1.6, 1.10_
 
-- [ ] 5.1 编写项目管理服务文档
-  - 项目CRUD操作API
-  - 数据结构定义
-  - IPC通道说明
-  - 错误处理机制
+- [x] 5.1 编写项目管理服务文档 ✅ **COMPLETED**
+  - ✅ 项目CRUD操作API (docs/03-api-reference.md)
+  - ✅ 数据结构定义
+  - ✅ IPC通道说明
+  - ✅ 错误处理机制
 
-- [ ] 6. 会话和消息管理服务
-  - 实现services/conversation.ts：`createConversation()`, `deleteConversation()`, `moveConversation()`
-  - 实现services/message.ts：`addMessage()`, `updateMessage()`, `deleteMessage()`, `getMessages()`
-  - 实现ipc/conversation.ts：'conversation:create', 'conversation:delete', 'message:add'等IPC处理
-  - 支持多部分内容的消息结构：text, image, citation, tool-call等
+- [x] 6. 会话和消息管理服务 ✅ **COMPLETED**
+  - ✅ 实现services/conversation.ts：`createConversation()`, `deleteConversation()`, `moveConversation()`
+  - ✅ 实现services/message.ts：`addMessage()`, `updateMessage()`, `deleteMessage()`, `getMessages()`
+  - ✅ 实现ipc/conversation.ts：'conversation:create', 'conversation:delete', 'message:add'等IPC处理
+  - ✅ 支持多部分内容的消息结构：text, image, citation, tool-call等
   - _Requirements: 2.1, 2.2, 2.3, 13.1_
 
-- [ ] 6.1 编写会话消息管理文档
-  - 会话管理API说明
-  - 消息数据结构定义
-  - 多部分内容支持
-  - IPC通信协议
+- [x] 6.1 编写会话消息管理文档 ✅ **COMPLETED**
+  - ✅ 会话管理API说明 (docs/03-api-reference.md)
+  - ✅ 消息数据结构定义
+  - ✅ 多部分内容支持
+  - ✅ IPC通信协议
 
 ## 文件处理系统
 
-- [ ] 7. 临时文件处理模块
+- [x] 7. 临时文件处理模块
   - 实现services/file-temp.ts：`processTemporaryFiles()`, `extractTextContent()`, `validateFileConstraints()`
   - 支持文件类型：.txt, .md，文本提取和内容返回
   - 实现限制：最多10个文件，单文件1MB，总计10MB
   - 定义TemporaryFileResult接口：filename, content, size, mimeType, error
   - _Requirements: 5.1, 5.2, 5.3, 5.6_
 
-- [ ] 7.1 编写临时文件处理文档
+- [x] 7.1 编写临时文件处理文档
   - 临时文件处理API说明
   - 文件类型支持和限制
   - 错误处理和验证机制

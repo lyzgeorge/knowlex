@@ -68,7 +68,10 @@ export interface KnowlexAPI {
   // File IPC
   file: {
     uploadProject: (data: FileUploadRequest) => Promise<IPCResult>
-    processTemporary: (data: TemporaryFileRequest) => Promise<IPCResult>
+    processTemp: (data: TemporaryFileRequest) => Promise<IPCResult>
+    processTempContent: (data: {
+      files: Array<{ name: string; content: string; size: number }>
+    }) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
     list: (projectId: string) => Promise<IPCResult>
   }
@@ -184,7 +187,8 @@ const knowlexAPI: KnowlexAPI = {
   // File IPC
   file: {
     uploadProject: (data) => ipcRenderer.invoke('file:uploadProject', data),
-    processTemporary: (data) => ipcRenderer.invoke('file:processTemporary', data),
+    processTemp: (data) => ipcRenderer.invoke('file:process-temp', data),
+    processTempContent: (data) => ipcRenderer.invoke('file:process-temp-content', data),
     delete: (id) => ipcRenderer.invoke('file:delete', id),
     list: (projectId) => ipcRenderer.invoke('file:list', projectId)
   },
