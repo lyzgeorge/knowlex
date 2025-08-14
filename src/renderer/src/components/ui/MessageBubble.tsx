@@ -9,7 +9,6 @@ import {
   Link,
   Code,
   useColorModeValue,
-  Skeleton,
   Icon
 } from '@chakra-ui/react'
 import { ExternalLinkIcon, LinkIcon, AttachmentIcon } from '@chakra-ui/icons'
@@ -107,116 +106,139 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   // Render text content with markdown
-  const renderTextContent = (text: string, isUserMessage: boolean = false) => (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
-      components={{
-        // Custom components for consistent styling
-        p: ({ children }) => (
-          <Text mb={0} lineHeight="tall">
-            {children}
-          </Text>
-        ),
-        code: ({ inline, children, className, ...props }) => {
-          return inline === false ? (
-            <Code
-              display="block"
-              whiteSpace="pre"
-              p={4}
-              borderRadius="md"
-              bg={isUserMessage ? userCodeBlockBg : codeBlockBg}
-              overflowX="auto"
-              fontSize="sm"
-              className={className}
-              {...props}
-            >
+  const renderTextContent = (
+    text: string,
+    isUserMessage: boolean = false,
+    showCursor: boolean = false
+  ) => (
+    <Box as="span" display="inline">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          // Custom components for consistent styling
+          p: ({ children }) => (
+            <Box as="span" display="inline" lineHeight="tall">
               {children}
-            </Code>
-          ) : (
+            </Box>
+          ),
+          code: ({ inline, children, className, ...props }) => {
+            return inline === false ? (
+              <Code
+                display="block"
+                whiteSpace="pre"
+                p={4}
+                borderRadius="md"
+                bg={isUserMessage ? userCodeBlockBg : codeBlockBg}
+                overflowX="auto"
+                fontSize="sm"
+                className={className}
+                {...props}
+              >
+                {children}
+              </Code>
+            ) : (
+              <Box
+                as="code"
+                display="inline"
+                px="0.2em"
+                py="0.1em"
+                borderRadius="0.25rem"
+                fontSize="0.9em"
+                bg={isUserMessage ? userInlineCodeBg : inlineCodeBg}
+                fontFamily="mono"
+                {...props}
+              >
+                {children}
+              </Box>
+            )
+          },
+          blockquote: ({ children }) => (
             <Box
-              as="code"
-              display="inline"
-              px="0.2em"
-              py="0.1em"
-              borderRadius="0.25rem"
-              fontSize="0.9em"
-              bg={isUserMessage ? userInlineCodeBg : inlineCodeBg}
-              fontFamily="mono"
-              {...props}
+              borderLeft="4px solid"
+              borderColor={isUserMessage ? 'rgba(74, 124, 74, 0.4)' : 'gray.300'}
+              pl={4}
+              py={2}
+              my={4}
+              bg={isUserMessage ? userBlockquoteBg : blockquoteBg}
             >
               {children}
             </Box>
+          ),
+          a: ({ href, children }) => (
+            <Link
+              href={href}
+              isExternal
+              color={isUserMessage ? 'primary.600' : 'blue.500'}
+              textDecoration="underline"
+              _hover={{ textDecoration: 'none', opacity: 0.8 }}
+            >
+              {children}
+              <ExternalLinkIcon mx="2px" />
+            </Link>
+          ),
+          h1: ({ children }) => (
+            <Text fontSize="2xl" fontWeight="bold" mb={4} mt={6}>
+              {children}
+            </Text>
+          ),
+          h2: ({ children }) => (
+            <Text fontSize="xl" fontWeight="semibold" mb={3} mt={5}>
+              {children}
+            </Text>
+          ),
+          h3: ({ children }) => (
+            <Text fontSize="lg" fontWeight="medium" mb={2} mt={4}>
+              {children}
+            </Text>
+          ),
+          ul: ({ children }) => (
+            <Box as="ul" pl={4} mb={4}>
+              {children}
+            </Box>
+          ),
+          ol: ({ children }) => (
+            <Box as="ol" pl={4} mb={4}>
+              {children}
+            </Box>
+          ),
+          li: ({ children }) => (
+            <Text as="li" mb={1}>
+              {children}
+            </Text>
+          ),
+          strong: ({ children }) => (
+            <Text as="strong" fontWeight="semibold">
+              {children}
+            </Text>
+          ),
+          em: ({ children }) => (
+            <Text as="em" fontStyle="italic">
+              {children}
+            </Text>
           )
-        },
-        blockquote: ({ children }) => (
-          <Box
-            borderLeft="4px solid"
-            borderColor={isUserMessage ? 'rgba(74, 124, 74, 0.4)' : 'gray.300'}
-            pl={4}
-            py={2}
-            my={4}
-            bg={isUserMessage ? userBlockquoteBg : blockquoteBg}
-          >
-            {children}
-          </Box>
-        ),
-        a: ({ href, children }) => (
-          <Link
-            href={href}
-            isExternal
-            color={isUserMessage ? 'primary.600' : 'blue.500'}
-            textDecoration="underline"
-            _hover={{ textDecoration: 'none', opacity: 0.8 }}
-          >
-            {children}
-            <ExternalLinkIcon mx="2px" />
-          </Link>
-        ),
-        h1: ({ children }) => (
-          <Text fontSize="2xl" fontWeight="bold" mb={4} mt={6}>
-            {children}
-          </Text>
-        ),
-        h2: ({ children }) => (
-          <Text fontSize="xl" fontWeight="semibold" mb={3} mt={5}>
-            {children}
-          </Text>
-        ),
-        h3: ({ children }) => (
-          <Text fontSize="lg" fontWeight="medium" mb={2} mt={4}>
-            {children}
-          </Text>
-        ),
-        ul: ({ children }) => (
-          <Box as="ul" pl={4} mb={4}>
-            {children}
-          </Box>
-        ),
-        ol: ({ children }) => (
-          <Box as="ol" pl={4} mb={4}>
-            {children}
-          </Box>
-        ),
-        li: ({ children }) => (
-          <Text as="li" mb={1}>
-            {children}
-          </Text>
-        ),
-        strong: ({ children }) => (
-          <Text as="strong" fontWeight="semibold">
-            {children}
-          </Text>
-        ),
-        em: ({ children }) => (
-          <Text as="em" fontStyle="italic">
-            {children}
-          </Text>
-        )
-      }}
-    >
-      {text}
-    </ReactMarkdown>
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+      {showCursor && (
+        <Icon
+          as={FaRobot}
+          boxSize={3}
+          color="gray.400"
+          ml={1}
+          display="inline"
+          verticalAlign="baseline"
+          animation="flash 1.5s ease-in-out infinite"
+          sx={{
+            '@keyframes flash': {
+              '0%, 50%': { opacity: 1 },
+              '51%, 100%': { opacity: 0.3 }
+            }
+          }}
+        />
+      )}
+    </Box>
   )
 
   // Render image content
@@ -369,14 +391,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   }
 
   // Render content parts
-  const renderContentParts = (content: MessageContent, isUserMessage: boolean = false) => {
+  const renderContentParts = (
+    content: MessageContent,
+    isUserMessage: boolean = false,
+    showStreamingCursor: boolean = false
+  ) => {
     return content.map((part: MessageContentPart, index: number) => {
       const key = `part-${index}`
+      const isLastTextPart = index === content.length - 1 && part.type === 'text'
 
       switch (part.type) {
         case 'text':
           return part.text ? (
-            <Box key={key}>{renderTextContent(part.text, isUserMessage)}</Box>
+            <Box key={key}>
+              {renderTextContent(part.text, isUserMessage, showStreamingCursor && isLastTextPart)}
+            </Box>
           ) : null
 
         case 'image':
@@ -526,15 +555,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         >
           {/* Assistant Message Content */}
           <VStack align="flex-start" spacing={3}>
-            {renderContentParts(message.content, false)}
-
-            {/* Streaming indicator */}
-            {isStreaming && (
-              <HStack spacing={1}>
-                <Skeleton height="20px" width="60px" />
-                <Skeleton height="20px" width="40px" />
-              </HStack>
-            )}
+            {renderContentParts(message.content, false, isStreaming)}
           </VStack>
         </Box>
 

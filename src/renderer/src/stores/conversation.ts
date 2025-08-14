@@ -143,6 +143,110 @@ function setupEventListeners() {
     // Handle other conversation updates if needed
   })
 
+  // Listen for streaming start events
+  window.knowlex.events.on('message:streaming_start', (_, data: any) => {
+    console.log('Received streaming start event:', data)
+
+    if (data && data.messageId && data.message) {
+      useConversationStore.setState((state) => {
+        // Set streaming state
+        state.isStreaming = true
+        state.streamingMessageId = data.messageId
+
+        // Add the placeholder assistant message to the conversation
+        const conversationId = data.message.conversationId
+        if (!state.messages[conversationId]) {
+          state.messages[conversationId] = []
+        }
+
+        // Check if message already exists (it should from the initial response)
+        const existingMessageIndex = state.messages[conversationId].findIndex(
+          (m) => m.id === data.messageId
+        )
+
+        if (existingMessageIndex === -1) {
+          // Add the message if it doesn't exist
+          state.messages[conversationId].push(data.message)
+        } else {
+          // Update existing message
+          state.messages[conversationId][existingMessageIndex] = data.message
+        }
+      })
+    }
+  })
+
+  // Listen for streaming chunk events
+  window.knowlex.events.on('message:streaming_chunk', (_, data: any) => {
+    console.log('Received streaming chunk event:', data)
+
+    if (data && data.messageId && data.chunk) {
+      useConversationStore.setState((state) => {
+        // Find the streaming message and append the chunk
+        for (const conversationMessages of Object.values(state.messages)) {
+          const message = conversationMessages.find((m) => m.id === data.messageId)
+          if (message) {
+            // Append chunk to the last text part or create new text part
+            const lastPart = message.content[message.content.length - 1]
+            if (lastPart && lastPart.type === 'text') {
+              lastPart.text = (lastPart.text || '') + data.chunk
+            } else {
+              message.content.push({ type: 'text', text: data.chunk })
+            }
+            message.updatedAt = new Date().toISOString()
+            break
+          }
+        }
+      })
+    }
+  })
+
+  // Listen for streaming end events
+  window.knowlex.events.on('message:streaming_end', (_, data: any) => {
+    console.log('Received streaming end event:', data)
+
+    if (data && data.messageId && data.message) {
+      useConversationStore.setState((state) => {
+        // Set streaming state to false
+        state.isStreaming = false
+        state.streamingMessageId = null
+
+        // Update the message with the final content
+        for (const conversationMessages of Object.values(state.messages)) {
+          const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
+          if (messageIndex !== -1) {
+            conversationMessages[messageIndex] = data.message
+            break
+          }
+        }
+      })
+    }
+  })
+
+  // Listen for streaming error events
+  window.knowlex.events.on('message:streaming_error', (_, data: any) => {
+    console.log('Received streaming error event:', data)
+
+    if (data && data.messageId && data.message) {
+      useConversationStore.setState((state) => {
+        // Set streaming state to false
+        state.isStreaming = false
+        state.streamingMessageId = null
+
+        // Update the message with the error content
+        for (const conversationMessages of Object.values(state.messages)) {
+          const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
+          if (messageIndex !== -1) {
+            conversationMessages[messageIndex] = data.message
+            break
+          }
+        }
+
+        // Set error state
+        state.error = data.error || 'Streaming failed'
+      })
+    }
+  })
+
   console.log('Conversation event listeners set up')
 }
 
@@ -333,27 +437,58 @@ export const useConversationStore = create<ConversationState>()(
 
     // Message Operations
     sendMessage: async (conversationId: string, content: MessageContent, files?: File[]) => {
+      // Validate that the message has meaningful content
+      // Allow empty content array if there are files being processed
+      if (content.length === 0) {
+        const error = new Error('Message must contain at least one content part')
+        set((state) => {
+          state.error = error.message
+        })
+        throw error
+      }
+
+      const hasMeaningfulContent = content.some((part) => {
+        console.log('Validating part:', JSON.stringify(part, null, 2))
+        const isValidText = part.type === 'text' && part.text && part.text.trim().length > 0
+        const isValidFile = part.type === 'temporary-file' && part.temporaryFile
+        const isValidImage = part.type === 'image' && part.image
+        const isValidCitation = part.type === 'citation' && part.citation
+        const isValidToolCall = part.type === 'tool-call' && part.toolCall
+
+        const isValid =
+          isValidText || isValidFile || isValidImage || isValidCitation || isValidToolCall
+        console.log('Part validation result:', {
+          isValidText,
+          isValidFile,
+          isValidImage,
+          isValidCitation,
+          isValidToolCall,
+          isValid
+        })
+
+        return isValid
+      })
+
+      if (!hasMeaningfulContent) {
+        const error = new Error('Message must contain at least one meaningful content part')
+        set((state) => {
+          state.error = error.message
+        })
+        throw error
+      }
+
       console.log('sendMessage called with:', {
         conversationId,
         contentParts: content.length,
         contentTypes: content.map((c) => c.type),
         hasFiles: !!files,
-        fileCount: files?.length || 0
-      })
-      console.log(
-        'sendMessage content details:',
-        content.map((c) => ({
-          type: c.type,
-          ...(c.type === 'text'
-            ? { textLength: c.text.length }
-            : c.type === 'temporary-file'
-              ? {
-                  filename: c.temporaryFile.filename,
-                  contentLength: c.temporaryFile.content.length
-                }
-              : {})
+        fileCount: files?.length || 0,
+        contentDetails: content.map((part) => ({
+          type: part.type,
+          ...(part.type === 'text' ? { text: part.text, textLength: part.text?.length } : {}),
+          ...(part.type === 'temporary-file' ? { filename: part.temporaryFile?.filename } : {})
         }))
-      )
+      })
 
       set((state) => {
         state.isSending = true
@@ -393,14 +528,13 @@ export const useConversationStore = create<ConversationState>()(
             delete state.messages[conversationId]
 
             // Clear pending conversation and update current ID
-            // IMPORTANT: Set currentConversationId BEFORE clearing pendingConversation
-            // to maintain UI state consistency
             state.currentConversationId = newConversation.id
             state.pendingConversation = null
           })
 
           actualConversationId = newConversation.id
         }
+
         // Optimistically add user message
         const userMessage: Message = {
           id: `temp-${Date.now()}`,
@@ -418,7 +552,8 @@ export const useConversationStore = create<ConversationState>()(
           state.messages[actualConversationId].push(userMessage)
         })
 
-        // Send message and handle streaming response
+        // Send message - this will now return immediately with initial messages
+        // Streaming is handled by event listeners
         const result = await window.knowlex.message.send({
           conversationId: actualConversationId,
           content,
@@ -432,7 +567,7 @@ export const useConversationStore = create<ConversationState>()(
             const messages = state.messages[actualConversationId] || []
             // Remove the temporary user message
             const filteredMessages = messages.filter((m) => !m.id.startsWith('temp-'))
-            // Add the real messages from server (user + assistant)
+            // Add the real messages from server (user + initial assistant placeholder)
             state.messages[actualConversationId] = [...filteredMessages, ...result.data]
             state.isSending = false
           })

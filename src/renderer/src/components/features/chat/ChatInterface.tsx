@@ -5,6 +5,7 @@ import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
 import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
 import type { TemporaryFileResult } from '../../../../../shared/types/file'
+import type { MessageContent } from '../../../../../shared/types/message'
 
 export interface ChatInterfaceProps {
   /** Additional CSS classes */
@@ -39,7 +40,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     })
 
     // Prepare message content
-    const content = [{ type: 'text' as const, text: message }]
+    const content: MessageContent = []
+    if (message.trim()) {
+      content.push({ type: 'text' as const, text: message })
+    }
 
     // Add temporary file content parts
     temporaryFiles.forEach((file) => {

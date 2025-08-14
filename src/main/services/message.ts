@@ -33,12 +33,34 @@ function validateMessageContent(content: MessageContent): void {
     throw new Error('Message content must be a non-empty array of content parts')
   }
 
-  // Check if there's at least one meaningful content part (not just empty text)
+  // Check if there's at least one meaningful content part
+  // Allow files without text, but require at least some meaningful content
   const hasMeaningfulContent = content.some((part) => {
-    if (part.type === 'text') {
-      return part.text && part.text.trim().length > 0
+    console.log('Backend validating part:', JSON.stringify(part, null, 2))
+
+    let isValid = false
+    switch (part.type) {
+      case 'text':
+        isValid = part.text && part.text.trim().length > 0
+        break
+      case 'temporary-file':
+        isValid = part.temporaryFile && part.temporaryFile.filename
+        break
+      case 'image':
+        isValid = part.image && part.image.url
+        break
+      case 'citation':
+        isValid = part.citation && part.citation.filename
+        break
+      case 'tool-call':
+        isValid = part.toolCall && part.toolCall.name
+        break
+      default:
+        isValid = false
     }
-    return true // Non-text parts are always considered meaningful
+
+    console.log('Backend validation result:', { type: part.type, isValid })
+    return isValid
   })
 
   if (!hasMeaningfulContent) {

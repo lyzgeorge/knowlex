@@ -24,7 +24,11 @@ import type {
   MessageAddRequest
 } from '../../shared/types/ipc'
 import type { Conversation, Message, SessionSettings, MessageContent } from '../../shared/types'
-import { generateAIResponse, testAIConfiguration } from '../services/ai-chat'
+import {
+  generateAIResponse,
+  generateAIResponseWithStreaming,
+  testAIConfiguration
+} from '../services/ai-chat'
 
 /**
  * Conversation and Message IPC Handler
@@ -432,7 +436,7 @@ export function registerConversationIPCHandlers(): void {
     })
   })
 
-  // Send message (user input + AI response)
+  // Send message (user input + AI response with streaming)
   ipcMain.handle('message:send', async (_, data: unknown): Promise<IPCResult<Message[]>> => {
     return handleIPCCall(async () => {
       if (!data || typeof data !== 'object') {
@@ -448,7 +452,7 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message content')
       }
 
-      // Add user message
+      // Step 1: Add user message
       const userMessage = await addMessage({
         conversationId: request.conversationId,
         role: 'user',
@@ -458,93 +462,121 @@ export function registerConversationIPCHandlers(): void {
       // Send event for user message added
       sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
 
-      // Get all messages in the conversation for AI context
-      const allMessages = await getMessages(request.conversationId)
+      // Step 2: Create placeholder assistant message immediately
+      const assistantMessage = await addMessage({
+        conversationId: request.conversationId,
+        role: 'assistant',
+        content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
+      })
 
-      const messages = [userMessage]
+      // Step 3: Start streaming - send streaming start event
+      sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
+        messageId: assistantMessage.id,
+        message: assistantMessage
+      })
 
-      try {
-        // Generate AI response using the conversation context
-        const aiResponseContent = await generateAIResponse(allMessages)
+      // Step 4: Return immediately with the initial messages
+      const initialMessages = [userMessage, assistantMessage]
 
-        const assistantMessage = await addMessage({
-          conversationId: request.conversationId,
-          role: 'assistant',
-          content: aiResponseContent
-        })
+      // Step 5: Start background streaming process (don't await)
+      setImmediate(async () => {
+        try {
+          // Get all messages in the conversation for AI context
+          const allMessages = await getMessages(request.conversationId)
 
-        messages.push(assistantMessage)
-        sendMessageEvent(MESSAGE_EVENTS.ADDED, assistantMessage)
-
-        // Check if this is the first complete exchange and trigger title generation
-        // We want to generate a title after the first AI response
-        const totalMessages = await getMessages(request.conversationId)
-        const userMessages = totalMessages.filter((m) => m.role === 'user')
-        const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-
-        // Trigger title generation if we have exactly 1 user message and 1 assistant message
-        // (the first complete exchange)
-        if (userMessages.length === 1 && assistantMessages.length === 1) {
-          console.log(
-            `Triggering automatic title generation for conversation ${request.conversationId} after first exchange`
-          )
-          try {
-            const newTitle = await generateConversationTitle(request.conversationId)
-
-            // Only update if we got a meaningful title (not generic fallback)
-            const isGenericFallback =
-              newTitle === 'New Chat' ||
-              newTitle.includes('Conversation ') ||
-              /^Chat \d{1,2}\/\d{1,2}\/\d{4}$/.test(newTitle)
-
-            if (newTitle && !isGenericFallback) {
-              await updateConversation(request.conversationId, { title: newTitle })
-
-              // Send title update event to renderer
-              sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-                conversationId: request.conversationId,
-                title: newTitle
+          // Generate response with streaming
+          const finalContent = await generateAIResponseWithStreaming(
+            allMessages,
+            (chunk: string) => {
+              // Send each chunk via event
+              sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
+                messageId: assistantMessage.id,
+                chunk
               })
-
-              console.log(
-                `Successfully auto-generated title for conversation ${request.conversationId}: "${newTitle}"`
-              )
-            } else {
-              console.log(
-                `Skipping title update for conversation ${request.conversationId}: got fallback title "${newTitle}"`
-              )
             }
-          } catch (titleError) {
-            console.error('Failed to automatically generate title:', titleError)
-            // Don't fail the entire send operation if title generation fails
-          }
-        } else {
-          console.log(
-            `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
           )
-        }
-      } catch (error) {
-        console.error('Failed to generate AI response:', error)
 
-        // Add error message as assistant response
-        const errorContent = [
-          {
-            type: 'text',
-            text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
+          // Step 6: Update the assistant message with final content
+          const updatedAssistantMessage = await updateMessage(assistantMessage.id, {
+            content: finalContent
+          })
+
+          // Step 7: Send streaming end event with final message
+          sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
+            messageId: assistantMessage.id,
+            message: updatedAssistantMessage
+          })
+
+          // Check if this is the first complete exchange and trigger title generation
+          const totalMessages = await getMessages(request.conversationId)
+          const userMessages = totalMessages.filter((m) => m.role === 'user')
+          const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
+
+          // Trigger title generation if we have exactly 1 user message and 1 assistant message
+          if (userMessages.length === 1 && assistantMessages.length === 1) {
+            console.log(
+              `Triggering automatic title generation for conversation ${request.conversationId} after first exchange`
+            )
+            try {
+              const newTitle = await generateConversationTitle(request.conversationId)
+
+              // Only update if we got a meaningful title (not generic fallback)
+              const isGenericFallback =
+                newTitle === 'New Chat' ||
+                newTitle.includes('Conversation ') ||
+                /^Chat \d{1,2}\/\d{1,2}\/\d{4}$/.test(newTitle)
+
+              if (newTitle && !isGenericFallback) {
+                await updateConversation(request.conversationId, { title: newTitle })
+
+                // Send title update event to renderer
+                sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
+                  conversationId: request.conversationId,
+                  title: newTitle
+                })
+
+                console.log(
+                  `Successfully auto-generated title for conversation ${request.conversationId}: "${newTitle}"`
+                )
+              } else {
+                console.log(
+                  `Skipping title update for conversation ${request.conversationId}: got fallback title "${newTitle}"`
+                )
+              }
+            } catch (titleError) {
+              console.error('Failed to automatically generate title:', titleError)
+              // Don't fail the entire send operation if title generation fails
+            }
+          } else {
+            console.log(
+              `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
+            )
           }
-        ]
+        } catch (error) {
+          console.error('Failed to generate AI response:', error)
 
-        const errorMessage = await addMessage({
-          conversationId: request.conversationId,
-          role: 'assistant',
-          content: errorContent
-        })
+          // Update assistant message with error content
+          const errorContent = [
+            {
+              type: 'text' as const,
+              text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
+            }
+          ]
 
-        messages.push(errorMessage)
-        sendMessageEvent(MESSAGE_EVENTS.ADDED, errorMessage)
-      }
+          const errorMessage = await updateMessage(assistantMessage.id, {
+            content: errorContent
+          })
 
-      return messages
+          // Send streaming error event
+          sendMessageEvent(MESSAGE_EVENTS.STREAMING_ERROR, {
+            messageId: assistantMessage.id,
+            message: errorMessage,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          })
+        }
+      })
+
+      return initialMessages
     })
   })
 
@@ -587,7 +619,7 @@ export function registerConversationIPCHandlers(): void {
           // Fall back to error message
           const errorContent = [
             {
-              type: 'text',
+              type: 'text' as const,
               text: `Error regenerating response: ${error instanceof Error ? error.message : 'Please check your AI configuration.'}`
             }
           ]

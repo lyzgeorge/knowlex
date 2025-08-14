@@ -148,6 +148,78 @@ export async function generateAIResponse(conversationMessages: Message[]): Promi
 }
 
 /**
+ * Generates an AI response with streaming support
+ * Takes conversation messages and onChunk callback for real-time streaming
+ * Returns the final message content after streaming is complete
+ */
+export async function generateAIResponseWithStreaming(
+  conversationMessages: Message[],
+  onChunk: (chunk: string) => void
+): Promise<MessageContent> {
+  // Validate configuration
+  const validation = validateAIConfiguration()
+  if (!validation.isValid) {
+    throw new Error(validation.error || 'AI configuration is invalid')
+  }
+
+  // Get AI model configuration
+  const config = getAIConfigFromEnv()
+
+  try {
+    // Get AI model instance
+    const model = await getModel(config)
+
+    // Convert messages to AI format
+    const aiMessages = convertMessagesToAIFormat(conversationMessages)
+
+    // Accumulate the full response content
+    let fullContent = ''
+
+    // Stream response
+    for await (const chunk of model.stream(aiMessages)) {
+      if (chunk.content) {
+        fullContent += chunk.content
+        onChunk(chunk.content)
+      }
+
+      if (chunk.finished) {
+        break
+      }
+    }
+
+    // Convert final response to application format
+    return [
+      {
+        type: 'text',
+        text: fullContent
+      }
+    ]
+  } catch (error) {
+    console.error('AI streaming response generation failed:', error)
+
+    // Provide helpful error messages
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new Error('Invalid API key. Please check your .env file configuration.')
+      }
+      if (error.message.includes('rate limit')) {
+        throw new Error('API rate limit exceeded. Please try again later.')
+      }
+      if (error.message.includes('network') || error.message.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.')
+      }
+      if (error.message.includes('model')) {
+        throw new Error(`Model error: ${error.message}. Please check your model configuration.`)
+      }
+    }
+
+    throw new Error(
+      `AI streaming service error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+  }
+}
+
+/**
  * Tests AI configuration by making a simple API call
  */
 export async function testAIConfiguration(): Promise<{
