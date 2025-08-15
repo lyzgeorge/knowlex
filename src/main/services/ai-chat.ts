@@ -1,6 +1,7 @@
 import { getModel } from '../ai'
 import type { AIConfig, AIMessage, AIResponse } from '../../shared/types/ai'
 import type { Message, MessageContent } from '../../shared/types'
+import type { CancellationToken } from '../utils/cancellation'
 
 /**
  * AI Chat Service
@@ -154,7 +155,8 @@ export async function generateAIResponse(conversationMessages: Message[]): Promi
  */
 export async function generateAIResponseWithStreaming(
   conversationMessages: Message[],
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  cancellationToken?: CancellationToken
 ): Promise<MessageContent> {
   // Validate configuration
   const validation = validateAIConfiguration()
@@ -176,7 +178,13 @@ export async function generateAIResponseWithStreaming(
     let fullContent = ''
 
     // Stream response
-    for await (const chunk of model.stream(aiMessages)) {
+    for await (const chunk of model.stream(aiMessages, cancellationToken)) {
+      // Check for cancellation before processing each chunk
+      if (cancellationToken?.isCancelled) {
+        console.log('AI streaming cancelled by user')
+        break
+      }
+
       if (chunk.content) {
         fullContent += chunk.content
         onChunk(chunk.content)

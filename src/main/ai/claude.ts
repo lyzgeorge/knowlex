@@ -12,6 +12,7 @@ import type {
 } from '../../shared/types/ai'
 import { BaseAIModel, AIProvider, AIAPIError } from './base'
 import { AI_MODELS } from '../../shared/constants/ai'
+import type { CancellationToken } from '../utils/cancellation'
 
 /**
  * Claude Model Implementation
@@ -199,7 +200,10 @@ export class ClaudeModel extends BaseAIModel {
    * Streams a chat completion response from Anthropic API
    * Handles Server-Sent Events and yields chunks in real-time
    */
-  async *stream(messages: AIMessage[]): AsyncIterable<AIStreamChunk> {
+  async *stream(
+    messages: AIMessage[],
+    cancellationToken?: CancellationToken
+  ): AsyncIterable<AIStreamChunk> {
     try {
       // Validate messages
       this.validateMessages(messages)
@@ -255,6 +259,13 @@ export class ClaudeModel extends BaseAIModel {
 
       try {
         while (true) {
+          // Check for cancellation before each read
+          if (cancellationToken?.isCancelled) {
+            console.log('Claude streaming cancelled by user')
+            yield { content: '', finished: true }
+            break
+          }
+
           const { done, value } = await reader.read()
 
           if (done) {

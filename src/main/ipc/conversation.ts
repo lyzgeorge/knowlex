@@ -29,6 +29,7 @@ import {
   generateAIResponseWithStreaming,
   testAIConfiguration
 } from '../services/ai-chat'
+import { cancellationManager } from '../utils/cancellation'
 
 /**
  * Conversation and Message IPC Handler
@@ -436,6 +437,29 @@ export function registerConversationIPCHandlers(): void {
     })
   })
 
+  // Stop message streaming
+  ipcMain.handle('message:stop', async (_, messageId: unknown): Promise<IPCResult<boolean>> => {
+    return handleIPCCall(async () => {
+      if (!validateMessageId(messageId)) {
+        throw new Error('Invalid message ID')
+      }
+
+      // Attempt to cancel the streaming operation
+      const cancelled = cancellationManager.cancel(messageId)
+
+      if (cancelled) {
+        console.log(`Cancelled streaming for message: ${messageId}`)
+
+        // Send cancellation event to renderer
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
+          messageId: messageId
+        })
+      }
+
+      return cancelled
+    })
+  })
+
   // Send message (user input + AI response with streaming)
   ipcMain.handle('message:send', async (_, data: unknown): Promise<IPCResult<Message[]>> => {
     return handleIPCCall(async () => {
@@ -462,7 +486,8 @@ export function registerConversationIPCHandlers(): void {
       // Send event for user message added
       sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
 
-      // Step 2: Create placeholder assistant message immediately
+      // Step 2: Create placeholder assistant message immediately (with small delay to ensure different timestamp)
+      await new Promise((resolve) => setTimeout(resolve, 1)) // 1ms delay to ensure different timestamp
       const assistantMessage = await addMessage({
         conversationId: request.conversationId,
         role: 'assistant',
@@ -478,13 +503,16 @@ export function registerConversationIPCHandlers(): void {
       // Step 4: Return immediately with the initial messages
       const initialMessages = [userMessage, assistantMessage]
 
-      // Step 5: Start background streaming process (don't await)
+      // Step 5: Create cancellation token for this streaming operation
+      const cancellationToken = cancellationManager.createToken(assistantMessage.id)
+
+      // Step 6: Start background streaming process (don't await)
       setImmediate(async () => {
         try {
           // Get all messages in the conversation for AI context
           const allMessages = await getMessages(request.conversationId)
 
-          // Generate response with streaming
+          // Generate response with streaming and cancellation support
           const finalContent = await generateAIResponseWithStreaming(
             allMessages,
             (chunk: string) => {
@@ -493,19 +521,23 @@ export function registerConversationIPCHandlers(): void {
                 messageId: assistantMessage.id,
                 chunk
               })
-            }
+            },
+            cancellationToken
           )
 
-          // Step 6: Update the assistant message with final content
+          // Step 7: Update the assistant message with final content
           const updatedAssistantMessage = await updateMessage(assistantMessage.id, {
             content: finalContent
           })
 
-          // Step 7: Send streaming end event with final message
+          // Step 8: Send streaming end event with final message
           sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
             messageId: assistantMessage.id,
             message: updatedAssistantMessage
           })
+
+          // Step 9: Clean up the cancellation token
+          cancellationManager.complete(assistantMessage.id)
 
           // Check if this is the first complete exchange and trigger title generation
           const totalMessages = await getMessages(request.conversationId)
@@ -554,6 +586,9 @@ export function registerConversationIPCHandlers(): void {
           }
         } catch (error) {
           console.error('Failed to generate AI response:', error)
+
+          // Clean up the cancellation token
+          cancellationManager.complete(assistantMessage.id)
 
           // Update assistant message with error content
           const errorContent = [
@@ -741,6 +776,7 @@ export function unregisterConversationIPCHandlers(): void {
     'message:list',
     'message:update',
     'message:delete',
+    'message:stop',
     'message:send',
     'message:regenerate',
     'message:edit',
@@ -807,5 +843,6 @@ export const MESSAGE_EVENTS = {
   STREAMING_START: 'streaming_start',
   STREAMING_CHUNK: 'streaming_chunk',
   STREAMING_END: 'streaming_end',
-  STREAMING_ERROR: 'streaming_error'
+  STREAMING_ERROR: 'streaming_error',
+  STREAMING_CANCELLED: 'streaming_cancelled'
 } as const

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 import { Box, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useCurrentConversation, useStreamingMessageId } from '../../../stores/conversation'
 import MessageList from './MessageList'
@@ -29,8 +29,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const startNewChat = useStartNewChat()
   const conversationStore = useConversationStore()
 
-  // Auto-scroll to bottom when messages change or streaming updates
-  const scrollRef = useAutoScroll<HTMLDivElement>([currentMessages, streamingMessageId])
+  // Create a filtered dependency for assistant messages only
+  const assistantMessages = currentMessages.filter((msg) => msg.role === 'assistant')
+
+  // Auto-scroll to bottom when assistant messages change or streaming updates
+  const scrollRef = useAutoScroll<HTMLDivElement>([assistantMessages, streamingMessageId])
+
+  // Separate ref for immediate user message scrolling
+  const userMessageCountRef = useRef(0)
+
+  // Track user messages count and scroll immediately when user sends a message
+  useEffect(() => {
+    const userMessages = currentMessages.filter((msg) => msg.role === 'user')
+    if (userMessages.length > userMessageCountRef.current) {
+      // User sent a new message, scroll to bottom immediately regardless of current position
+      if (scrollRef.current) {
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+          }
+        })
+      }
+      userMessageCountRef.current = userMessages.length
+    }
+  }, [currentMessages, scrollRef])
 
   // Handle sending message from entrance
   const handleSendMessage = async (

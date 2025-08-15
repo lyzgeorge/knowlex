@@ -1,13 +1,27 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { Box, HStack, Textarea, IconButton, useColorModeValue } from '@chakra-ui/react'
-import { ArrowUpIcon, AttachmentIcon } from '@chakra-ui/icons'
-import { useSendMessage, useIsSending } from '../../../stores/conversation'
+import { ArrowUpIcon, AttachmentIcon, RepeatIcon } from '@chakra-ui/icons'
+import { FaStop } from 'react-icons/fa'
+import { keyframes } from '@emotion/react'
+import {
+  useSendMessage,
+  useIsSending,
+  useIsStreaming,
+  useStreamingMessageId,
+  useStopStreaming
+} from '../../../stores/conversation'
 import FilePreview from './FilePreview'
 import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
 import type { TemporaryFileResult } from '../../../../../shared/types/file'
 
 // File upload constants (for UI display)
 const MAX_FILES = 10
+
+// Animation for refresh icon
+const spinAnimation = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`
 
 // ChatInputBoxPayload interface
 export interface ChatInputBoxPayload {
@@ -56,11 +70,15 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   onSendMessage
 }) => {
   const [input, setInput] = useState('')
+  const [isHoveringStreamButton, setIsHoveringStreamButton] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const lastFileUploadRef = useRef<number>(0)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
+  const isStreaming = useIsStreaming()
+  const streamingMessageId = useStreamingMessageId()
+  const stopStreaming = useStopStreaming()
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
@@ -148,6 +166,17 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     },
     [variant]
   )
+
+  // Handle stop streaming
+  const handleStop = useCallback(async () => {
+    if (streamingMessageId) {
+      try {
+        await stopStreaming(streamingMessageId)
+      } catch (error) {
+        console.error('Failed to stop streaming:', error)
+      }
+    }
+  }, [streamingMessageId, stopStreaming])
 
   // Handle send message
   const handleSend = useCallback(async () => {
@@ -302,11 +331,16 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         // Enter key sends message for all variants (Shift+Enter for new line)
+        // Block during streaming
+        if (isStreaming && streamingMessageId) {
+          e.preventDefault()
+          return
+        }
         e.preventDefault()
         handleSend()
       }
     },
-    [handleSend]
+    [handleSend, isStreaming, streamingMessageId]
   )
 
   // Can send message?
@@ -314,7 +348,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     (input.trim().length > 0 || fileUpload.state.files.length > 0) &&
     !isSending &&
     !disabled &&
-    !fileUpload.state.isProcessing
+    !fileUpload.state.isProcessing &&
+    !(isStreaming && streamingMessageId)
 
   // Unified render - single implementation for all variants
   return (
@@ -427,17 +462,47 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             />
           </Box>
 
-          {/* Send Button */}
-          <IconButton
-            aria-label="Send message"
-            icon={<ArrowUpIcon />}
-            colorScheme="primary"
-            size="sm"
-            borderRadius="md"
-            isDisabled={!canSend}
-            isLoading={isSending || fileUpload.state.isProcessing}
-            onClick={handleSend}
-          />
+          {/* Send/Stop Button */}
+          {isStreaming && streamingMessageId ? (
+            // State 3 & 5: When receiving chunk messages, show rotating button
+            <IconButton
+              aria-label={isHoveringStreamButton ? 'Stop streaming' : 'Receiving response'}
+              icon={
+                isHoveringStreamButton ? (
+                  <FaStop />
+                ) : (
+                  <RepeatIcon
+                    css={{
+                      animation: `${spinAnimation} 2s linear infinite`
+                    }}
+                  />
+                )
+              }
+              colorScheme={isHoveringStreamButton ? 'red' : 'gray'}
+              size="sm"
+              borderRadius="md"
+              onClick={isHoveringStreamButton ? handleStop : undefined}
+              onMouseEnter={() => setIsHoveringStreamButton(true)}
+              onMouseLeave={() => setIsHoveringStreamButton(false)}
+              cursor={isHoveringStreamButton ? 'pointer' : 'not-allowed'}
+              pointerEvents="auto"
+              _hover={{
+                bg: isHoveringStreamButton ? 'red.600' : 'gray'
+              }}
+            />
+          ) : (
+            // State 1 & 2: Normal send button
+            <IconButton
+              aria-label="Send message"
+              icon={<ArrowUpIcon />}
+              colorScheme="primary"
+              size="sm"
+              borderRadius="md"
+              isDisabled={!canSend}
+              isLoading={isSending || fileUpload.state.isProcessing}
+              onClick={handleSend}
+            />
+          )}
         </HStack>
       </Box>
     </Box>

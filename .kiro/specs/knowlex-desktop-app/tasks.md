@@ -134,119 +134,119 @@
 
 ## AI模型集成
 
-- [ ] 10. AI模型基础框架
-  - 实现ai/base.ts：AIModel接口定义，包含chat(), stream()方法
-  - 实现ai/manager.ts：`registerModel()`, `getModel()`, `listModels()`
-  - 定义AIConfig接口：apiKey, baseURL, model等配置项
-  - 定义统一的Message格式，支持多部分内容：text, image, tool-call等
+- [x] 10. AI模型基础框架 ✅ **COMPLETED**
+  - ✅ 实现ai/base.ts：AIModel接口定义，包含chat(), stream()方法
+  - ✅ 实现ai/manager.ts：`registerModel()`, `getModel()`, `listModels()`
+  - ✅ 定义AIConfig接口：apiKey, baseURL, model等配置项
+  - ✅ 定义统一的Message格式，支持多部分内容：text, image, tool-call等
   - _Requirements: 2.1, 2.2, 2.6_
 
-- [ ] 10.1 编写AI模型框架文档
-  - AI模型接口规范
-  - 模型管理器使用说明
-  - 配置结构和验证
-  - 扩展新模型的指南
+- [x] 10.1 编写AI模型框架文档 ✅ **COMPLETED**
+  - ✅ AI模型接口规范
+  - ✅ 模型管理器使用说明
+  - ✅ 配置结构和验证
+  - ✅ 扩展新模型的指南
 
-- [ ] 11. OpenAI模型实现
-  - 实现ai/openai.ts：OpenAIModel类，实现chat()和stream()方法
-  - 支持流式响应：Server-Sent Events处理，实时token返回
-  - 支持多模态：文本、图片输入，Base64图片处理
-  - 实现错误处理：网络重试、API错误解析和恢复机制
+- [x] 11. OpenAI模型实现 ✅ **COMPLETED**
+  - ✅ 实现ai/openai.ts：OpenAIModel类，实现chat()和stream()方法
+  - ✅ 支持流式响应：Server-Sent Events处理，实时token返回
+  - ✅ 支持多模态：文本、图片输入，Base64图片处理
+  - ✅ 实现错误处理：网络重试、API错误解析和恢复机制
   - _Requirements: 2.6, 12.2, 12.3_
 
-- [ ] 11.1 编写OpenAI模型文档
-  - OpenAI API集成说明
-  - 流式响应处理机制
-  - 多模态输入支持
-  - 错误处理和重试策略
+- [x] 11.1 编写OpenAI模型文档 ✅ **COMPLETED**
+  - ✅ OpenAI API集成说明
+  - ✅ 流式响应处理机制
+  - ✅ 多模态输入支持
+  - ✅ 错误处理和重试策略
 
-- [ ] 12. Claude模型实现
-  - 实现ai/claude.ts：ClaudeModel类，支持Anthropic API
-  - 支持推理内容：reasoning content解析和显示
-  - 支持工具调用：tool use检测和执行
-  - 实现模型能力检测：`isSupportVision()`, `isSupportReasoning()`
+- [x] 12. Claude模型实现 ✅ **COMPLETED**
+  - ✅ 实现ai/claude.ts：ClaudeModel类，支持Anthropic API
+  - ✅ 支持推理内容：reasoning content解析和显示
+  - ✅ 支持工具调用：tool use检测和执行
+  - ✅ 实现模型能力检测：`isSupportVision()`, `isSupportReasoning()`
   - _Requirements: 2.6, 12.2_
 
-- [ ] 12.1 编写Claude模型文档
-  - Claude API集成说明
-  - 推理内容处理机制
-  - 工具调用实现方式
-  - 能力检测和适配
+- [x] 12.1 编写Claude模型文档 ✅ **COMPLETED**
+  - ✅ Claude API集成说明
+  - ✅ 推理内容处理机制
+  - ✅ 工具调用实现方式
+  - ✅ 能力检测和适配
 
 ## 前端基础框架
 
-- [ ] 13. React应用基础设置
-  - 实现main.tsx：React应用入口，StrictMode包装，错误边界
-  - 实现App.tsx：主应用组件，路由配置，全局状态提供者
-  - 配置Chakra UI：主题系统，颜色模式，响应式断点
-  - 设置自定义主题配置和颜色系统
+- [x] 13. React应用基础设置 ✅ **COMPLETED**
+  - ✅ 实现main.tsx：React应用入口，StrictMode包装，错误边界
+  - ✅ 实现App.tsx：主应用组件，路由配置，全局状态提供者
+  - ✅ 配置Chakra UI：主题系统，颜色模式，响应式断点
+  - ✅ 设置自定义主题配置和颜色系统
   - _Requirements: UI基础架构_
 
-- [ ] 13.1 编写前端架构文档
-  - React应用结构说明
-  - 状态管理架构
-  - 主题系统配置
-  - 组件设计原则
+- [x] 13.1 编写前端架构文档 ✅ **COMPLETED**
+  - ✅ React应用结构说明
+  - ✅ 状态管理架构
+  - ✅ 主题系统配置
+  - ✅ 组件设计原则
 
-- [ ] 14. 状态管理实现
-  - 实现stores/app.ts：AppState接口，theme, language, showSidebar状态和操作
-  - 实现stores/project.ts：ProjectState接口，projects数组，currentProjectId，CRUD操作
-  - 实现stores/conversation.ts：ConversationState接口，conversations数组，消息管理
-  - 实现stores/settings.ts：SettingsState接口，API配置，通用设置
-  - 实现状态持久化和同步机制
+- [x] 14. 状态管理实现 ✅ **COMPLETED**
+  - ✅ 实现stores/app.ts：AppState接口，theme, language, showSidebar状态和操作
+  - ✅ 实现stores/project.ts：ProjectState接口，projects数组，currentProjectId，CRUD操作
+  - ✅ 实现stores/conversation.ts：ConversationState接口，conversations数组，消息管理
+  - ✅ 实现stores/settings.ts：SettingsState接口，API配置，通用设置
+  - ✅ 实现状态持久化和同步机制
   - _Requirements: 4.1, 4.2, 4.3, 9.1_
 
-- [ ] 14.1 编写状态管理文档
-  - 状态结构设计说明
-  - 状态操作API文档
-  - 持久化机制说明
-  - 状态同步策略
+- [x] 14.1 编写状态管理文档 ✅ **COMPLETED**
+  - ✅ 状态结构设计说明
+  - ✅ 状态操作API文档
+  - ✅ 持久化机制说明
+  - ✅ 状态同步策略
 
-- [ ] 15. 基础UI组件
-  - 实现components/ui/Button.tsx：ButtonProps接口，variant支持，点击处理
-  - 实现components/ui/Input.tsx：InputProps接口，受控组件，验证支持
-  - 实现components/ui/Modal.tsx：ModalProps接口，打开/关闭状态，遮罩层
-  - 实现components/ui/FileCard.tsx：FileCardProps接口，文件信息显示，操作按钮
-  - 实现components/ui/MessageBubble.tsx：多部分内容渲染，Markdown支持
+- [x] 15. 基础UI组件 ✅ **COMPLETED**
+  - ✅ 实现components/ui/Button.tsx：ButtonProps接口，variant支持，点击处理
+  - ✅ 实现components/ui/Input.tsx：InputProps接口，受控组件，验证支持
+  - ✅ 实现components/ui/Modal.tsx：ModalProps接口，打开/关闭状态，遮罩层
+  - ✅ 实现components/ui/FileCard.tsx：FileCardProps接口，文件信息显示，操作按钮
+  - ✅ 实现components/ui/MessageBubble.tsx：多部分内容渲染，Markdown支持
   - _Requirements: UI组件系统_
 
-- [ ] 15.1 编写UI组件文档
-  - 组件接口规范
-  - 使用示例和最佳实践
-  - 样式变体说明
-  - 无障碍支持说明
+- [x] 15.1 编写UI组件文档 ✅ **COMPLETED**
+  - ✅ 组件接口规范
+  - ✅ 使用示例和最佳实践
+  - ✅ 样式变体说明
+  - ✅ 无障碍支持说明
 
 ## 核心界面实现
 
-- [ ] 16. 侧边栏导航
-  - 实现components/layout/Sidebar.tsx：固定280px宽度，Logo显示，"+ New Chat"按钮
-  - 实现项目列表：可展开/折叠，文件夹图标，项目名称显示
-  - 实现会话列表：对话气泡图标，会话标题，时间戳显示
-  - 实现悬浮操作：项目操作图标（文件管理、复制、更多），会话操作菜单
-  - 实现虚拟滚动优化和键盘导航支持
+- [x] 16. 侧边栏导航 ✅ **COMPLETED**
+  - ✅ 实现components/layout/Sidebar.tsx：固定280px宽度，Logo显示，"+ New Chat"按钮
+  - ✅ 实现项目列表：可展开/折叠，文件夹图标，项目名称显示
+  - ✅ 实现会话列表：对话气泡图标，会话标题，时间戳显示
+  - ✅ 实现悬浮操作：项目操作图标（文件管理、复制、更多），会话操作菜单
+  - ✅ 实现虚拟滚动优化和键盘导航支持
   - _Requirements: 1.1, 1.2, 1.3, 1.6, 1.7, 1.8, 1.9, 1.10_
 
-- [ ] 17. 聊天界面核心
-  - 实现components/features/chat/ChatInterface.tsx：聊天容器，当前会话检查，空状态处理
-  - 实现components/features/chat/MessageList.tsx：虚拟滚动，消息渲染，自动滚动
-  - 实现components/ui/MessageBubble.tsx：多部分内容渲染，Markdown支持，流式显示
-  - 支持MessageContentParts结构：text, image, citation, tool-call等
+- [x] 17. 聊天界面核心 ✅ **COMPLETED**
+  - ✅ 实现components/features/chat/ChatInterface.tsx：聊天容器，当前会话检查，空状态处理
+  - ✅ 实现components/features/chat/MessageList.tsx：虚拟滚动，消息渲染，自动滚动
+  - ✅ 实现components/ui/MessageBubble.tsx：多部分内容渲染，Markdown支持，流式显示
+  - ✅ 支持MessageContentParts结构：text, image, citation, tool-call等
   - _Requirements: 2.1, 2.2, 2.6, 2.7_
 
-- [ ] 18. 消息输入框
-  - 实现components/features/chat/ChatInputBox.tsx：文本输入，文件上传按钮，发送按钮
-  - 实现文件上传：拖拽支持，文件预览卡片，删除功能
-  - 实现临时文件处理：格式验证，大小限制，内容提取
-  - 定义InputBoxPayload接口：input, files, attachments等
-  - 实现快捷键支持和输入历史记录
+- [x] 18. 消息输入框 ✅ **COMPLETED**
+  - ✅ 实现components/features/chat/ChatInputBox.tsx：文本输入，文件上传按钮，发送按钮
+  - ✅ 实现文件上传：拖拽支持，文件预览卡片，删除功能
+  - ✅ 实现临时文件处理：格式验证，大小限制，内容提取
+  - ✅ 定义InputBoxPayload接口：input, files, attachments等
+  - ✅ 实现快捷键支持和输入历史记录
   - _Requirements: 2.1, 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 19. 消息操作功能
-  - 实现消息悬浮菜单：Edit & Retry, Regenerate, Fork, Copy, Delete
-  - 实现消息编辑：内容修改，重新提交，历史替换
-  - 实现消息分叉：会话复制，历史截断，新分支创建
-  - 实现消息复制：Markdown内容复制到剪贴板
-  - 实现消息引用和跳转功能
+- [x] 19. 消息操作功能 ✅ **COMPLETED**
+  - ✅ 实现消息悬浮菜单：Edit & Retry, Regenerate, Fork, Copy, Delete
+  - ✅ 实现消息编辑：内容修改，重新提交，历史替换
+  - ✅ 实现消息分叉：会话复制，历史截断，新分支创建
+  - ✅ 实现消息复制：Markdown内容复制到剪贴板
+  - ✅ 实现消息引用和跳转功能
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
 ## 项目管理界面

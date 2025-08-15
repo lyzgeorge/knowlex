@@ -58,6 +58,7 @@ export interface KnowlexAPI {
   message: {
     add: (data: MessageAddRequest) => Promise<IPCResult>
     send: (data: any) => Promise<IPCResult>
+    stop: (messageId: string) => Promise<IPCResult>
     list: (conversationId: string) => Promise<IPCResult>
     update: (id: string, content: any) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
@@ -177,6 +178,7 @@ const knowlexAPI: KnowlexAPI = {
   message: {
     add: (data) => ipcRenderer.invoke('message:add', data),
     send: (data) => ipcRenderer.invoke('message:send', data),
+    stop: (messageId) => ipcRenderer.invoke('message:stop', messageId),
     list: (conversationId) => ipcRenderer.invoke('message:list', conversationId),
     update: (id, content) => ipcRenderer.invoke('message:update', id, content),
     delete: (id) => ipcRenderer.invoke('message:delete', id),

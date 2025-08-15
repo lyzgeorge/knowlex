@@ -541,7 +541,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <Box
           bg="transparent"
           color={assistantTextColor}
-          px={4}
+          px={3}
           pt={0}
           pb={3}
           borderRadius="lg"

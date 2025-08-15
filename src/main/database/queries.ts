@@ -406,20 +406,20 @@ export async function deleteConversation(id: string): Promise<void> {
 // Message Queries
 // ============================================================================
 
-export async function createMessage(
-  message: Omit<Message, 'createdAt' | 'updatedAt'>
-): Promise<void> {
+export async function createMessage(message: Message): Promise<void> {
   await executeQuery(
     `
-    INSERT INTO messages (id, conversation_id, role, content, parent_message_id)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO messages (id, conversation_id, role, content, parent_message_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `,
     [
       message.id,
       message.conversationId,
       message.role,
       JSON.stringify(message.content),
-      message.parentMessageId || null
+      message.parentMessageId || null,
+      message.createdAt,
+      message.updatedAt
     ]
   )
 }
@@ -474,13 +474,14 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
 }
 
 export async function updateMessage(id: string, content: MessageContent): Promise<void> {
+  const now = new Date().toISOString()
   await executeQuery(
     `
     UPDATE messages
-    SET content = ?, updated_at = datetime('now')
+    SET content = ?, updated_at = ?
     WHERE id = ?
   `,
-    [JSON.stringify(content), id]
+    [JSON.stringify(content), now, id]
   )
 }
 

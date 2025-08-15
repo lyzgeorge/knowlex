@@ -72,6 +72,7 @@ export interface ConversationState {
   // Streaming support
   onStreamingUpdate: (messageId: string, chunk: string) => void
   setStreamingState: (isStreaming: boolean, messageId?: string) => void
+  stopStreaming: (messageId: string) => Promise<void>
 
   // Utilities
   clearError: () => void
@@ -243,6 +244,36 @@ function setupEventListeners() {
 
         // Set error state
         state.error = data.error || 'Streaming failed'
+      })
+    }
+  })
+
+  // Listen for streaming cancelled events
+  window.knowlex.events.on('message:streaming_cancelled', (_, data: any) => {
+    console.log('Received streaming cancelled event:', data)
+
+    if (data && data.messageId) {
+      useConversationStore.setState((state) => {
+        // Set streaming state to false
+        state.isStreaming = false
+        state.streamingMessageId = null
+
+        // Find and update the message to indicate it was cancelled
+        for (const conversationMessages of Object.values(state.messages)) {
+          const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
+          if (messageIndex !== -1) {
+            const message = conversationMessages[messageIndex]
+            // Add cancellation indicator to the last text part
+            const lastPart = message.content[message.content.length - 1]
+            if (lastPart && lastPart.type === 'text') {
+              lastPart.text = (lastPart.text || '') + '\n\n[Response cancelled by user]'
+            } else {
+              message.content.push({ type: 'text', text: '[Response cancelled by user]' })
+            }
+            message.updatedAt = new Date().toISOString()
+            break
+          }
+        }
       })
     }
   })
@@ -775,6 +806,23 @@ export const useConversationStore = create<ConversationState>()(
       })
     },
 
+    stopStreaming: async (messageId: string) => {
+      try {
+        console.log('Stopping streaming for message:', messageId)
+        const result = await window.knowlex.message.stop(messageId)
+
+        if (!result?.success) {
+          console.warn('Failed to stop streaming:', result?.error)
+          // Note: We don't throw here as the cancellation might have already completed
+          // The user interaction should still feel responsive
+        }
+      } catch (error) {
+        console.error('Error stopping streaming:', error)
+        // Don't throw the error to prevent UI disruption
+        // The streaming will eventually end or timeout on its own
+      }
+    },
+
     // Utilities
     clearError: () => {
       set((state) => {
@@ -922,5 +970,6 @@ export const useIsStreaming = () => useConversationStore((state) => state.isStre
 export const useStreamingMessageId = () => useConversationStore((state) => state.streamingMessageId)
 export const useOnStreamingUpdate = () => useConversationStore((state) => state.onStreamingUpdate)
 export const useSetStreamingState = () => useConversationStore((state) => state.setStreamingState)
+export const useStopStreaming = () => useConversationStore((state) => state.stopStreaming)
 
 export default useConversationStore

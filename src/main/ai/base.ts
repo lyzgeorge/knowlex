@@ -8,6 +8,7 @@ import type {
   AIConfig
 } from '../../shared/types/ai'
 import type { Message, MessageContent, MessageContentPart } from '../../shared/types/message'
+import type { CancellationToken } from '../utils/cancellation'
 
 /**
  * AI Model Base Implementation
@@ -293,7 +294,10 @@ export abstract class BaseAIModel implements AIModel {
 
   // Abstract methods that must be implemented by concrete classes
   abstract chat(messages: AIMessage[]): Promise<AIResponse>
-  abstract stream(messages: AIMessage[]): AsyncIterable<AIStreamChunk>
+  abstract stream(
+    messages: AIMessage[],
+    cancellationToken?: CancellationToken
+  ): AsyncIterable<AIStreamChunk>
 }
 
 /**
