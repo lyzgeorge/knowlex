@@ -1,9 +1,10 @@
 import React from 'react'
 import { Box, VStack, Spinner, Text } from '@chakra-ui/react'
-import { useCurrentConversation } from '../../../stores/conversation'
+import { useCurrentConversation, useStreamingMessageId } from '../../../stores/conversation'
 import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
 import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
+import { useAutoScroll } from '../../../hooks/useAutoScroll'
 import type { TemporaryFileResult } from '../../../../../shared/types/file'
 import type { MessageContent } from '../../../../../shared/types/message'
 
@@ -23,9 +24,13 @@ export interface ChatInterfaceProps {
  */
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { currentConversation, currentMessages, isLoadingMessages } = useCurrentConversation()
+  const streamingMessageId = useStreamingMessageId()
   const sendMessage = useSendMessage()
   const startNewChat = useStartNewChat()
   const conversationStore = useConversationStore()
+
+  // Auto-scroll to bottom when messages change or streaming updates
+  const scrollRef = useAutoScroll<HTMLDivElement>([currentMessages, streamingMessageId])
 
   // Handle sending message from entrance
   const handleSendMessage = async (
@@ -170,7 +175,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       position="relative"
     >
       {/* Messages Area - Full height with floating input */}
-      <Box flex={1} overflowY="auto" minH={0} h="100%">
+      <Box ref={scrollRef} flex={1} overflowY="auto" minH={0} h="100%" px={4} py={6} pb="6rem">
         <MessageList messages={currentMessages} />
       </Box>
 
