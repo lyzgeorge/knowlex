@@ -73,22 +73,38 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       content.push({ type: 'text' as const, text: message })
     }
 
-    // Add temporary file content parts
+    // Add temporary file content parts or image parts
     temporaryFiles.forEach((file) => {
       if (!file.error) {
-        console.log('handleSendMessage: Adding temporary file to content:', {
+        console.log('handleSendMessage: Adding file to content:', {
           filename: file.filename,
-          contentLength: file.content?.length
+          contentLength: file.content?.length,
+          isImage: file.isImage
         })
-        content.push({
-          type: 'temporary-file' as const,
-          temporaryFile: {
-            filename: file.filename,
-            content: file.content,
-            size: file.size,
-            mimeType: file.mimeType
-          }
-        })
+
+        if (file.isImage) {
+          // Add as image content part
+          content.push({
+            type: 'image' as const,
+            image: {
+              url: file.content, // This is a data URL
+              alt: file.filename,
+              mimeType: file.mimeType,
+              size: file.size
+            }
+          })
+        } else {
+          // Add as temporary file content part
+          content.push({
+            type: 'temporary-file' as const,
+            temporaryFile: {
+              filename: file.filename,
+              content: file.content,
+              size: file.size,
+              mimeType: file.mimeType
+            }
+          })
+        }
       } else {
         console.log('handleSendMessage: Skipping file due to error:', {
           filename: file.filename,

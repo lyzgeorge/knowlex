@@ -5,7 +5,8 @@ import { TemporaryFileResult } from '../../shared/types/file'
 import {
   getFileExtension,
   isValidTemporaryFileType,
-  getMimeTypeFromExtension
+  getMimeTypeFromExtension,
+  isImageFile
 } from '../../shared/utils/validation'
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../../shared/constants/file'
 import { parseFile, FileParserFactory } from './file-parser'
@@ -383,6 +384,38 @@ async function processSingleTemporaryFileContent(
 
   try {
     const mimeType = getMimeTypeFromExtension(filename)
+
+    // Handle image files specially
+    if (isImageFile(filename)) {
+      console.log(`[MAIN] File ${filename} is an image, processing as image content`)
+
+      try {
+        // For images, we expect base64-encoded content
+        // Validate that it's valid base64
+        const buffer = Buffer.from(content, 'base64')
+        if (buffer.length === 0) {
+          throw new Error('Invalid image data: empty content')
+        }
+
+        console.log(`[MAIN] Successfully validated image ${filename} (${buffer.length} bytes)`)
+
+        // Return the image as a data URL for the AI model
+        const dataUrl = `data:${mimeType};base64,${content}`
+
+        return {
+          filename,
+          content: dataUrl, // Store as data URL for AI consumption
+          size,
+          mimeType,
+          isImage: true // Add flag to indicate this is an image
+        }
+      } catch (imageError) {
+        console.error(`[MAIN] Image processing error for ${filename}:`, imageError)
+        throw new Error(
+          `Invalid image file: ${imageError instanceof Error ? imageError.message : 'Unknown error'}`
+        )
+      }
+    }
 
     // Check if this file type needs parsing (binary files like DOCX, PDF, etc.)
     const needsParsing = FileParserFactory.isBinary(filename)

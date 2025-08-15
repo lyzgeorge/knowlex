@@ -101,6 +101,12 @@ export function isValidProjectFileType(filename: string): boolean {
   return isValidFileType(filename, 'project')
 }
 
+export function isImageFile(filename: string): boolean {
+  const extension = getFileExtension(filename).toLowerCase()
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+  return imageExtensions.includes(extension)
+}
+
 export function getMimeTypeFromExtension(filename: string): string {
   const extension = getFileExtension(filename).toLowerCase()
 
@@ -139,6 +145,21 @@ export function getMimeTypeFromExtension(filename: string): string {
       return 'application/vnd.oasis.opendocument.presentation'
     case '.ods':
       return 'application/vnd.oasis.opendocument.spreadsheet'
+
+    // Image files
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.gif':
+      return 'image/gif'
+    case '.bmp':
+      return 'image/bmp'
+    case '.webp':
+      return 'image/webp'
+    case '.svg':
+      return 'image/svg+xml'
 
     default:
       return 'application/octet-stream'

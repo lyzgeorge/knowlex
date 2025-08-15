@@ -23,6 +23,7 @@ export interface CreateMessageData {
 
 export interface UpdateMessageData {
   content: MessageContent
+  reasoning?: string
 }
 
 /**
@@ -274,7 +275,7 @@ export async function updateMessage(id: string, data: UpdateMessageData): Promis
   }
 
   try {
-    await dbUpdateMessage(id, data.content)
+    await dbUpdateMessage(id, data.content, data.reasoning)
 
     // Fetch and return updated message
     const updatedMessage = await dbGetMessage(id)

@@ -234,7 +234,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           content.push({ type: 'text' as const, text: originalInput })
         }
 
-        // Add temporary file content parts
+        // Add temporary file content parts or image parts
         console.log(
           'handleSend: Adding file content to message, processedFiles count:',
           processedFiles.length
@@ -243,17 +243,33 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           if (!file.error) {
             console.log('handleSend: Adding file to content:', {
               filename: file.filename,
-              contentLength: file.content?.length
+              contentLength: file.content?.length,
+              isImage: file.isImage
             })
-            content.push({
-              type: 'temporary-file' as const,
-              temporaryFile: {
-                filename: file.filename,
-                content: file.content,
-                size: file.size,
-                mimeType: file.mimeType
-              }
-            })
+
+            if (file.isImage) {
+              // Add as image content part
+              content.push({
+                type: 'image' as const,
+                image: {
+                  url: file.content, // This is a data URL
+                  alt: file.filename,
+                  mimeType: file.mimeType,
+                  size: file.size
+                }
+              })
+            } else {
+              // Add as temporary file content part
+              content.push({
+                type: 'temporary-file' as const,
+                temporaryFile: {
+                  filename: file.filename,
+                  content: file.content,
+                  size: file.size,
+                  mimeType: file.mimeType
+                }
+              })
+            }
           } else {
             console.log('handleSend: Skipping file due to error:', {
               filename: file.filename,
@@ -267,8 +283,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           content.map((c) => ({
             type: c.type,
             ...(c.type === 'text'
-              ? { textLength: c.text.length }
-              : { filename: c.temporaryFile.filename })
+              ? { textLength: c.text?.length }
+              : c.type === 'image'
+                ? { filename: c.image?.alt, url: c.image?.url?.substring(0, 50) + '...' }
+                : { filename: c.temporaryFile?.filename })
           }))
         )
         await sendMessage(conversationId, content)
@@ -288,18 +306,32 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           content.push({ type: 'text' as const, text: originalInput })
         }
 
-        // Add temporary file content parts
+        // Add temporary file content parts or image parts
         processedFiles.forEach((file) => {
           if (!file.error) {
-            content.push({
-              type: 'temporary-file' as const,
-              temporaryFile: {
-                filename: file.filename,
-                content: file.content,
-                size: file.size,
-                mimeType: file.mimeType
-              }
-            })
+            if (file.isImage) {
+              // Add as image content part
+              content.push({
+                type: 'image' as const,
+                image: {
+                  url: file.content, // This is a data URL
+                  alt: file.filename,
+                  mimeType: file.mimeType,
+                  size: file.size
+                }
+              })
+            } else {
+              // Add as temporary file content part
+              content.push({
+                type: 'temporary-file' as const,
+                temporaryFile: {
+                  filename: file.filename,
+                  content: file.content,
+                  size: file.size,
+                  mimeType: file.mimeType
+                }
+              })
+            }
           }
         })
 
@@ -427,7 +459,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.md,.csv,.json,.xml,.html,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods"
+                accept=".txt,.md,.csv,.json,.xml,.html,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

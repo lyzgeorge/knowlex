@@ -409,14 +409,15 @@ export async function deleteConversation(id: string): Promise<void> {
 export async function createMessage(message: Message): Promise<void> {
   await executeQuery(
     `
-    INSERT INTO messages (id, conversation_id, role, content, parent_message_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO messages (id, conversation_id, role, content, reasoning, parent_message_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `,
     [
       message.id,
       message.conversationId,
       message.role,
       JSON.stringify(message.content),
+      message.reasoning || null,
       message.parentMessageId || null,
       message.createdAt,
       message.updatedAt
@@ -427,7 +428,7 @@ export async function createMessage(message: Message): Promise<void> {
 export async function getMessage(id: string): Promise<Message | null> {
   const result = await executeQuery(
     `
-    SELECT id, conversation_id, role, content, created_at, updated_at, parent_message_id
+    SELECT id, conversation_id, role, content, reasoning, created_at, updated_at, parent_message_id
     FROM messages
     WHERE id = ?
   `,
@@ -442,6 +443,7 @@ export async function getMessage(id: string): Promise<Message | null> {
     conversationId: row.conversation_id,
     role: row.role,
     content: JSON.parse(row.content) as MessageContent,
+    reasoning: row.reasoning || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     parentMessageId: row.parent_message_id || undefined
@@ -451,7 +453,7 @@ export async function getMessage(id: string): Promise<Message | null> {
 export async function listMessages(conversationId: string): Promise<Message[]> {
   const result = await executeQuery(
     `
-    SELECT id, conversation_id, role, content, created_at, updated_at, parent_message_id
+    SELECT id, conversation_id, role, content, reasoning, created_at, updated_at, parent_message_id
     FROM messages
     WHERE conversation_id = ?
     ORDER BY created_at ASC
@@ -466,6 +468,7 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
       conversationId: r.conversation_id,
       role: r.role,
       content: JSON.parse(r.content) as MessageContent,
+      reasoning: r.reasoning || undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       parentMessageId: r.parent_message_id || undefined
@@ -473,15 +476,19 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
   })
 }
 
-export async function updateMessage(id: string, content: MessageContent): Promise<void> {
+export async function updateMessage(
+  id: string,
+  content: MessageContent,
+  reasoning?: string
+): Promise<void> {
   const now = new Date().toISOString()
   await executeQuery(
     `
     UPDATE messages
-    SET content = ?, updated_at = ?
+    SET content = ?, reasoning = ?, updated_at = ?
     WHERE id = ?
   `,
-    [JSON.stringify(content), now, id]
+    [JSON.stringify(content), reasoning || null, now, id]
   )
 }
 

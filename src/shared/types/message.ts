@@ -3,6 +3,7 @@ export interface Message {
   conversationId: string
   role: 'user' | 'assistant'
   content: MessageContent
+  reasoning?: string
   createdAt: string
   updatedAt: string
   parentMessageId?: string

@@ -52,6 +52,8 @@ export interface ModelCapabilities {
   maxContextLength: number
 }
 
+export type ReasoningEffort = 'low' | 'medium' | 'high'
+
 export interface AIConfig {
   apiKey: string
   baseURL?: string
@@ -61,6 +63,7 @@ export interface AIConfig {
   topP?: number
   frequencyPenalty?: number
   presencePenalty?: number
+  reasoningEffort?: ReasoningEffort
 }
 
 /**
@@ -75,11 +78,13 @@ export interface OpenAIConfig extends AIConfig {
   stop?: string | string[]
   stream?: boolean
   user?: string
+  reasoningEffort?: ReasoningEffort
 }
 
 export interface ClaudeConfig extends AIConfig {
   anthropicVersion?: string
   stopSequences?: string[]
+  reasoningEffort?: ReasoningEffort
   metadata?: {
     userId?: string
     [key: string]: unknown

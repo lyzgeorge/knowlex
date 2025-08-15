@@ -293,6 +293,20 @@ const migrations: Migration[] = [
       'DROP INDEX IF EXISTS idx_project_vectors_file_id',
       'DROP TABLE IF EXISTS project_vectors'
     ]
+  },
+
+  {
+    version: 5,
+    name: 'add_reasoning_to_messages',
+    up: [
+      // Add reasoning column to messages table for AI models that support thinking/reasoning
+      'ALTER TABLE messages ADD COLUMN reasoning TEXT'
+    ],
+    down: [
+      // Note: SQLite doesn't support DROP COLUMN, so we would need to recreate the table
+      // For simplicity, we'll leave the column (which is acceptable for optional fields)
+      'UPDATE messages SET reasoning = NULL'
+    ]
   }
 ]
 

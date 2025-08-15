@@ -513,7 +513,7 @@ export function registerConversationIPCHandlers(): void {
           const allMessages = await getMessages(request.conversationId)
 
           // Generate response with streaming and cancellation support
-          const finalContent = await generateAIResponseWithStreaming(
+          const response = await generateAIResponseWithStreaming(
             allMessages,
             (chunk: string) => {
               // Send each chunk via event
@@ -525,9 +525,10 @@ export function registerConversationIPCHandlers(): void {
             cancellationToken
           )
 
-          // Step 7: Update the assistant message with final content
+          // Step 7: Update the assistant message with final content and reasoning
           const updatedAssistantMessage = await updateMessage(assistantMessage.id, {
-            content: finalContent
+            content: response.content,
+            reasoning: response.reasoning
           })
 
           // Step 8: Send streaming end event with final message
@@ -643,10 +644,11 @@ export function registerConversationIPCHandlers(): void {
           const contextMessages = allMessages.slice(0, messageIndex)
 
           // Generate new AI response
-          const newContent = await generateAIResponse(contextMessages)
+          const response = await generateAIResponse(contextMessages)
 
           updatedMessage = await updateMessage(messageId, {
-            content: newContent
+            content: response.content,
+            reasoning: response.reasoning
           })
         } catch (error) {
           console.error('Failed to regenerate AI response:', error)

@@ -27,6 +27,7 @@ export interface TemporaryFileResult {
   size: number
   mimeType: string
   error?: string
+  isImage?: boolean
 }
 
 export interface ProcessingResult {

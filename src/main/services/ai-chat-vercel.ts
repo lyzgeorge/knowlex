@@ -23,6 +23,7 @@ export interface AIChatConfig {
   topP?: number
   frequencyPenalty?: number
   presencePenalty?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
 }
 
 /**
@@ -39,7 +40,12 @@ export function getAIConfigFromEnv(): AIChatConfig {
         baseURL: process.env.CLAUDE_BASE_URL,
         model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000')
+        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
+        reasoningEffort: process.env.CLAUDE_REASONING_EFFORT as
+          | 'low'
+          | 'medium'
+          | 'high'
+          | undefined
       }
 
     case 'google':
@@ -76,7 +82,12 @@ export function getAIConfigFromEnv(): AIChatConfig {
         maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
         topP: parseFloat(process.env.AI_TOP_P || '1'),
         frequencyPenalty: parseFloat(process.env.AI_FREQUENCY_PENALTY || '0'),
-        presencePenalty: parseFloat(process.env.AI_PRESENCE_PENALTY || '0')
+        presencePenalty: parseFloat(process.env.AI_PRESENCE_PENALTY || '0'),
+        reasoningEffort: process.env.OPENAI_REASONING_EFFORT as
+          | 'low'
+          | 'medium'
+          | 'high'
+          | undefined
       }
     }
   }
@@ -147,10 +158,7 @@ export function convertMessagesToAIFormat(messages: Message[]): AIMessage[] {
             if (part.image) {
               return {
                 type: 'image' as const,
-                image: {
-                  url: part.image.url,
-                  mimeType: part.image.mimeType
-                }
+                image: part.image.url // AI SDK expects just the URL/data URL string
               }
             }
             break
@@ -203,13 +211,7 @@ export function convertAIResponseToMessageContent(response: AIResponse): Message
     })
   }
 
-  // Add reasoning if available (for models like Claude or o1)
-  if (response.reasoning) {
-    content.push({
-      type: 'text',
-      text: `[Reasoning]\n${response.reasoning}`
-    })
-  }
+  // Note: Reasoning is now handled separately and not included in content
 
   // Add tool calls if available
   if (response.toolCalls) {
@@ -242,7 +244,8 @@ function createModelFromConfig(config: AIChatConfig): VercelAIConfig {
         maxTokens: config.maxTokens,
         topP: config.topP,
         frequencyPenalty: config.frequencyPenalty,
-        presencePenalty: config.presencePenalty
+        presencePenalty: config.presencePenalty,
+        reasoningEffort: config.reasoningEffort
       })
 
     case 'anthropic':
@@ -252,7 +255,8 @@ function createModelFromConfig(config: AIChatConfig): VercelAIConfig {
         model: config.model,
         temperature: config.temperature,
         maxTokens: config.maxTokens,
-        topP: config.topP
+        topP: config.topP,
+        reasoningEffort: config.reasoningEffort
       })
 
     case 'google':
@@ -273,7 +277,8 @@ function createModelFromConfig(config: AIChatConfig): VercelAIConfig {
         maxTokens: config.maxTokens,
         topP: config.topP,
         frequencyPenalty: config.frequencyPenalty,
-        presencePenalty: config.presencePenalty
+        presencePenalty: config.presencePenalty,
+        reasoningEffort: config.reasoningEffort
       })
 
     default:
@@ -284,7 +289,9 @@ function createModelFromConfig(config: AIChatConfig): VercelAIConfig {
 /**
  * Generates an AI response for a conversation
  */
-export async function generateAIResponse(conversationMessages: Message[]): Promise<MessageContent> {
+export async function generateAIResponse(
+  conversationMessages: Message[]
+): Promise<{ content: MessageContent; reasoning?: string }> {
   // Validate configuration
   const validation = validateAIConfiguration()
   if (!validation.isValid) {
@@ -304,7 +311,10 @@ export async function generateAIResponse(conversationMessages: Message[]): Promi
     const response = await model.chat(aiMessages)
 
     // Convert response to application format
-    return convertAIResponseToMessageContent(response)
+    return {
+      content: convertAIResponseToMessageContent(response),
+      reasoning: typeof response.reasoning === 'string' ? response.reasoning : undefined
+    }
   } catch (error) {
     console.error('AI response generation failed:', error)
     throw enhanceError(error, config.provider)
@@ -318,7 +328,7 @@ export async function generateAIResponseWithStreaming(
   conversationMessages: Message[],
   onChunk: (chunk: string) => void,
   cancellationToken?: CancellationToken
-): Promise<MessageContent> {
+): Promise<{ content: MessageContent; reasoning?: string }> {
   // Validate configuration
   const validation = validateAIConfiguration()
   if (!validation.isValid) {
@@ -334,8 +344,23 @@ export async function generateAIResponseWithStreaming(
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
-    // Accumulate the full response content
+    // Log model capabilities for debugging
+    const capabilities = model.getCapabilities()
+    console.log(`[AI] Using model: ${config.model} (provider: ${config.provider})`)
+    console.log(`[AI] Model capabilities:`, capabilities)
+
+    // Check if messages contain images and warn if model doesn't support vision
+    const hasImages = conversationMessages.some(
+      (msg) => Array.isArray(msg.content) && msg.content.some((part) => part.type === 'image')
+    )
+
+    if (hasImages && !capabilities.supportVision) {
+      console.warn(`[AI] Warning: Images detected but model ${config.model} may not support vision`)
+    }
+
+    // Accumulate the full response content and reasoning
     let fullContent = ''
+    let reasoning: string | undefined
 
     // Stream response
     for await (const chunk of model.stream(aiMessages, cancellationToken)) {
@@ -350,18 +375,30 @@ export async function generateAIResponseWithStreaming(
         onChunk(chunk.content)
       }
 
+      if (chunk.reasoning) {
+        // Ensure reasoning is always a string, never a Promise
+        if (typeof chunk.reasoning === 'string') {
+          reasoning = chunk.reasoning
+        } else {
+          console.log('Warning: chunk.reasoning is not a string:', typeof chunk.reasoning)
+        }
+      }
+
       if (chunk.finished) {
         break
       }
     }
 
     // Convert final response to application format
-    return [
-      {
-        type: 'text',
-        text: fullContent
-      }
-    ]
+    return {
+      content: [
+        {
+          type: 'text',
+          text: fullContent
+        }
+      ],
+      reasoning: typeof reasoning === 'string' ? reasoning : undefined
+    }
   } catch (error) {
     console.error('AI streaming response generation failed:', error)
     throw enhanceError(error, config.provider)
@@ -425,7 +462,8 @@ export function getAvailableModels(provider: string): string[] {
         'gpt-4',
         'gpt-3.5-turbo',
         'o1-preview',
-        'o1-mini'
+        'o1-mini',
+        'o3-mini'
       ]
 
     case 'anthropic':

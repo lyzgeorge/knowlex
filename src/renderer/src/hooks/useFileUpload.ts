@@ -53,7 +53,14 @@ const ALLOWED_TYPES = [
   '.xlsx',
   '.odt',
   '.odp',
-  '.ods'
+  '.ods',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.svg'
 ]
 
 export const useFileUpload = (): FileUploadHook => {
@@ -73,7 +80,7 @@ export const useFileUpload = (): FileUploadHook => {
 
     const extension = '.' + file.name.split('.').pop()?.toLowerCase()
     if (!ALLOWED_TYPES.includes(extension)) {
-      return `File "${file.name}" is not supported. Supported formats: .txt, .md, .csv, .json, .xml, .html, .pdf, .docx, .pptx, .xlsx, .odt, .odp, .ods`
+      return `File "${file.name}" is not supported. Supported formats: .txt, .md, .csv, .json, .xml, .html, .pdf, .docx, .pptx, .xlsx, .odt, .odp, .ods, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg`
     }
 
     return null

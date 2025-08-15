@@ -9,9 +9,17 @@ import {
   Link,
   Code,
   useColorModeValue,
-  Icon
+  Icon,
+  Collapse,
+  Button
 } from '@chakra-ui/react'
-import { ExternalLinkIcon, LinkIcon, AttachmentIcon } from '@chakra-ui/icons'
+import {
+  ExternalLinkIcon,
+  LinkIcon,
+  AttachmentIcon,
+  ChevronDownIcon,
+  ChevronRightIcon
+} from '@chakra-ui/icons'
 import { FaRobot } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -69,6 +77,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onFileClick
 }) => {
   const [isHovered, setIsHovered] = useState(false)
+  const [showReasoning, setShowReasoning] = useState(false)
 
   // Color mode values (must be called at the top level)
   const avatarBg = useColorModeValue('gray.100', 'gray.700')
@@ -94,6 +103,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const fileBg = useColorModeValue('gray.50', 'gray.800')
   const fileBorder = useColorModeValue('gray.200', 'gray.600')
   const fileHoverBg = useColorModeValue('gray.100', 'gray.700')
+  const reasoningBg = useColorModeValue('purple.50', 'purple.900')
+  const reasoningBorder = useColorModeValue('purple.200', 'purple.600')
+  const reasoningButtonBg = useColorModeValue('purple.100', 'purple.800')
+  const reasoningButtonHoverBg = useColorModeValue('purple.200', 'purple.700')
 
   // Format timestamp
   const formatTime = (timestamp: string): string => {
@@ -335,6 +348,57 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </Box>
   )
 
+  // Render reasoning content
+  const renderReasoningContent = () => {
+    if (!message.reasoning || message.role !== 'assistant') {
+      return null
+    }
+
+    return (
+      <Box mt={3}>
+        <Button
+          size="sm"
+          variant="ghost"
+          leftIcon={showReasoning ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          onClick={() => setShowReasoning(!showReasoning)}
+          bg={reasoningButtonBg}
+          _hover={{ bg: reasoningButtonHoverBg }}
+          borderRadius="md"
+          px={3}
+          py={1}
+          height="auto"
+          minHeight="28px"
+        >
+          <Text fontSize="xs" fontWeight="medium" color="purple.600">
+            Show reasoning
+          </Text>
+        </Button>
+
+        <Collapse in={showReasoning} animateOpacity>
+          <Box
+            mt={2}
+            p={3}
+            bg={reasoningBg}
+            borderRadius="md"
+            border="1px solid"
+            borderColor={reasoningBorder}
+            borderLeft="4px solid"
+            borderLeftColor="purple.500"
+          >
+            <HStack spacing={2} mb={2}>
+              <Badge colorScheme="purple" size="sm">
+                Reasoning
+              </Badge>
+            </HStack>
+            <Box fontSize="sm" lineHeight="tall">
+              {renderTextContent(message.reasoning, false, false)}
+            </Box>
+          </Box>
+        </Collapse>
+      </Box>
+    )
+  }
+
   // Render temporary file content
   const renderTemporaryFileContent = (file: TemporaryFileContent) => {
     const truncatedContent =
@@ -428,9 +492,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // User messages: display in bubble on the right
   if (isUser) {
-    // Separate files from other content parts
+    // Separate files and images from other content parts
     const fileParts = message.content.filter((part) => part.type === 'temporary-file')
-    const otherParts = message.content.filter((part) => part.type !== 'temporary-file')
+    const imageParts = message.content.filter((part) => part.type === 'image')
+    const otherParts = message.content.filter(
+      (part) => part.type !== 'temporary-file' && part.type !== 'image'
+    )
 
     return (
       <HStack
@@ -457,7 +524,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             position="relative"
             width="100%"
           >
-            <VStack align="flex-start" spacing={0} width="100%">
+            <VStack align="flex-start" spacing={2} width="100%">
+              {/* Image attachments */}
+              {imageParts.length > 0 && (
+                <VStack spacing={2} align="flex-start" width="100%">
+                  {imageParts.map(
+                    (part, index) =>
+                      part.image && (
+                        <Box key={`image-${index}`} maxWidth="300px">
+                          {renderImageContent(part.image)}
+                        </Box>
+                      )
+                  )}
+                </VStack>
+              )}
+
               {/* File attachments - horizontal scrolling */}
               {fileParts.length > 0 && (
                 <Box
@@ -556,6 +637,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Assistant Message Content */}
           <VStack align="flex-start" spacing={3}>
             {renderContentParts(message.content, false, isStreaming)}
+            {renderReasoningContent()}
           </VStack>
         </Box>
 

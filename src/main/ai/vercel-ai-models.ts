@@ -1,10 +1,4 @@
-import {
-  generateText,
-  streamText,
-  type CoreMessage,
-  type LanguageModel,
-  type GenerateTextResult
-} from 'ai'
+import { generateText, streamText, type CoreMessage, type LanguageModel } from 'ai'
 import { openai, createOpenAI } from '@ai-sdk/openai'
 import { anthropic, createAnthropic } from '@ai-sdk/anthropic'
 import { google } from '@ai-sdk/google'
@@ -168,6 +162,17 @@ export class VercelAIModel implements AIModel {
 
             case 'image':
               if (part.image) {
+                // Check if the model supports vision
+                if (!this.capabilities.supportVision) {
+                  console.warn(
+                    `Model ${this.config.model} does not support vision. Converting image to text description.`
+                  )
+                  return {
+                    type: 'text' as const,
+                    text: `[Image uploaded: ${part.image.alt || 'image'}. This model does not support image processing, so the image cannot be analyzed.]`
+                  }
+                }
+
                 return {
                   type: 'image' as const,
                   image: part.image.url
@@ -198,7 +203,8 @@ export class VercelAIModel implements AIModel {
     try {
       const vercelMessages = this.convertToVercelMessages(messages)
 
-      const result: GenerateTextResult = await generateText({
+      // Prepare the configuration object
+      const generateOptions: Record<string, any> = {
         model: this.model,
         messages: vercelMessages,
         temperature: this.config.temperature,
@@ -206,19 +212,44 @@ export class VercelAIModel implements AIModel {
         topP: this.config.topP,
         frequencyPenalty: this.config.frequencyPenalty,
         presencePenalty: this.config.presencePenalty
-      })
+      }
+
+      // Add reasoning effort for supported models
+      if (this.config.reasoningEffort && this.capabilities.supportReasoning) {
+        generateOptions.reasoningEffort = this.config.reasoningEffort
+      }
+
+      const result = await generateText(generateOptions as any)
+
+      // Extract reasoning safely
+      let reasoning: string | undefined
+      try {
+        const rawReasoning = (result as any).reasoning
+        if (rawReasoning) {
+          if (typeof rawReasoning === 'string') {
+            reasoning = rawReasoning
+          } else if (typeof rawReasoning.then === 'function') {
+            // If reasoning is a Promise, await it
+            reasoning = await rawReasoning
+          } else {
+            console.log('Reasoning is not a string or Promise:', typeof rawReasoning)
+          }
+        }
+      } catch (e) {
+        console.log('Could not extract reasoning from non-streaming result:', e)
+        reasoning = undefined
+      }
 
       return {
         content: result.text,
+        reasoning: reasoning,
         usage: result.usage
           ? {
-              promptTokens: result.usage.promptTokens,
-              completionTokens: result.usage.completionTokens,
-              totalTokens: result.usage.totalTokens
+              promptTokens: (result.usage as any).promptTokens || 0,
+              completionTokens: (result.usage as any).completionTokens || 0,
+              totalTokens: (result.usage as any).totalTokens || 0
             }
           : undefined
-        // Note: Vercel AI SDK doesn't currently expose reasoning or tool calls in the same format
-        // These could be extracted from the response if the provider supports them
       }
     } catch (error) {
       throw this.handleError(error, 'chat completion')
@@ -235,7 +266,8 @@ export class VercelAIModel implements AIModel {
     try {
       const vercelMessages = this.convertToVercelMessages(messages)
 
-      const result = await streamText({
+      // Prepare the configuration object
+      const streamOptions: Record<string, any> = {
         model: this.model,
         messages: vercelMessages,
         temperature: this.config.temperature,
@@ -243,19 +275,68 @@ export class VercelAIModel implements AIModel {
         topP: this.config.topP,
         frequencyPenalty: this.config.frequencyPenalty,
         presencePenalty: this.config.presencePenalty
-      })
+      }
 
-      for await (const chunk of result.textStream) {
-        // Check for cancellation
-        if (cancellationToken?.isCancelled) {
-          yield { content: '', finished: true }
-          return
-        }
+      // Add reasoning effort for supported models
+      if (this.config.reasoningEffort && this.capabilities.supportReasoning) {
+        streamOptions.reasoningEffort = this.config.reasoningEffort
+      }
 
-        yield {
-          content: chunk,
-          finished: false
+      const result = await streamText(streamOptions as any)
+
+      let accumulatedReasoning = ''
+      let hasReceivedContent = false
+
+      try {
+        for await (const chunk of result.textStream) {
+          // Check for cancellation
+          if (cancellationToken?.isCancelled) {
+            yield { content: '', finished: true }
+            return
+          }
+
+          hasReceivedContent = true
+          yield {
+            content: chunk,
+            finished: false
+          }
         }
+      } catch (streamError) {
+        console.error('Error in text stream:', streamError)
+        if (!hasReceivedContent) {
+          // If we haven't received any content, this might be a vision-related error
+          throw new Error(
+            'Stream failed to produce output. This might be due to incompatible input format (e.g., images with non-vision models) or model-specific issues.'
+          )
+        }
+        // If we got some content, continue to finalization
+      }
+
+      // Try to extract reasoning from the final result
+      try {
+        await result.finishReason
+        // Try different ways to access reasoning based on AI SDK implementation
+        const rawReasoning = (result as any).reasoning
+        if (rawReasoning) {
+          if (typeof rawReasoning === 'string') {
+            accumulatedReasoning = rawReasoning
+          } else if (typeof rawReasoning.then === 'function') {
+            // If reasoning is a Promise, await it
+            try {
+              const resolvedReasoning = await rawReasoning
+              if (typeof resolvedReasoning === 'string') {
+                accumulatedReasoning = resolvedReasoning
+              }
+            } catch (promiseError) {
+              console.log('Failed to await reasoning promise:', promiseError)
+            }
+          } else {
+            console.log('Reasoning is not a string or Promise in streaming:', typeof rawReasoning)
+          }
+        }
+      } catch (e) {
+        // Reasoning might not be available in streaming mode
+        console.log('Could not extract reasoning from streaming result:', e)
       }
 
       // Get final usage information
@@ -263,12 +344,13 @@ export class VercelAIModel implements AIModel {
 
       yield {
         content: '',
+        reasoning: accumulatedReasoning || undefined,
         finished: true,
         usage: usage
           ? {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens
+              promptTokens: (usage as any).promptTokens || 0,
+              completionTokens: (usage as any).completionTokens || 0,
+              totalTokens: (usage as any).totalTokens || 0
             }
           : undefined
       }
@@ -323,6 +405,24 @@ export class VercelAIModel implements AIModel {
         return new Error('AI service is temporarily unavailable')
       }
 
+      // Handle vision-related errors
+      if (message.includes('no output generated') || message.includes('nooutputgeneratederror')) {
+        // Check if this might be a vision-related issue
+        return new Error(
+          `The model failed to generate a response. This might be due to: 1) Image format not supported by this model, 2) Model doesn't properly support vision, or 3) Input content caused processing issues. Try using text-only messages or a different model.`
+        )
+      }
+
+      if (
+        message.includes('image') ||
+        message.includes('vision') ||
+        message.includes('multimodal')
+      ) {
+        return new Error(
+          `Vision processing error: ${error.message}. The model may not support the image format or vision capabilities.`
+        )
+      }
+
       return new Error(`AI API Error: ${error.message}`)
     }
 
@@ -346,7 +446,8 @@ export const VercelAIProviders = {
     maxTokens: config.maxTokens ?? 4000,
     topP: config.topP ?? 1,
     frequencyPenalty: config.frequencyPenalty ?? 0,
-    presencePenalty: config.presencePenalty ?? 0
+    presencePenalty: config.presencePenalty ?? 0,
+    reasoningEffort: config.reasoningEffort
   }),
 
   /**
@@ -359,7 +460,8 @@ export const VercelAIProviders = {
     model: config.model || 'claude-3-5-sonnet-20241022',
     temperature: config.temperature ?? 0.7,
     maxTokens: config.maxTokens ?? 4000,
-    topP: config.topP ?? 1
+    topP: config.topP ?? 1,
+    reasoningEffort: config.reasoningEffort
   }),
 
   /**
@@ -386,7 +488,8 @@ export const VercelAIProviders = {
     maxTokens: config.maxTokens ?? 4000,
     topP: config.topP ?? 1,
     frequencyPenalty: config.frequencyPenalty ?? 0,
-    presencePenalty: config.presencePenalty ?? 0
+    presencePenalty: config.presencePenalty ?? 0,
+    reasoningEffort: config.reasoningEffort
   })
 }
 
@@ -432,6 +535,12 @@ export const VercelAICapabilities = {
       maxContextLength: 128000
     },
     'o1-mini': {
+      supportVision: false,
+      supportReasoning: true,
+      supportToolCalls: false,
+      maxContextLength: 128000
+    },
+    'o3-mini': {
       supportVision: false,
       supportReasoning: true,
       supportToolCalls: false,
@@ -524,9 +633,63 @@ export function getModelCapabilities(provider: string, model: string): ModelCapa
         defaultCapabilities
       )
 
+    case 'custom':
+      // For custom providers, try to infer capabilities from model name
+      return inferCustomModelCapabilities(model)
+
     default:
       return defaultCapabilities
   }
+}
+
+/**
+ * Infers capabilities for custom models based on model names
+ */
+function inferCustomModelCapabilities(model: string): ModelCapabilities {
+  const lowerModel = model.toLowerCase()
+
+  // Default capabilities for custom models
+  const capabilities: ModelCapabilities = {
+    supportVision: false,
+    supportReasoning: false,
+    supportToolCalls: false,
+    maxContextLength: 8192
+  }
+
+  // Vision model patterns
+  const visionPatterns = [
+    'vision',
+    'multimodal',
+    'mm',
+    'visual',
+    'glm-4v',
+    'qwen-vl',
+    'cogvlm',
+    'llava',
+    'glm-4.1v' // Specific pattern for GLM-4.1V models
+  ]
+
+  // Reasoning model patterns
+  const reasoningPatterns = ['thinking', 'reasoning', 'o1', 'cot', 'reflection']
+
+  // Check for vision support
+  if (visionPatterns.some((pattern) => lowerModel.includes(pattern))) {
+    capabilities.supportVision = true
+    capabilities.maxContextLength = 32768 // Vision models typically have larger context
+
+    // Log capabilities for debugging
+    console.log(`[AI] Model ${model} detected with vision support: ${capabilities.supportVision}`)
+  }
+
+  // Check for reasoning support
+  if (reasoningPatterns.some((pattern) => lowerModel.includes(pattern))) {
+    capabilities.supportReasoning = true
+  }
+
+  // Most custom models support tool calls
+  capabilities.supportToolCalls = true
+
+  return capabilities
 }
 
 /**

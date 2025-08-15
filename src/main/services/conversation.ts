@@ -372,7 +372,7 @@ export async function generateConversationTitle(id: string): Promise<string> {
       }))
     )
 
-    const generatedTitle = response
+    const generatedTitle = response.content
       .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join(' ')
