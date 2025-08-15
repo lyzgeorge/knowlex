@@ -28,7 +28,7 @@ import {
   generateAIResponse,
   generateAIResponseWithStreaming,
   testAIConfiguration
-} from '../services/ai-chat'
+} from '../services/ai-chat-vercel'
 import { cancellationManager } from '../utils/cancellation'
 
 /**

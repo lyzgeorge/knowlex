@@ -1,4 +1,4 @@
-// import { getModel } from '../ai/manager' // TODO: Implement actual embedding API integration
+// TODO: Implement actual embedding API integration using Vercel AI SDK
 import { executeQuery, executeTransaction } from '../database/index'
 import { generateId } from '../../shared/utils/id'
 import type { EmbeddingConfig } from '../../shared/types/ai'

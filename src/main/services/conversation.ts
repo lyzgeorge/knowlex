@@ -281,7 +281,9 @@ export async function generateConversationTitle(id: string): Promise<string> {
 
   try {
     // Import AI service dynamically to avoid circular dependencies
-    const { generateAIResponse, validateAIConfiguration } = await import('../services/ai-chat')
+    const { generateAIResponse, validateAIConfiguration } = await import(
+      '../services/ai-chat-vercel'
+    )
     const { getMessages } = await import('../services/message')
 
     // Validate AI configuration

@@ -11,7 +11,7 @@ import {
 } from './ipc/conversation'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { startProcessingQueue } from './services/file-project'
-import { initializeAIProviders, startCacheCleanup, stopCacheCleanup } from './ai'
+// TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
 // Application lifecycle management
 class Application {
@@ -32,16 +32,7 @@ class Application {
       throw error
     }
 
-    // Initialize AI providers
-    try {
-      console.log('Initializing AI providers...')
-      initializeAIProviders()
-      startCacheCleanup()
-      console.log('AI providers initialized successfully')
-    } catch (error) {
-      console.error('Failed to initialize AI providers:', error)
-      throw error
-    }
+    // AI providers (Vercel AI SDK) are initialized on-demand
 
     // Register IPC handlers
     try {
@@ -123,9 +114,6 @@ app.on('before-quit', async () => {
   console.log('Application shutting down...')
 
   try {
-    // Stop AI cache cleanup
-    stopCacheCleanup()
-
     // Unregister IPC handlers
     unregisterProjectIPCHandlers()
     unregisterConversationIPCHandlers()

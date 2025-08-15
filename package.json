@@ -57,11 +57,16 @@
     "vitest": "^1.1.0"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.4",
+    "@ai-sdk/google": "^2.0.6",
+    "@ai-sdk/openai": "^2.0.14",
+    "@ai-sdk/openai-compatible": "^1.0.7",
     "@chakra-ui/icons": "^2.2.4",
     "@chakra-ui/react": "^2.8.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@libsql/client": "^0.14.0",
+    "ai": "^5.0.14",
     "dotenv": "^17.2.1",
     "framer-motion": "^10.16.16",
     "i18next": "^23.7.8",
