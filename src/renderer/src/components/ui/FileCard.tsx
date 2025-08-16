@@ -27,7 +27,7 @@ import {
   TimeIcon,
   HamburgerIcon
 } from '@chakra-ui/icons'
-import { ProjectFile, TemporaryFile, FileStatus } from '../../../shared/types/file'
+import type { ProjectFile, TemporaryFile, FileStatus } from '../../../shared/types'
 
 export interface FileCardProps {
   /** File data - can be ProjectFile or TemporaryFile */

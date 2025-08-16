@@ -1,7 +1,7 @@
 import React from 'react'
 import { HStack, IconButton, useToast, useDisclosure } from '@chakra-ui/react'
 import { EditIcon, RepeatIcon, CopyIcon, ExternalLinkIcon, LinkIcon } from '@chakra-ui/icons'
-import { Message } from '../../../shared/types/message'
+import type { Message } from '../../../../shared/types'
 import { useRegenerateMessage, useForkConversation } from '../../../stores/conversation'
 import MessageEditModal from './MessageEditModal'
 

@@ -6,8 +6,7 @@
 import React from 'react'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { Conversation, SessionSettings } from '../../../shared/types/conversation'
-import type { Message, MessageContent } from '../../../shared/types/message'
+import type { Conversation, SessionSettings, Message, MessageContent } from '../../../shared/types'
 
 const EMPTY_MESSAGES: Message[] = []
 
@@ -28,6 +27,10 @@ export interface ConversationState {
   // Streaming state
   isStreaming: boolean
   streamingMessageId: string | null
+
+  // Reasoning streaming state
+  isReasoningStreaming: boolean
+  reasoningStreamingMessageId: string | null
 
   // Loading states
   isLoading: boolean
@@ -93,6 +96,8 @@ const initialState = {
   pendingConversation: null,
   isStreaming: false,
   streamingMessageId: null,
+  isReasoningStreaming: false,
+  reasoningStreamingMessageId: null,
   isLoading: false,
   isLoadingMessages: false,
   isSending: false,
@@ -189,7 +194,9 @@ function setupEventListeners() {
             // Append chunk to the last text part or create new text part
             const lastPart = message.content[message.content.length - 1]
             if (lastPart && lastPart.type === 'text') {
-              lastPart.text = (lastPart.text || '') + data.chunk
+              // Replace zero-width space placeholder with first real chunk
+              const currentText = lastPart.text === '\u200B' ? '' : lastPart.text || ''
+              lastPart.text = currentText + data.chunk
             } else {
               message.content.push({ type: 'text', text: data.chunk })
             }
@@ -270,6 +277,78 @@ function setupEventListeners() {
             } else {
               message.content.push({ type: 'text', text: '[Response cancelled by user]' })
             }
+            message.updatedAt = new Date().toISOString()
+            break
+          }
+        }
+      })
+    }
+  })
+
+  // Listen for reasoning start events
+  window.knowlex.events.on('message:reasoning_start', (_, data: any) => {
+    console.log('Received reasoning start event:', data)
+
+    if (data && data.messageId) {
+      useConversationStore.setState((state) => {
+        // Set reasoning streaming state
+        state.isReasoningStreaming = true
+        state.reasoningStreamingMessageId = data.messageId
+
+        // Find the streaming message and initialize reasoning if not already present
+        for (const conversationMessages of Object.values(state.messages)) {
+          const message = conversationMessages.find((m) => m.id === data.messageId)
+          if (message) {
+            if (!message.reasoning) {
+              message.reasoning = ''
+            }
+            message.updatedAt = new Date().toISOString()
+            break
+          }
+        }
+      })
+    }
+  })
+
+  // Listen for reasoning chunk events
+  window.knowlex.events.on('message:reasoning_chunk', (_, data: any) => {
+    console.log('Received reasoning chunk event:', data)
+
+    if (data && data.messageId && data.chunk) {
+      useConversationStore.setState((state) => {
+        // Find the streaming message and append reasoning chunk
+        for (const conversationMessages of Object.values(state.messages)) {
+          const message = conversationMessages.find((m) => m.id === data.messageId)
+          if (message) {
+            message.reasoning = (message.reasoning || '') + data.chunk
+            message.updatedAt = new Date().toISOString()
+            break
+          }
+        }
+      })
+    }
+  })
+
+  // Listen for reasoning end events
+  window.knowlex.events.on('message:reasoning_end', (_, data: any) => {
+    console.log('[STORE] Received reasoning end event:', data)
+
+    if (data && data.messageId) {
+      useConversationStore.setState((state) => {
+        console.log('[STORE] Setting reasoning streaming to false for message:', data.messageId)
+        // Clear reasoning streaming state
+        state.isReasoningStreaming = false
+        state.reasoningStreamingMessageId = null
+
+        // Find the streaming message and mark reasoning as complete
+        for (const conversationMessages of Object.values(state.messages)) {
+          const message = conversationMessages.find((m) => m.id === data.messageId)
+          if (message) {
+            console.log(
+              '[STORE] Found message, current reasoning length:',
+              message.reasoning?.length
+            )
+            // Reasoning is already updated by chunks, just update timestamp
             message.updatedAt = new Date().toISOString()
             break
           }
@@ -971,5 +1050,11 @@ export const useStreamingMessageId = () => useConversationStore((state) => state
 export const useOnStreamingUpdate = () => useConversationStore((state) => state.onStreamingUpdate)
 export const useSetStreamingState = () => useConversationStore((state) => state.setStreamingState)
 export const useStopStreaming = () => useConversationStore((state) => state.stopStreaming)
+
+// Reasoning streaming selectors
+export const useIsReasoningStreaming = () =>
+  useConversationStore((state) => state.isReasoningStreaming)
+export const useReasoningStreamingMessageId = () =>
+  useConversationStore((state) => state.reasoningStreamingMessageId)
 
 export default useConversationStore

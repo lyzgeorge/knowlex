@@ -5,8 +5,7 @@ import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
 import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
 import { useAutoScroll } from '../../../hooks/useAutoScroll'
-import type { TemporaryFileResult } from '../../../../../shared/types/file'
-import type { MessageContent } from '../../../../../shared/types/message'
+import type { TemporaryFileResult, MessageContent } from '../../../../shared/types'
 
 export interface ChatInterfaceProps {
   /** Additional CSS classes */
@@ -215,7 +214,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     >
       {/* Messages Area - Full height with floating input */}
       <Box ref={scrollRef} flex={1} overflowY="auto" minH={0} h="100%" px={4} py={6} pb="6rem">
-        <MessageList messages={currentMessages} />
+        <MessageList messages={currentMessages} streamingMessageId={streamingMessageId} />
       </Box>
 
       {/* Floating Input Area */}

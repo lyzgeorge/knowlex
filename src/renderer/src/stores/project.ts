@@ -5,12 +5,7 @@
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type {
-  Project,
-  ProjectFile,
-  ProjectMemory,
-  ProjectNote
-} from '../../../shared/types/project'
+import type { Project, ProjectFile, ProjectMemory, ProjectNote } from '../../../shared/types'
 
 export interface ProjectState {
   // Data state

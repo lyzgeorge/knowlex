@@ -12,7 +12,7 @@ import {
 } from '../../../stores/conversation'
 import FilePreview from './FilePreview'
 import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
-import type { TemporaryFileResult } from '../../../../../shared/types/file'
+import type { TemporaryFileResult } from '../../../../shared/types'
 
 // File upload constants (for UI display)
 const MAX_FILES = 10

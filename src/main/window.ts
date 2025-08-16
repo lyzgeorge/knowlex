@@ -26,6 +26,7 @@ const SECURE_WEB_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,
   webSecurity: true,
+  contentSecurityPolicy: "default-src 'self'; img-src 'self' data:;",
   allowRunningInsecureContent: false,
   experimentalFeatures: false
 }

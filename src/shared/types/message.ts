@@ -14,20 +14,13 @@ export type MessageContent = MessageContentPart[]
 export interface MessageContentPart {
   type: ContentType
   text?: string
-  image?: ImageContent
   citation?: CitationContent
   toolCall?: ToolCallContent
   temporaryFile?: TemporaryFileContent
+  image?: ImageContent
 }
 
-export type ContentType = 'text' | 'image' | 'citation' | 'tool-call' | 'temporary-file'
-
-export interface ImageContent {
-  url: string
-  alt?: string
-  mimeType: string
-  size?: number
-}
+export type ContentType = 'text' | 'citation' | 'tool-call' | 'temporary-file' | 'image'
 
 export interface CitationContent {
   filename: string
@@ -49,4 +42,11 @@ export interface TemporaryFileContent {
   content: string
   size: number
   mimeType: string
+}
+
+export interface ImageContent {
+  url: string
+  alt?: string
+  mimeType?: string
+  size?: number
 }

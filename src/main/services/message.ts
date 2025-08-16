@@ -7,6 +7,7 @@ import {
 } from '../database/queries'
 import { generateId } from '../../shared/utils/id'
 import type { Message, MessageContent, MessageContentPart, ContentType } from '../../shared/types'
+import type { TemporaryFileResult } from '../../shared/types/file'
 
 /**
  * Message Management Service
@@ -48,7 +49,8 @@ function validateMessageContent(content: MessageContent): void {
         isValid = part.temporaryFile && part.temporaryFile.filename
         break
       case 'image':
-        isValid = part.image && part.image.url
+        // Image support removed
+        isValid = false
         break
       case 'citation':
         isValid = part.citation && part.citation.filename
@@ -92,15 +94,8 @@ function validateMessageContent(content: MessageContent): void {
         break
 
       case 'image':
-        if (!part.image || typeof part.image !== 'object') {
-          throw new Error(`Image content part at index ${index} must have valid image data`)
-        }
-        if (!part.image.url || typeof part.image.url !== 'string') {
-          throw new Error(`Image content part at index ${index} must have valid URL`)
-        }
-        if (!part.image.mimeType || typeof part.image.mimeType !== 'string') {
-          throw new Error(`Image content part at index ${index} must have valid mime type`)
-        }
+        // Image support removed
+        throw new Error(`Image content type is not supported (at index ${index})`)
         break
 
       case 'citation':
@@ -155,7 +150,7 @@ function validateMessageContent(content: MessageContent): void {
  * Checks if a content type is valid
  */
 function isValidContentType(type: string): type is ContentType {
-  return ['text', 'image', 'citation', 'tool-call', 'temporary-file'].includes(type)
+  return ['text', 'citation', 'tool-call', 'temporary-file'].includes(type)
 }
 
 /**
@@ -435,7 +430,6 @@ export function getContentStats(message: Message) {
   const stats = {
     total: message.content.length,
     text: 0,
-    image: 0,
     citation: 0,
     toolCall: 0,
     temporaryFile: 0
@@ -445,9 +439,6 @@ export function getContentStats(message: Message) {
     switch (part.type) {
       case 'text':
         stats.text++
-        break
-      case 'image':
-        stats.image++
         break
       case 'citation':
         stats.citation++
@@ -462,4 +453,76 @@ export function getContentStats(message: Message) {
   })
 
   return stats
+}
+
+/**
+ * Converts temporary file results to proper message content parts
+ * This handles the conversion from processed temporary files to message content
+ */
+export function convertTemporaryFilesToMessageParts(
+  temporaryFileResults: TemporaryFileResult[]
+): MessageContentPart[] {
+  const parts: MessageContentPart[] = []
+
+  for (const fileResult of temporaryFileResults) {
+    if (fileResult.error) {
+      // Add error as text part
+      parts.push({
+        type: 'text',
+        text: `[Error processing ${fileResult.filename}]: ${fileResult.error}`
+      })
+      continue
+    }
+
+    // All files kept as temporary file content parts
+    parts.push({
+      type: 'temporary-file',
+      temporaryFile: {
+        filename: fileResult.filename,
+        content: fileResult.content,
+        size: fileResult.size,
+        mimeType: fileResult.mimeType
+      }
+    })
+  }
+
+  return parts
+}
+
+/**
+ * Creates a message with temporary files properly converted to content parts
+ * Convenience method that handles temporary file conversion automatically
+ */
+export async function addMessageWithTemporaryFiles(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  textContent: string,
+  temporaryFileResults: TemporaryFileResult[] = [],
+  parentMessageId?: string
+): Promise<Message> {
+  const content: MessageContent = []
+
+  // Add text content if provided
+  if (textContent && textContent.trim().length > 0) {
+    content.push({
+      type: 'text',
+      text: textContent.trim()
+    })
+  }
+
+  // Convert and add temporary files
+  const fileParts = convertTemporaryFilesToMessageParts(temporaryFileResults)
+  content.push(...fileParts)
+
+  // Ensure we have at least some content
+  if (content.length === 0) {
+    throw new Error('Message must have at least some content')
+  }
+
+  return await addMessage({
+    conversationId,
+    role,
+    content,
+    parentMessageId
+  })
 }

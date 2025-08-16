@@ -515,12 +515,33 @@ export function registerConversationIPCHandlers(): void {
           // Generate response with streaming and cancellation support
           const response = await generateAIResponseWithStreaming(
             allMessages,
-            (chunk: string) => {
-              // Send each chunk via event
-              sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
-                messageId: assistantMessage.id,
-                chunk
-              })
+            {
+              onTextChunk: (chunk: string) => {
+                // Send each text chunk via event
+                sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
+                  messageId: assistantMessage.id,
+                  chunk
+                })
+              },
+              onReasoningStart: () => {
+                // Send reasoning start event
+                sendMessageEvent(MESSAGE_EVENTS.REASONING_START, {
+                  messageId: assistantMessage.id
+                })
+              },
+              onReasoningChunk: (chunk: string) => {
+                // Send each reasoning chunk via event
+                sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
+                  messageId: assistantMessage.id,
+                  chunk
+                })
+              },
+              onReasoningEnd: () => {
+                // Send reasoning end event
+                sendMessageEvent(MESSAGE_EVENTS.REASONING_END, {
+                  messageId: assistantMessage.id
+                })
+              }
             },
             cancellationToken
           )
@@ -846,5 +867,8 @@ export const MESSAGE_EVENTS = {
   STREAMING_CHUNK: 'streaming_chunk',
   STREAMING_END: 'streaming_end',
   STREAMING_ERROR: 'streaming_error',
-  STREAMING_CANCELLED: 'streaming_cancelled'
+  STREAMING_CANCELLED: 'streaming_cancelled',
+  REASONING_START: 'reasoning_start',
+  REASONING_CHUNK: 'reasoning_chunk',
+  REASONING_END: 'reasoning_end'
 } as const

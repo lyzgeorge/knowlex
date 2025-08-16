@@ -28,15 +28,7 @@ export const SUPPORTED_FILE_TYPES = {
     '.xlsx',
     '.odt',
     '.odp',
-    '.ods',
-    // Image files
-    '.jpg',
-    '.jpeg',
-    '.png',
-    '.gif',
-    '.bmp',
-    '.webp',
-    '.svg'
+    '.ods'
   ],
   PROJECT: [
     // Plain text files
@@ -99,15 +91,7 @@ export const MIME_TYPES = {
   // OpenDocument files
   'application/vnd.oasis.opendocument.text': '.odt',
   'application/vnd.oasis.opendocument.presentation': '.odp',
-  'application/vnd.oasis.opendocument.spreadsheet': '.ods',
-
-  // Image files
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/gif': '.gif',
-  'image/bmp': '.bmp',
-  'image/webp': '.webp',
-  'image/svg+xml': '.svg'
+  'application/vnd.oasis.opendocument.spreadsheet': '.ods'
 } as const
 
 export const CHUNK_SIZE = 1000 // characters per chunk for vectorization

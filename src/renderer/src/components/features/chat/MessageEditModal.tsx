@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Textarea, VStack, HStack, Text, useToast } from '@chakra-ui/react'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
-import { Message } from '../../../shared/types/message'
+import type { Message } from '../../../../shared/types'
 import { useEditMessage, useSendMessage } from '../../../stores/conversation'
 
 export interface MessageEditModalProps {

@@ -1,11 +1,13 @@
 import React from 'react'
 import { Box, VStack, Text } from '@chakra-ui/react'
-import { Message } from '../../../shared/types/message'
+import type { Message } from '../../../../shared/types'
 import MessageBubble from '../../ui/MessageBubble'
 
 export interface MessageListProps {
   /** Array of messages to display */
   messages: Message[]
+  /** ID of the message currently being streamed */
+  streamingMessageId?: string | null
   /** Additional CSS classes */
   className?: string
 }
@@ -19,7 +21,11 @@ export interface MessageListProps {
  * - 支持流式消息更新
  * - 空状态处理，无消息时显示提示
  */
-export const MessageList: React.FC<MessageListProps> = ({ messages, className }) => {
+export const MessageList: React.FC<MessageListProps> = ({
+  messages,
+  streamingMessageId,
+  className
+}) => {
   // Empty state
   if (messages.length === 0) {
     return (
@@ -40,11 +46,19 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, className })
 
   return (
     <VStack spacing={4} align="stretch" className={className}>
-      {messages.map((message) => (
-        <Box key={message.id} role="listitem">
-          <MessageBubble message={message} showAvatar={true} showTimestamp={true} />
-        </Box>
-      ))}
+      {messages.map((message) => {
+        const isStreaming = streamingMessageId === message.id
+        return (
+          <Box key={message.id} role="listitem">
+            <MessageBubble
+              message={message}
+              isStreaming={isStreaming}
+              showAvatar={true}
+              showTimestamp={true}
+            />
+          </Box>
+        )
+      })}
     </VStack>
   )
 }

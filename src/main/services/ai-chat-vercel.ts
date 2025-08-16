@@ -1,22 +1,34 @@
-import { createVercelAIModel, VercelAIProviders, type VercelAIConfig } from '../ai/vercel-ai-models'
+import { streamText, generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '../../shared/types'
 import type { CancellationToken } from '../utils/cancellation'
-import type { AIMessage, AIResponse } from '../../shared/types/ai'
 
 /**
- * Vercel AI SDK Chat Service
- * Modern replacement for the current AI chat service using Vercel's AI SDK
- * Provides unified interface to multiple AI providers with streaming support
+ * Model parameters for AI SDK
+ */
+interface ModelParams {
+  model: any
+  messages: any[]
+  temperature?: number
+  maxTokens?: number
+  topP?: number
+  frequencyPenalty?: number
+  presencePenalty?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
+}
+
+/**
+ * Simplified AI Chat Service using official AI SDK
+ * Supports only OpenAI-compatible models with optional reasoning effort
  */
 
 /**
- * Configuration interface for the AI chat service
+ * Configuration interface for OpenAI-compatible models
  */
 export interface AIChatConfig {
-  provider: 'openai' | 'anthropic' | 'google' | 'custom'
   apiKey: string
   baseURL?: string
-  customBaseURL?: string
   model: string
   temperature?: number
   maxTokens?: number
@@ -27,70 +39,31 @@ export interface AIChatConfig {
 }
 
 /**
- * Gets AI configuration from environment variables with fallbacks
+ * Gets AI configuration from environment variables
  */
 export function getAIConfigFromEnv(): AIChatConfig {
-  const defaultProvider = (process.env.DEFAULT_PROVIDER || 'openai') as AIChatConfig['provider']
-
-  switch (defaultProvider) {
-    case 'anthropic':
-      return {
-        provider: 'anthropic',
-        apiKey: process.env.CLAUDE_API_KEY || '',
-        baseURL: process.env.CLAUDE_BASE_URL,
-        model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
-        reasoningEffort: process.env.CLAUDE_REASONING_EFFORT as
-          | 'low'
-          | 'medium'
-          | 'high'
-          | undefined
-      }
-
-    case 'google':
-      return {
-        provider: 'google',
-        apiKey: process.env.GOOGLE_API_KEY || '',
-        model: process.env.GOOGLE_MODEL || 'gemini-1.5-pro',
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000')
-      }
-
-    case 'custom':
-      return {
-        provider: 'custom',
-        apiKey: process.env.CUSTOM_API_KEY || '',
-        customBaseURL: process.env.CUSTOM_BASE_URL || '',
-        model: process.env.CUSTOM_MODEL || 'gpt-3.5-turbo',
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000')
-      }
-
-    default: {
-      // openai
-      const baseURL = process.env.OPENAI_BASE_URL
-      const isCustomAPI = baseURL && !baseURL.includes('api.openai.com')
-
-      return {
-        provider: isCustomAPI ? 'custom' : 'openai',
-        apiKey: process.env.OPENAI_API_KEY || '',
-        baseURL: baseURL,
-        customBaseURL: isCustomAPI ? baseURL : undefined,
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
-        topP: parseFloat(process.env.AI_TOP_P || '1'),
-        frequencyPenalty: parseFloat(process.env.AI_FREQUENCY_PENALTY || '0'),
-        presencePenalty: parseFloat(process.env.AI_PRESENCE_PENALTY || '0'),
-        reasoningEffort: process.env.OPENAI_REASONING_EFFORT as
-          | 'low'
-          | 'medium'
-          | 'high'
-          | undefined
-      }
-    }
+  const config: AIChatConfig = {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    baseURL: process.env.OPENAI_BASE_URL,
+    model: process.env.OPENAI_MODEL || 'gpt-4o',
+    temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
+    maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
+    topP: parseFloat(process.env.AI_TOP_P || '1'),
+    frequencyPenalty: parseFloat(process.env.AI_FREQUENCY_PENALTY || '0'),
+    presencePenalty: parseFloat(process.env.AI_PRESENCE_PENALTY || '0')
   }
+
+  // Only add reasoningEffort if it's set in environment
+  const reasoningEffort = process.env.OPENAI_REASONING_EFFORT as
+    | 'low'
+    | 'medium'
+    | 'high'
+    | undefined
+  if (reasoningEffort) {
+    config.reasoningEffort = reasoningEffort
+  }
+
+  return config
 }
 
 /**
@@ -105,21 +78,14 @@ export function validateAIConfiguration(config?: AIChatConfig): {
   if (!chatConfig.apiKey || chatConfig.apiKey.trim().length === 0) {
     return {
       isValid: false,
-      error: `AI model integration is not configured. Missing API key for ${chatConfig.provider.toUpperCase()}`
+      error: 'AI model integration is not configured. Missing OpenAI API key'
     }
   }
 
   if (!chatConfig.model || chatConfig.model.trim().length === 0) {
     return {
       isValid: false,
-      error: `No model specified for ${chatConfig.provider}. Please configure a model.`
-    }
-  }
-
-  if (chatConfig.provider === 'custom' && !chatConfig.customBaseURL) {
-    return {
-      isValid: false,
-      error: 'Custom provider requires a base URL to be configured.'
+      error: 'No model specified. Please configure a model.'
     }
   }
 
@@ -127,10 +93,10 @@ export function validateAIConfiguration(config?: AIChatConfig): {
 }
 
 /**
- * Converts application messages to AI model format
+ * Converts application messages to AI SDK format
  */
-export function convertMessagesToAIFormat(messages: Message[]): AIMessage[] {
-  return messages.map((message): AIMessage => {
+function convertMessagesToAIFormat(messages: Message[]) {
+  return messages.map((message) => {
     // Handle multimodal content
     if (
       message.content.length === 1 &&
@@ -144,145 +110,58 @@ export function convertMessagesToAIFormat(messages: Message[]): AIMessage[] {
       }
     }
 
-    // Complex multimodal content
-    const aiContent = message.content
+    // Complex multimodal content - convert all to text
+    const textParts = message.content
       .map((part) => {
         switch (part.type) {
           case 'text':
-            return {
-              type: 'text' as const,
-              text: part.text || ''
-            }
-
-          case 'image':
-            if (part.image) {
-              return {
-                type: 'image' as const,
-                image: part.image.url // AI SDK expects just the URL/data URL string
-              }
-            }
-            break
+            return part.text || ''
 
           case 'temporary-file':
             if (part.temporaryFile) {
-              return {
-                type: 'text' as const,
-                text: `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
-              }
+              return `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
             }
             break
 
           case 'citation':
             if (part.citation) {
-              return {
-                type: 'text' as const,
-                text: `[Citation: ${part.citation.filename}]\n${part.citation.content}`
-              }
+              return `[Citation: ${part.citation.filename}]\n${part.citation.content}`
             }
+            break
+
+          case 'image':
+            console.warn('[AI] Image content type is not supported')
             break
         }
 
-        // Fallback for unknown types
-        return {
-          type: 'text' as const,
-          text: part.text || ''
-        }
+        return part.text || ''
       })
       .filter(Boolean)
 
     return {
       role: message.role,
-      content: aiContent
+      content: textParts.join('\n\n')
     }
   })
 }
 
 /**
- * Converts AI response to application message format
+ * Creates OpenAI model instance from configuration
  */
-export function convertAIResponseToMessageContent(response: AIResponse): MessageContent {
-  const content: MessageContent = []
-
-  // Add main content
-  if (response.content) {
-    content.push({
-      type: 'text',
-      text: response.content
+function createOpenAIModel(config: AIChatConfig) {
+  if (config.baseURL && !config.baseURL.includes('api.openai.com')) {
+    // Custom OpenAI-compatible API (like SiliconFlow)
+    return createOpenAICompatible({
+      name: 'custom-provider',
+      apiKey: config.apiKey,
+      baseURL: config.baseURL,
+      includeUsage: true // Include usage information in streaming responses
     })
-  }
-
-  // Note: Reasoning is now handled separately and not included in content
-
-  // Add tool calls if available
-  if (response.toolCalls) {
-    for (const toolCall of response.toolCalls) {
-      content.push({
-        type: 'tool-call',
-        toolCall: {
-          id: toolCall.id,
-          name: toolCall.name,
-          arguments: toolCall.arguments
-        }
-      })
-    }
-  }
-
-  return content.length > 0 ? content : [{ type: 'text', text: '' }]
-}
-
-/**
- * Creates a Vercel AI model from the chat configuration
- */
-function createModelFromConfig(config: AIChatConfig): VercelAIConfig {
-  switch (config.provider) {
-    case 'openai':
-      return VercelAIProviders.openai({
-        apiKey: config.apiKey,
-        baseURL: config.baseURL,
-        model: config.model,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        topP: config.topP,
-        frequencyPenalty: config.frequencyPenalty,
-        presencePenalty: config.presencePenalty,
-        reasoningEffort: config.reasoningEffort
-      })
-
-    case 'anthropic':
-      return VercelAIProviders.anthropic({
-        apiKey: config.apiKey,
-        baseURL: config.baseURL,
-        model: config.model,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        topP: config.topP,
-        reasoningEffort: config.reasoningEffort
-      })
-
-    case 'google':
-      return VercelAIProviders.google({
-        apiKey: config.apiKey,
-        model: config.model,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        topP: config.topP
-      })
-
-    case 'custom':
-      return VercelAIProviders.custom({
-        apiKey: config.apiKey,
-        customBaseURL: config.customBaseURL!,
-        model: config.model,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        topP: config.topP,
-        frequencyPenalty: config.frequencyPenalty,
-        presencePenalty: config.presencePenalty,
-        reasoningEffort: config.reasoningEffort
-      })
-
-    default:
-      throw new Error(`Unsupported provider: ${config.provider}`)
+  } else {
+    // Official OpenAI API
+    return openai({
+      apiKey: config.apiKey
+    })
   }
 }
 
@@ -298,27 +177,56 @@ export async function generateAIResponse(
     throw new Error(validation.error || 'AI configuration is invalid')
   }
 
-  // Get configuration and create model
   const config = getAIConfigFromEnv()
-  const vercelConfig = createModelFromConfig(config)
-  const model = createVercelAIModel(vercelConfig)
+  const model = createOpenAIModel(config)
 
   try {
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
+    // Prepare model parameters
+    const modelParams: ModelParams = {
+      model: model(config.model),
+      messages: aiMessages,
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      topP: config.topP,
+      frequencyPenalty: config.frequencyPenalty,
+      presencePenalty: config.presencePenalty
+    }
+
+    // Only add reasoningEffort if it's configured
+    if (config.reasoningEffort) {
+      modelParams.reasoningEffort = config.reasoningEffort
+    }
+
     // Generate response
-    const response = await model.chat(aiMessages)
+    const result = await generateText(modelParams)
 
     // Convert response to application format
     return {
-      content: convertAIResponseToMessageContent(response),
-      reasoning: typeof response.reasoning === 'string' ? response.reasoning : undefined
+      content: [
+        {
+          type: 'text',
+          text: result.text
+        }
+      ],
+      reasoning: result.reasoningText
     }
   } catch (error) {
     console.error('AI response generation failed:', error)
-    throw enhanceError(error, config.provider)
+    throw enhanceError(error)
   }
+}
+
+/**
+ * Callback interface for streaming events
+ */
+export interface StreamingCallbacks {
+  onTextChunk: (chunk: string) => void
+  onReasoningChunk?: (chunk: string) => void
+  onReasoningStart?: () => void
+  onReasoningEnd?: () => void
 }
 
 /**
@@ -326,7 +234,7 @@ export async function generateAIResponse(
  */
 export async function generateAIResponseWithStreaming(
   conversationMessages: Message[],
-  onChunk: (chunk: string) => void,
+  callbacks: StreamingCallbacks | ((chunk: string) => void),
   cancellationToken?: CancellationToken
 ): Promise<{ content: MessageContent; reasoning?: string }> {
   // Validate configuration
@@ -335,73 +243,130 @@ export async function generateAIResponseWithStreaming(
     throw new Error(validation.error || 'AI configuration is invalid')
   }
 
-  // Get configuration and create model
   const config = getAIConfigFromEnv()
-  const vercelConfig = createModelFromConfig(config)
-  const model = createVercelAIModel(vercelConfig)
+  const model = createOpenAIModel(config)
 
   try {
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
-    // Log model capabilities for debugging
-    const capabilities = model.getCapabilities()
-    console.log(`[AI] Using model: ${config.model} (provider: ${config.provider})`)
-    console.log(`[AI] Model capabilities:`, capabilities)
+    console.log(`[AI] Using model: ${config.model}`)
 
-    // Check if messages contain images and warn if model doesn't support vision
-    const hasImages = conversationMessages.some(
-      (msg) => Array.isArray(msg.content) && msg.content.some((part) => part.type === 'image')
-    )
-
-    if (hasImages && !capabilities.supportVision) {
-      console.warn(`[AI] Warning: Images detected but model ${config.model} may not support vision`)
+    // Prepare model parameters
+    const modelParams: ModelParams = {
+      model: model(config.model),
+      messages: aiMessages,
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      topP: config.topP,
+      frequencyPenalty: config.frequencyPenalty,
+      presencePenalty: config.presencePenalty
     }
 
-    // Accumulate the full response content and reasoning
-    let fullContent = ''
-    let reasoning: string | undefined
+    // Only add reasoningEffort if it's configured
+    if (config.reasoningEffort) {
+      modelParams.reasoningEffort = config.reasoningEffort
+    }
 
     // Stream response
-    for await (const chunk of model.stream(aiMessages, cancellationToken)) {
-      // Check for cancellation
-      if (cancellationToken?.isCancelled) {
-        console.log('AI streaming cancelled by user')
-        break
-      }
+    const result = streamText(modelParams)
 
-      if (chunk.content) {
-        fullContent += chunk.content
-        onChunk(chunk.content)
-      }
+    // Handle both old callback format and new callbacks interface
+    const streamCallbacks: StreamingCallbacks =
+      typeof callbacks === 'function' ? { onTextChunk: callbacks } : callbacks
 
-      if (chunk.reasoning) {
-        // Ensure reasoning is always a string, never a Promise
-        if (typeof chunk.reasoning === 'string') {
-          reasoning = chunk.reasoning
-        } else {
-          console.log('Warning: chunk.reasoning is not a string:', typeof chunk.reasoning)
+    // Try both textStream and fullStream approaches
+    let reasoningPhaseComplete = false
+    let hasSeenReasoningStart = false
+
+    try {
+      // First try to use fullStream for reasoning support
+      for await (const part of result.fullStream) {
+        // Check for cancellation
+        if (cancellationToken?.isCancelled) {
+          console.log('AI streaming cancelled by user')
+          break
+        }
+
+        console.log('[AI] FullStream part received:', { type: part.type, keys: Object.keys(part) })
+
+        switch (part.type) {
+          case 'text-delta':
+            console.log('[AI] Text delta received:', JSON.stringify(part.text))
+
+            // If we had reasoning but haven't seen reasoning-end yet, call it now
+            if (hasSeenReasoningStart && !reasoningPhaseComplete) {
+              console.log('[AI] First text chunk after reasoning - calling onReasoningEnd')
+              reasoningPhaseComplete = true
+              streamCallbacks.onReasoningEnd?.()
+            }
+
+            if (part.text && part.text.length > 0) {
+              streamCallbacks.onTextChunk(part.text)
+            }
+            break
+
+          case 'reasoning-start':
+            console.log('[AI] Reasoning start')
+            hasSeenReasoningStart = true
+            streamCallbacks.onReasoningStart?.()
+            break
+
+          case 'reasoning-delta':
+            console.log('[AI] Reasoning delta received:', JSON.stringify(part.text))
+            if (part.text && part.text.length > 0) {
+              streamCallbacks.onReasoningChunk?.(part.text)
+            }
+            break
+
+          case 'reasoning-end':
+            console.log('[AI] Reasoning end event received')
+            reasoningPhaseComplete = true
+            streamCallbacks.onReasoningEnd?.()
+            break
+
+          case 'error':
+            console.error('AI streaming error:', part.error)
+            throw part.error
+
+          default:
+            console.log('[AI] Unknown fullStream part type:', part.type, part)
         }
       }
+    } catch (error) {
+      console.log('[AI] FullStream failed, falling back to textStream:', error)
 
-      if (chunk.finished) {
-        break
+      // Fallback to regular textStream if fullStream fails
+      for await (const textChunk of result.textStream) {
+        // Check for cancellation
+        if (cancellationToken?.isCancelled) {
+          console.log('AI streaming cancelled by user')
+          break
+        }
+
+        console.log('[AI] TextStream chunk received:', JSON.stringify(textChunk))
+        if (textChunk && textChunk.length > 0) {
+          streamCallbacks.onTextChunk(textChunk)
+        }
       }
     }
+
+    // Wait for completion and get final results
+    const [text, reasoningText] = await Promise.all([result.text, result.reasoningText])
 
     // Convert final response to application format
     return {
       content: [
         {
           type: 'text',
-          text: fullContent
+          text
         }
       ],
-      reasoning: typeof reasoning === 'string' ? reasoning : undefined
+      reasoning: reasoningText
     }
   } catch (error) {
     console.error('AI streaming response generation failed:', error)
-    throw enhanceError(error, config.provider)
+    throw enhanceError(error)
   }
 }
 
@@ -412,7 +377,6 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
   success: boolean
   error?: string
   model?: string
-  provider?: string
 }> {
   try {
     const chatConfig = config || getAIConfigFromEnv()
@@ -425,21 +389,30 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
       }
     }
 
-    const vercelConfig = createModelFromConfig(chatConfig)
-    const model = createVercelAIModel(vercelConfig)
+    const model = createOpenAIModel(chatConfig)
+
+    // Prepare model parameters
+    const modelParams: ModelParams = {
+      model: model(chatConfig.model),
+      messages: [
+        {
+          role: 'user',
+          content: 'Hello! Please respond with just "OK" to confirm the connection.'
+        }
+      ]
+    }
+
+    // Only add reasoningEffort if it's configured
+    if (chatConfig.reasoningEffort) {
+      modelParams.reasoningEffort = chatConfig.reasoningEffort
+    }
 
     // Test with a simple message
-    await model.chat([
-      {
-        role: 'user',
-        content: 'Hello! Please respond with just "OK" to confirm the connection.'
-      }
-    ])
+    await generateText(modelParams)
 
     return {
       success: true,
-      model: chatConfig.model,
-      provider: chatConfig.provider
+      model: chatConfig.model
     }
   } catch (error) {
     return {
@@ -450,97 +423,35 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
 }
 
 /**
- * Gets available models for a specific provider
+ * Gets available OpenAI models (configured via environment)
  */
-export function getAvailableModels(provider: string): string[] {
-  switch (provider) {
-    case 'openai':
-      return [
-        'gpt-4o',
-        'gpt-4o-mini',
-        'gpt-4-turbo',
-        'gpt-4',
-        'gpt-3.5-turbo',
-        'o1-preview',
-        'o1-mini',
-        'o3-mini'
-      ]
-
-    case 'anthropic':
-      return [
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022',
-        'claude-3-opus-20240229',
-        'claude-3-sonnet-20240229',
-        'claude-3-haiku-20240307'
-      ]
-
-    case 'google':
-      return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
-
-    default:
-      return []
-  }
+export function getAvailableModels(): string[] {
+  // Models are configured via OPENAI_MODEL environment variable
+  // No need to define or verify specific model names
+  return []
 }
 
 /**
- * Gets all available providers and their models
+ * Enhances error messages with context
  */
-export function getAvailableProviders(): Array<{
-  provider: string
-  displayName: string
-  models: string[]
-}> {
-  return [
-    {
-      provider: 'openai',
-      displayName: 'OpenAI',
-      models: getAvailableModels('openai')
-    },
-    {
-      provider: 'anthropic',
-      displayName: 'Anthropic Claude',
-      models: getAvailableModels('anthropic')
-    },
-    {
-      provider: 'google',
-      displayName: 'Google Gemini',
-      models: getAvailableModels('google')
-    },
-    {
-      provider: 'custom',
-      displayName: 'Custom (OpenAI-compatible)',
-      models: ['custom-model'] // Placeholder - user can specify any model
-    }
-  ]
-}
-
-/**
- * Enhances error messages with provider-specific context
- */
-function enhanceError(error: unknown, provider: string): Error {
+function enhanceError(error: unknown): Error {
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
 
-    // Provider-specific error enhancements
     if (message.includes('api key')) {
-      return new Error(
-        `Invalid ${provider.toUpperCase()} API key. Please check your configuration.`
-      )
+      return new Error('Invalid OpenAI API key. Please check your configuration.')
     }
     if (message.includes('rate limit')) {
-      return new Error(`${provider.toUpperCase()} rate limit exceeded. Please try again later.`)
+      return new Error('OpenAI rate limit exceeded. Please try again later.')
     }
     if (message.includes('network') || message.includes('fetch')) {
       return new Error('Network error. Please check your internet connection and try again.')
     }
     if (message.includes('model')) {
-      return new Error(
-        `Model error with ${provider}: ${error.message}. Please check your model configuration.`
-      )
+      return new Error(`Model error: ${error.message}. Please check your model configuration.`)
     }
 
-    return new Error(`${provider.toUpperCase()} service error: ${error.message}`)
+    return new Error(`OpenAI service error: ${error.message}`)
   }
 
   return new Error(`AI service error: ${error instanceof Error ? error.message : 'Unknown error'}`)
