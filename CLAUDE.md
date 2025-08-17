@@ -64,6 +64,7 @@ Core principles:
 - Single Responsibility at module/component/function level
 - Prefer simple, explicit implementations
 - Keep files reasonably small (≈ <300 lines when practical)
+- Understand current status through `docs/README.md`
 - Document each module in `docs/` with purpose, usage, key decisions
 
 Expertise:

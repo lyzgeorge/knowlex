@@ -25,7 +25,6 @@ import {
   useToast,
   Tooltip
 } from '@chakra-ui/react'
-import { Modal } from '../ui/Modal'
 import {
   AddIcon,
   SearchIcon,
@@ -33,7 +32,9 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   CopyIcon,
-  HamburgerIcon
+  HamburgerIcon,
+  CheckIcon,
+  CloseIcon
 } from '@chakra-ui/icons'
 import { Button } from '../ui/Button'
 import { useProjectStore } from '../../stores/project'
@@ -61,11 +62,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const [hoveredProject, setHoveredProject] = useState<string | null>(null)
   const [hoveredConversation, setHoveredConversation] = useState<string | null>(null)
 
-  // Rename modal state
-  const [renameConversationId, setRenameConversationId] = useState<string | null>(null)
-  const [newConversationTitle, setNewConversationTitle] = useState('')
-  const [isRenaming, setIsRenaming] = useState(false)
-  const { isOpen: isRenameOpen, onOpen: onRenameOpen, onClose: onRenameClose } = useDisclosure()
+  // Inline editing state
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   // Delete confirmation state
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null)
@@ -104,30 +103,47 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     startNewChat()
   }, [startNewChat])
 
-  // Handle conversation rename
-  const handleRenameConversation = useCallback(
-    (conversationId: string, currentTitle: string) => {
-      setRenameConversationId(conversationId)
-      setNewConversationTitle(currentTitle)
-      onRenameOpen()
-    },
-    [onRenameOpen]
-  )
+  // Handle inline editing
+  const handleStartInlineEdit = useCallback((conversationId: string, currentTitle: string) => {
+    setEditingConversationId(conversationId)
+    setEditingTitle(currentTitle)
+  }, [])
 
-  const confirmRename = useCallback(async () => {
-    if (!renameConversationId || !newConversationTitle.trim()) return
+  const handleCancelInlineEdit = useCallback(() => {
+    setEditingConversationId(null)
+    setEditingTitle('')
+  }, [])
 
-    setIsRenaming(true)
+  const handleInputBlur = useCallback(() => {
+    // Add a small delay to allow clicking confirm button
+    setTimeout(() => {
+      if (editingConversationId) {
+        handleCancelInlineEdit()
+      }
+    }, 150)
+  }, [editingConversationId, handleCancelInlineEdit])
+
+  const handleConfirmInlineEdit = useCallback(async () => {
+    if (!editingConversationId || !editingTitle.trim()) return
+
+    console.log('Updating conversation title:', {
+      conversationId: editingConversationId,
+      newTitle: editingTitle.trim()
+    })
+
     try {
-      await updateConversationTitle(renameConversationId, newConversationTitle.trim())
+      await updateConversationTitle(editingConversationId, editingTitle.trim())
+      console.log('Conversation title updated successfully')
       toast({
         title: 'Conversation renamed',
         status: 'success',
         duration: 2000,
         isClosable: true
       })
-      onRenameClose()
+      setEditingConversationId(null)
+      setEditingTitle('')
     } catch (error) {
+      console.error('Failed to update conversation title:', error)
       toast({
         title: 'Failed to rename conversation',
         description: error instanceof Error ? error.message : 'An error occurred',
@@ -135,10 +151,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         duration: 3000,
         isClosable: true
       })
-    } finally {
-      setIsRenaming(false)
     }
-  }, [renameConversationId, newConversationTitle, updateConversationTitle, toast, onRenameClose])
+  }, [editingConversationId, editingTitle, updateConversationTitle, toast])
 
   // Handle conversation delete
   const handleDeleteConversation = useCallback(
@@ -479,40 +493,106 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                                     align="center"
                                   >
                                     {/* Conversation Title */}
-                                    <Tooltip
-                                      label={conversation.title}
-                                      placement="right"
-                                      hasArrow
-                                      openDelay={600}
-                                      closeDelay={200}
-                                      bg="surface.primary"
-                                      color="text.primary"
-                                      borderRadius="md"
-                                      border="1px solid"
-                                      borderColor="border.primary"
-                                      shadow="dropdown"
-                                      fontSize="xs"
-                                      fontWeight="medium"
-                                      px={3}
-                                      py={2}
-                                      maxW="240px"
-                                      textAlign="left"
-                                      whiteSpace="normal"
-                                    >
-                                      <Text
+                                    {editingConversationId === conversation.id ? (
+                                      <HStack flex={1} spacing={2}>
+                                        <Input
+                                          value={editingTitle}
+                                          onChange={(e) => setEditingTitle(e.target.value)}
+                                          fontSize="xs"
+                                          fontWeight="medium"
+                                          size="sm"
+                                          h="22px"
+                                          bg="transparent"
+                                          border="none"
+                                          _focus={{
+                                            boxShadow: 'none',
+                                            bg: 'surface.secondary',
+                                            border: '1px solid',
+                                            borderColor: 'primary.500'
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault()
+                                              handleConfirmInlineEdit()
+                                            } else if (e.key === 'Escape') {
+                                              e.preventDefault()
+                                              handleCancelInlineEdit()
+                                            }
+                                          }}
+                                          onBlur={handleInputBlur}
+                                          autoFocus
+                                        />
+                                      </HStack>
+                                    ) : (
+                                      <Tooltip
+                                        label={conversation.title}
+                                        placement="right"
+                                        hasArrow
+                                        openDelay={600}
+                                        closeDelay={200}
+                                        bg="surface.primary"
+                                        color="text.primary"
+                                        borderRadius="md"
+                                        border="1px solid"
+                                        borderColor="border.primary"
+                                        shadow="dropdown"
                                         fontSize="xs"
                                         fontWeight="medium"
-                                        noOfLines={1}
-                                        flex={1}
-                                        minW={0}
+                                        px={3}
+                                        py={2}
+                                        maxW="240px"
+                                        textAlign="left"
+                                        whiteSpace="normal"
                                       >
-                                        {conversation.title}
-                                      </Text>
-                                    </Tooltip>
+                                        <Text
+                                          fontSize="xs"
+                                          fontWeight="medium"
+                                          noOfLines={1}
+                                          flex={1}
+                                          minW={0}
+                                        >
+                                          {conversation.title}
+                                        </Text>
+                                      </Tooltip>
+                                    )}
 
-                                    {/* Time or Menu Icon */}
-                                    <Box minW="60px" display="flex" justifyContent="flex-end">
-                                      {isConvHovered ? (
+                                    {/* Time or Action Icons */}
+                                    <Box
+                                      minW="60px"
+                                      display="flex"
+                                      justifyContent="flex-end"
+                                      alignItems="center"
+                                    >
+                                      {editingConversationId === conversation.id ? (
+                                        <HStack spacing={1}>
+                                          <IconButton
+                                            aria-label="Confirm rename"
+                                            icon={<CheckIcon />}
+                                            size="xs"
+                                            variant="ghost"
+                                            color="green.500"
+                                            _hover={{ bg: 'green.50', color: 'green.600' }}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleConfirmInlineEdit()
+                                            }}
+                                          />
+                                          <IconButton
+                                            aria-label="Cancel rename"
+                                            icon={<CloseIcon />}
+                                            size="xs"
+                                            variant="ghost"
+                                            color="gray.500"
+                                            _hover={{ bg: 'gray.50', color: 'gray.600' }}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleCancelInlineEdit()
+                                            }}
+                                          />
+                                        </HStack>
+                                      ) : isConvHovered ? (
                                         <Menu>
                                           <MenuButton
                                             as={IconButton}
@@ -527,7 +607,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                                             <MenuItem>Remove from Project</MenuItem>
                                             <MenuItem
                                               onClick={() =>
-                                                handleRenameConversation(
+                                                handleStartInlineEdit(
                                                   conversation.id,
                                                   conversation.title
                                                 )
@@ -602,34 +682,94 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                       align="center"
                     >
                       {/* Conversation Title */}
-                      <Tooltip
-                        label={conversation.title}
-                        placement="right"
-                        hasArrow
-                        openDelay={600}
-                        closeDelay={200}
-                        bg="surface.primary"
-                        color="text.primary"
-                        borderRadius="md"
-                        border="1px solid"
-                        borderColor="border.primary"
-                        shadow="dropdown"
-                        fontSize="sm"
-                        fontWeight="medium"
-                        px={3}
-                        py={2}
-                        maxW="280px"
-                        textAlign="left"
-                        whiteSpace="normal"
-                      >
-                        <Text fontSize="sm" fontWeight="medium" noOfLines={1} flex={1} minW={0}>
-                          {conversation.title}
-                        </Text>
-                      </Tooltip>
+                      {editingConversationId === conversation.id ? (
+                        <HStack flex={1} spacing={1}>
+                          <Input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            fontSize="sm"
+                            fontWeight="medium"
+                            size="sm"
+                            h="24px"
+                            bg="transparent"
+                            border="none"
+                            _focus={{
+                              boxShadow: 'none',
+                              bg: 'transparent',
+                              border: '0px'
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleConfirmInlineEdit()
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault()
+                                handleCancelInlineEdit()
+                              }
+                            }}
+                            onBlur={handleInputBlur}
+                            autoFocus
+                          />
+                        </HStack>
+                      ) : (
+                        <Tooltip
+                          label={conversation.title}
+                          placement="right"
+                          hasArrow
+                          openDelay={600}
+                          closeDelay={200}
+                          bg="surface.primary"
+                          color="text.primary"
+                          borderRadius="md"
+                          border="1px solid"
+                          borderColor="border.primary"
+                          shadow="dropdown"
+                          fontSize="sm"
+                          fontWeight="medium"
+                          px={3}
+                          py={2}
+                          maxW="280px"
+                          textAlign="left"
+                          whiteSpace="normal"
+                        >
+                          <Text fontSize="sm" fontWeight="medium" noOfLines={1} flex={1} minW={0}>
+                            {conversation.title}
+                          </Text>
+                        </Tooltip>
+                      )}
 
-                      {/* Time or Menu Icon */}
+                      {/* Time or Action Icons */}
                       <Box minW="60px" display="flex" justifyContent="flex-end" alignItems="center">
-                        {isConvHovered ? (
+                        {editingConversationId === conversation.id ? (
+                          <HStack spacing={1}>
+                            <IconButton
+                              aria-label="Confirm rename"
+                              icon={<CheckIcon />}
+                              size="xs"
+                              variant="ghost"
+                              color="green.500"
+                              _hover={{ bg: 'green.50', color: 'green.600' }}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleConfirmInlineEdit()
+                              }}
+                            />
+                            <IconButton
+                              aria-label="Cancel rename"
+                              icon={<CloseIcon />}
+                              size="xs"
+                              variant="ghost"
+                              color="gray.500"
+                              _hover={{ bg: 'gray.50', color: 'gray.600' }}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCancelInlineEdit()
+                              }}
+                            />
+                          </HStack>
+                        ) : isConvHovered ? (
                           <Menu>
                             <MenuButton
                               as={IconButton}
@@ -646,7 +786,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                               <MenuItem>Move to Project</MenuItem>
                               <MenuItem
                                 onClick={() =>
-                                  handleRenameConversation(conversation.id, conversation.title)
+                                  handleStartInlineEdit(conversation.id, conversation.title)
                                 }
                               >
                                 Rename
@@ -696,41 +836,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           />
         </HStack>
       </Box>
-
-      {/* Rename Conversation Modal */}
-      <Modal
-        isOpen={isRenameOpen}
-        onClose={onRenameClose}
-        title="Rename Conversation"
-        size="md"
-        footer={
-          <HStack spacing={3}>
-            <Button variant="ghost" onClick={onRenameClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="blue"
-              onClick={confirmRename}
-              isLoading={isRenaming}
-              isDisabled={!newConversationTitle.trim()}
-            >
-              Rename
-            </Button>
-          </HStack>
-        }
-      >
-        <Input
-          value={newConversationTitle}
-          onChange={(e) => setNewConversationTitle(e.target.value)}
-          placeholder="Enter new conversation title"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              confirmRename()
-            }
-          }}
-        />
-      </Modal>
 
       {/* Delete Conversation Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={cancelRef} onClose={onDeleteClose}>

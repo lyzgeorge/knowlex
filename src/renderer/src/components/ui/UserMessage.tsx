@@ -3,6 +3,7 @@ import { Box, VStack, HStack, Text, useColorModeValue } from '@chakra-ui/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { markdownComponents } from '../../utils/markdownComponents'
 import type { Message, MessageContent, MessageContentPart } from '../../../shared/types'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 
@@ -42,8 +43,12 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
         case 'text':
           if (part.text) {
             return (
-              <Box key={key}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+              <Box key={key} className="markdown-content">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={markdownComponents}
+                >
                   {part.text}
                 </ReactMarkdown>
               </Box>

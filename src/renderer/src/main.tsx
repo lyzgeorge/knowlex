@@ -4,6 +4,7 @@ import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
 import { ErrorBoundary } from 'react-error-boundary'
 import App from './App'
 import theme from './utils/theme'
+import './styles/markdown.css'
 
 /**
  * Error Fallback Component for Error Boundary

@@ -1,47 +1,87 @@
 # Knowlex Desktop Documentation
 
-Welcome to the documentation for the Knowlex Desktop application. This collection of documents provides a comprehensive overview of the project's architecture, APIs, and features.
+**Intelligent desktop workspace with AI chat, project management, and RAG capabilities.**
 
-## Table of Contents
+Built with Electron, React, TypeScript, and Vercel AI SDK.
 
-1.  **[Getting Started](./01-getting-started.md)**
-    *   Learn how to set up your development environment, run the application, and build it for production.
+## 🚀 Quick Start
 
-2.  **[Architecture](./02-architecture.md)**
-    *   An in-depth look at the application's architecture, including the three-layer design, directory structure with file paths, and communication patterns.
+```bash
+# Setup and run
+pnpm install
+pnpm dev
 
-3.  **[API Reference](./03-api-reference.md)**
-    *   Comprehensive reference for all services and APIs, including project management, conversation handling, message processing, AI integration, and database operations with detailed function signatures and usage examples.
+# Test and build
+pnpm test
+pnpm build
+```
 
-4.  **[AI Integration System](./04-ai-integration.md)**
-    *   Complete documentation of the production-ready AI framework with OpenAI and Claude providers, intelligent caching, streaming support, multimodal capabilities, and extensible architecture.
+**Requirements:** Node.js 18+, pnpm
 
-5.  **[UI Components](./05-ui-components.md)**
-    *   Comprehensive guide to all UI components including basic components, layout system, feature components, and the advanced chat interface with detailed implementation examples.
+## 📚 Documentation Structure
 
-6.  **[Mock Data System](./06-mock-data.md)**
-    *   Documentation for the mock data system used in development and testing, including realistic sample projects and conversations.
+### Core Documentation (Start Here)
 
-7.  **[Chat Components](./07-chat-components.md)**
-    *   Complete documentation for the chat interface components, including ChatInterface, MessageList, ChatInputBox, and message operations, with implementation details and usage examples. **Status: Updated to reflect actual filenames.**
+1. **[Architecture Guide](./architecture.md)** - System design, technology stack, and architectural decisions
+2. **[Implementation Status](./implementation-status.md)** - ⭐ **Critical for new developers** - What's working, what's not, current state
+3. **[API Reference](./api-reference.md)** - Services, functions, types, and technical details for development
+4. **[Development Guide](./development-guide.md)** - Workflow, patterns, conventions, and best practices
 
-8.  **[Main Process Architecture](./08-main-process.md)**
-    *   Detailed documentation of the main process including application lifecycle, database layer, service architecture, IPC handlers, AI integration, and performance optimizations. **Status: Reflects actual implementation with noted gaps.**
+### Quick Reference
 
-9.  **[Renderer Process Architecture](./09-renderer-process.md)**
-    *   Comprehensive documentation of the renderer process covering React application structure, Zustand state management, component architecture, theming system, and performance considerations. **Status: Updated to reflect actual file structure.**
+- **Tech Stack:** Electron + React + TypeScript + Zustand + Chakra UI + libsql + Vercel AI SDK
+- **AI Integration:** OpenAI GPT-4o, o1 models with streaming and reasoning support
+- **Database:** SQLite with FTS5 search and vector storage capabilities
+- **State Management:** Zustand with immer for immutable updates
+- **IPC:** Type-safe communication between main and renderer processes
 
-10. **[Shared Code Architecture](./10-shared-code.md)**
-    *   Complete documentation of the shared code layer including type definitions, constants, utilities, and their usage patterns across main and renderer processes. **Status: Identifies critical duplicate type issues.**
+## 🏗️ Current Implementation Status
 
-11. **[IPC Communication System](./11-ipc-communication.md)**
-    *   Detailed documentation of the Inter-Process Communication system including security model, preload bridge, IPC handlers, event system, streaming support, and performance optimizations. **Status: Documents implemented and missing handlers.**
+### ✅ Fully Working
+- Complete chat interface with AI integration (OpenAI, reasoning models)
+- Real-time streaming responses with reasoning display and expand/collapse functionality
+- File upload and processing for temporary chat files
+- Project and conversation management with full CRUD operations
+- Database with migrations, full-text search, and vector storage infrastructure
+- Type-safe IPC communication with comprehensive error handling
+- Responsive UI with dark/light themes and custom markdown rendering
+- Advanced auto-scrolling with reasoning box state awareness
 
-12. **[Database and Storage System](./12-database-storage.md)**
-    *   Comprehensive documentation of the database system including libsql implementation, migration system, schema design, full-text search, vector storage, and performance optimization strategies. **Status: Comprehensive and accurate.**
+### 🚧 Partially Implemented
+- Project file management (backend ready, UI missing)
+- Settings management (backend ready, UI missing)
+- RAG system (infrastructure ready, services incomplete)
 
-13. **[Temporary File Processing](./13-temporary-file-processing.md)**
-    *   Documentation for handling file uploads in unclassified chat mode with immediate processing and strict constraints. **Status: ✅ FULLY IMPLEMENTED AND FUNCTIONAL - Complete integration with chat system and AI models.**
+### ❌ Missing
+- Project management UI components
+- Settings configuration UI
+- Vector search implementation
+- File vectorization services
 
-14. **[Implementation Status & Developer Guide](./14-implementation-status.md)** 🆕
-    *   **CRITICAL READ FOR NEW DEVELOPERS** - Comprehensive overview of what's actually implemented vs. documented, current development focus, missing components, and next development phases. **Status: Verified against actual codebase.**
+## 🎯 For New Developers
+
+1. **Start with [Implementation Status](./implementation-status.md)** to understand what's currently working
+2. **Read [Architecture Guide](./architecture.md)** for system overview
+3. **Follow [Development Guide](./development-guide.md)** for coding patterns
+4. **Reference [API Documentation](./api-reference.md)** when implementing features
+
+## 🔧 Key Features
+
+- **AI Chat:** Full conversation management with streaming responses
+- **File Processing:** Upload and process text files for AI context
+- **Project Organization:** Group conversations and files by project
+- **Search:** Full-text search across conversations and files
+- **Cross-Platform:** macOS, Windows, Linux support
+- **Type Safety:** Comprehensive TypeScript coverage
+- **Performance:** Optimized rendering and state management
+
+## 🏭 Architecture Highlights
+
+- **Three-Layer Design:** Main process (Node.js) + Renderer (React) + Shared types
+- **Security:** Context isolation, no Node.js in renderer, secure IPC
+- **Database:** libsql with migrations, FTS5 search, prepared for vector storage
+- **State:** Zustand stores with selective subscriptions and persistence
+- **Streaming:** Real-time AI responses with reasoning phase display
+- **Error Handling:** Comprehensive error boundaries and user-friendly messages
+
+See [Architecture Guide](./architecture.md) for detailed technical overview.

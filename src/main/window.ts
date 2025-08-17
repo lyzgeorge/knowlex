@@ -35,13 +35,29 @@ const SECURE_WEB_PREFERENCES = {
  * Creates the main application window
  */
 export async function createMainWindow(): Promise<BrowserWindow> {
+  console.log('Creating main window...')
+  console.log('Preload path:', join(__dirname, '../preload/index.js'))
+  console.log('__dirname:', __dirname)
+
   const window = new BrowserWindow({
     ...MAIN_WINDOW_CONFIG,
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    center: true, // Force center the window
     webPreferences: SECURE_WEB_PREFERENCES
   })
+
+  // Force window to be visible and centered - bypass saved bounds
+  window.setSize(MAIN_WINDOW_CONFIG.width, MAIN_WINDOW_CONFIG.height)
+  window.center()
+
+  // Show immediately for debugging
+  window.show()
+
+  if (is.dev) {
+    window.webContents.openDevTools({ mode: 'detach' })
+  }
 
   // Window event handlers
   setupWindowEvents(window)
@@ -50,14 +66,21 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   adaptToSystemTheme(window)
 
   // Load content
+  console.log('Loading window content...')
   await loadWindowContent(window, '/')
 
   // Show window when ready
   window.once('ready-to-show', () => {
+    console.log('Window ready to show')
     window.show()
     if (is.dev) {
       window.webContents.openDevTools({ mode: 'detach' })
     }
+  })
+
+  // Add error handling
+  window.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', errorCode, errorDescription, validatedURL)
   })
 
   return window
@@ -155,6 +178,11 @@ async function loadWindowContent(window: BrowserWindow, route: string): Promise<
       : `file://${join(__dirname, '../renderer/index.html')}`
 
   const fullUrl = is.dev ? `${baseUrl}#${route}` : `${baseUrl}#${route}`
+
+  console.log('Loading URL:', fullUrl)
+  console.log('Base URL:', baseUrl)
+  console.log('Is dev:', is.dev)
+  console.log('ELECTRON_RENDERER_URL:', process.env['ELECTRON_RENDERER_URL'])
 
   await window.loadURL(fullUrl)
 }

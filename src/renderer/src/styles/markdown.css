@@ -1,0 +1,164 @@
+/* Markdown content styling for Knowlex */
+
+/* Override highlight.js styles for better theme integration */
+.markdown-content .hljs {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* Light mode syntax highlighting */
+.chakra-ui-light .hljs {
+  color: #1a1a1a;
+}
+
+.chakra-ui-light .hljs-comment,
+.chakra-ui-light .hljs-quote {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.chakra-ui-light .hljs-keyword,
+.chakra-ui-light .hljs-selector-tag,
+.chakra-ui-light .hljs-type {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.chakra-ui-light .hljs-string,
+.chakra-ui-light .hljs-title {
+  color: #059669;
+}
+
+.chakra-ui-light .hljs-number,
+.chakra-ui-light .hljs-literal {
+  color: #ea580c;
+}
+
+.chakra-ui-light .hljs-function,
+.chakra-ui-light .hljs-built_in {
+  color: #7c3aed;
+}
+
+.chakra-ui-light .hljs-variable,
+.chakra-ui-light .hljs-attr {
+  color: #0891b2;
+}
+
+.chakra-ui-light .hljs-tag {
+  color: #dc2626;
+}
+
+/* Dark mode syntax highlighting */
+.chakra-ui-dark .hljs {
+  color: #b8c0bb;
+}
+
+.chakra-ui-dark .hljs-comment,
+.chakra-ui-dark .hljs-quote {
+  color: #9ca3a0;
+  font-style: italic;
+}
+
+.chakra-ui-dark .hljs-keyword,
+.chakra-ui-dark .hljs-selector-tag,
+.chakra-ui-dark .hljs-type {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.chakra-ui-dark .hljs-string,
+.chakra-ui-dark .hljs-title {
+  color: #34d399;
+}
+
+.chakra-ui-dark .hljs-number,
+.chakra-ui-dark .hljs-literal {
+  color: #fb923c;
+}
+
+.chakra-ui-dark .hljs-function,
+.chakra-ui-dark .hljs-built_in {
+  color: #a78bfa;
+}
+
+.chakra-ui-dark .hljs-variable,
+.chakra-ui-dark .hljs-attr {
+  color: #22d3ee;
+}
+
+.chakra-ui-dark .hljs-tag {
+  color: #f87171;
+}
+
+/* Custom list styling for better bullet point indentation */
+.markdown-content ul {
+  margin-left: 0 !important;
+  padding-left: 1.5rem !important;
+}
+
+.markdown-content ol {
+  margin-left: 0 !important;
+  padding-left: 1.5rem !important;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+  padding-left: 0.5rem;
+}
+
+.markdown-content li::marker {
+  color: var(--chakra-colors-text-secondary);
+}
+
+/* Ensure consistent spacing */
+.markdown-content p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Better table styling */
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  text-align: left;
+  vertical-align: top;
+}
+
+/* Code block improvements */
+.markdown-content pre {
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.markdown-content pre code {
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+/* Inline code consistency */
+.markdown-content :not(pre) > code {
+  white-space: nowrap;
+}
+
+/* Blockquote improvements */
+.markdown-content blockquote {
+  margin: 1rem 0;
+}
+
+.chakra-ui-light .markdown-content blockquote {
+  background-color: #f9fafb;
+  border-left-color: #d1d5db;
+}
+
+.chakra-ui-dark .markdown-content blockquote {
+  background-color: #1f2937;
+  border-left-color: #4b5563;
+}

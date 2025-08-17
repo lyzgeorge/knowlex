@@ -4,6 +4,7 @@ import { FaChevronDown, FaChevronRight, FaBrain } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { markdownComponents } from '../../utils/markdownComponents'
 
 export interface ReasoningBoxProps {
   /** Reasoning content to display */
@@ -77,18 +78,19 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
     const displayText = text.replace(/\u200B/g, '')
 
     return (
-      <Box as="span" display="inline">
+      <Box as="span" display="inline" className="markdown-content">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}
           components={{
-            // Style reasoning content with smaller font
+            ...markdownComponents,
+            // Override for reasoning content with smaller font
             p: ({ children }) => (
               <Text fontSize="sm" lineHeight="1.5" mb={2}>
                 {children}
               </Text>
             ),
-            // Style code blocks for reasoning
+            // Override code blocks for reasoning
             code: ({ children, className }) => {
               const isInline = !className
               if (isInline) {

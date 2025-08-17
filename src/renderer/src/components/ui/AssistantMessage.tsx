@@ -4,6 +4,7 @@ import { FaRobot } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { markdownComponents } from '../../utils/markdownComponents'
 import type { Message, MessageContent, MessageContentPart } from '../../../shared/types'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 import ReasoningBox from './ReasoningBox'
@@ -59,8 +60,12 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
     const displayText = text.replace(/\u200B/g, '')
 
     return (
-      <Box as="span" display="inline">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+      <Box as="span" display="inline" className="markdown-content">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeHighlight]}
+          components={markdownComponents}
+        >
           {displayText}
         </ReactMarkdown>
         {showCursor && (
