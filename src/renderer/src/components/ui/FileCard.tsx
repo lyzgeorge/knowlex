@@ -167,7 +167,7 @@ export const FileCard: React.FC<FileCardProps> = ({
             <HStack spacing={2} width="100%">
               <Text
                 fontWeight="medium"
-                fontSize={compact ? 'sm' : 'md'}
+                fontSize={compact ? 'xs' : 'sm'}
                 color="text.primary"
                 noOfLines={1}
                 flex="1"

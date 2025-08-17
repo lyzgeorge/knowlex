@@ -24,11 +24,11 @@ import type {
   MessageAddRequest
 } from '../../shared/types/ipc'
 import type { Conversation, Message, SessionSettings, MessageContent } from '../../shared/types'
+import { testAIConfiguration } from '../services/ai-chat-vercel'
 import {
-  generateAIResponse,
-  generateAIResponseWithStreaming,
-  testAIConfiguration
-} from '../services/ai-chat-vercel'
+  generateAssistantMessageForNewUserMessage,
+  regenerateAssistantMessage
+} from '../services/assistant-message-generator'
 import { cancellationManager } from '../utils/cancellation'
 
 /**
@@ -476,9 +476,33 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message content')
       }
 
+      let actualConversationId = request.conversationId
+
+      // Check if this is a pending conversation that needs to be created
+      if (request.conversationId.startsWith('pending-')) {
+        console.log(
+          'Creating actual conversation for pending conversation:',
+          request.conversationId
+        )
+
+        // Create the actual conversation record in database
+        const result = await createConversation({
+          projectId: undefined, // TODO: Handle projectId from request if needed
+          title: 'New Chat'
+        })
+
+        if (!result) {
+          throw new Error('Failed to create conversation')
+        }
+
+        const newConversation = result
+        console.log('Actual conversation created:', newConversation)
+        actualConversationId = newConversation.id
+      }
+
       // Step 1: Add user message
       const userMessage = await addMessage({
-        conversationId: request.conversationId,
+        conversationId: actualConversationId,
         role: 'user',
         content: request.content
       })
@@ -489,7 +513,7 @@ export function registerConversationIPCHandlers(): void {
       // Step 2: Create placeholder assistant message immediately (with small delay to ensure different timestamp)
       await new Promise((resolve) => setTimeout(resolve, 1)) // 1ms delay to ensure different timestamp
       const assistantMessage = await addMessage({
-        conversationId: request.conversationId,
+        conversationId: actualConversationId,
         role: 'assistant',
         content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
       })
@@ -503,135 +527,8 @@ export function registerConversationIPCHandlers(): void {
       // Step 4: Return immediately with the initial messages
       const initialMessages = [userMessage, assistantMessage]
 
-      // Step 5: Create cancellation token for this streaming operation
-      const cancellationToken = cancellationManager.createToken(assistantMessage.id)
-
-      // Step 6: Start background streaming process (don't await)
-      setImmediate(async () => {
-        try {
-          // Get all messages in the conversation for AI context
-          const allMessages = await getMessages(request.conversationId)
-
-          // Generate response with streaming and cancellation support
-          const response = await generateAIResponseWithStreaming(
-            allMessages,
-            {
-              onTextChunk: (chunk: string) => {
-                // Send each text chunk via event
-                sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
-                  messageId: assistantMessage.id,
-                  chunk
-                })
-              },
-              onReasoningStart: () => {
-                // Send reasoning start event
-                sendMessageEvent(MESSAGE_EVENTS.REASONING_START, {
-                  messageId: assistantMessage.id
-                })
-              },
-              onReasoningChunk: (chunk: string) => {
-                // Send each reasoning chunk via event
-                sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
-                  messageId: assistantMessage.id,
-                  chunk
-                })
-              },
-              onReasoningEnd: () => {
-                // Send reasoning end event
-                sendMessageEvent(MESSAGE_EVENTS.REASONING_END, {
-                  messageId: assistantMessage.id
-                })
-              }
-            },
-            cancellationToken
-          )
-
-          // Step 7: Update the assistant message with final content and reasoning
-          const updatedAssistantMessage = await updateMessage(assistantMessage.id, {
-            content: response.content,
-            reasoning: response.reasoning
-          })
-
-          // Step 8: Send streaming end event with final message
-          sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
-            messageId: assistantMessage.id,
-            message: updatedAssistantMessage
-          })
-
-          // Step 9: Clean up the cancellation token
-          cancellationManager.complete(assistantMessage.id)
-
-          // Check if this is the first complete exchange and trigger title generation
-          const totalMessages = await getMessages(request.conversationId)
-          const userMessages = totalMessages.filter((m) => m.role === 'user')
-          const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-
-          // Trigger title generation if we have exactly 1 user message and 1 assistant message
-          if (userMessages.length === 1 && assistantMessages.length === 1) {
-            console.log(
-              `Triggering automatic title generation for conversation ${request.conversationId} after first exchange`
-            )
-            try {
-              const newTitle = await generateConversationTitle(request.conversationId)
-
-              // Only update if we got a meaningful title (not generic fallback)
-              const isGenericFallback =
-                newTitle === 'New Chat' ||
-                newTitle.includes('Conversation ') ||
-                /^Chat \d{1,2}\/\d{1,2}\/\d{4}$/.test(newTitle)
-
-              if (newTitle && !isGenericFallback) {
-                await updateConversation(request.conversationId, { title: newTitle })
-
-                // Send title update event to renderer
-                sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-                  conversationId: request.conversationId,
-                  title: newTitle
-                })
-
-                console.log(
-                  `Successfully auto-generated title for conversation ${request.conversationId}: "${newTitle}"`
-                )
-              } else {
-                console.log(
-                  `Skipping title update for conversation ${request.conversationId}: got fallback title "${newTitle}"`
-                )
-              }
-            } catch (titleError) {
-              console.error('Failed to automatically generate title:', titleError)
-              // Don't fail the entire send operation if title generation fails
-            }
-          } else {
-            console.log(
-              `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
-            )
-          }
-        } catch (error) {
-          console.error('Failed to generate AI response:', error)
-
-          // Clean up the cancellation token
-          cancellationManager.complete(assistantMessage.id)
-
-          // Update assistant message with error content
-          const errorContent = [
-            {
-              type: 'text' as const,
-              text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
-            }
-          ]
-
-          const errorMessage = await updateMessage(assistantMessage.id, {
-            content: errorContent
-          })
-
-          // Send streaming error event
-          sendMessageEvent(MESSAGE_EVENTS.STREAMING_ERROR, {
-            messageId: assistantMessage.id,
-            message: errorMessage,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          })
-        }
-      })
+      // Step 5: Generate assistant response using the atomic module
+      await generateAssistantMessageForNewUserMessage(assistantMessage.id, actualConversationId)
 
       return initialMessages
     })
@@ -646,7 +543,7 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Invalid message ID')
         }
 
-        // Get the message to regenerate
+        // Get the message to regenerate for validation
         const message = await getMessage(messageId)
         if (!message) {
           throw new Error('Message not found')
@@ -656,39 +553,16 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Can only regenerate assistant messages')
         }
 
-        let updatedMessage: Message
+        // Clear the current message content and set placeholder
+        const clearedMessage = await updateMessage(messageId, {
+          content: [{ type: 'text' as const, text: '\u200B' }], // Zero-width space placeholder
+          reasoning: undefined // Clear reasoning as well
+        })
 
-        try {
-          // Get conversation messages up to the point before this assistant message
-          const allMessages = await getMessages(message.conversationId)
-          const messageIndex = allMessages.findIndex((m) => m.id === messageId)
-          const contextMessages = allMessages.slice(0, messageIndex)
+        // Generate new response using the atomic module
+        await regenerateAssistantMessage(messageId)
 
-          // Generate new AI response
-          const response = await generateAIResponse(contextMessages)
-
-          updatedMessage = await updateMessage(messageId, {
-            content: response.content,
-            reasoning: response.reasoning
-          })
-        } catch (error) {
-          console.error('Failed to regenerate AI response:', error)
-
-          // Fall back to error message
-          const errorContent = [
-            {
-              type: 'text' as const,
-              text: `Error regenerating response: ${error instanceof Error ? error.message : 'Please check your AI configuration.'}`
-            }
-          ]
-
-          updatedMessage = await updateMessage(messageId, {
-            content: errorContent
-          })
-        }
-
-        sendMessageEvent(MESSAGE_EVENTS.UPDATED, updatedMessage)
-        return updatedMessage
+        return clearedMessage
       })
     }
   )

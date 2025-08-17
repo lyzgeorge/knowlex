@@ -288,11 +288,35 @@ export async function generateAIResponseWithStreaming(
           break
         }
 
-        console.log('[AI] FullStream part received:', { type: part.type, keys: Object.keys(part) })
+        // Only log verbose details for unknown types and critical events
+        if (part.type === 'text-delta' || part.type === 'reasoning-delta') {
+          // Don't log every text chunk to reduce noise
+        } else if (
+          ['start', 'start-step', 'finish', 'finish-step', 'done', 'stream-start'].includes(
+            part.type
+          )
+        ) {
+          // These are normal flow events, log briefly
+          console.log(`[AI] Stream event: ${part.type}`)
+        } else {
+          // Log more details for other events
+          console.log('[AI] FullStream part received:', {
+            type: part.type,
+            keys: Object.keys(part)
+          })
+        }
 
         switch (part.type) {
+          case 'start':
+            // Stream initialization
+            break
+
+          case 'start-step':
+            // Step initialization
+            break
+
           case 'text-delta':
-            console.log('[AI] Text delta received:', JSON.stringify(part.text))
+            // console.log('[AI] Text delta received:', JSON.stringify(part.text))
 
             // If we had reasoning but haven't seen reasoning-end yet, call it now
             if (hasSeenReasoningStart && !reasoningPhaseComplete) {
@@ -313,7 +337,7 @@ export async function generateAIResponseWithStreaming(
             break
 
           case 'reasoning-delta':
-            console.log('[AI] Reasoning delta received:', JSON.stringify(part.text))
+            // console.log('[AI] Reasoning delta received:', JSON.stringify(part.text))
             if (part.text && part.text.length > 0) {
               streamCallbacks.onReasoningChunk?.(part.text)
             }
@@ -323,6 +347,26 @@ export async function generateAIResponseWithStreaming(
             console.log('[AI] Reasoning end event received')
             reasoningPhaseComplete = true
             streamCallbacks.onReasoningEnd?.()
+            break
+
+          case 'finish-step':
+          case 'step-finish':
+            // Step completion events
+            break
+
+          case 'finish':
+          case 'done':
+            // Stream completion events
+            break
+
+          case 'stream-start':
+            // Stream start event
+            break
+
+          case 'tool-call':
+          case 'tool-call-delta':
+          case 'tool-result':
+            console.log(`[AI] Tool event: ${part.type}`)
             break
 
           case 'error':

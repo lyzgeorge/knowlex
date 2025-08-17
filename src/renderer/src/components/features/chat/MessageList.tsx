@@ -37,7 +37,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         p={8}
         className={className}
       >
-        <Text fontSize="md" color="text.tertiary" textAlign="center">
+        <Text fontSize="sm" color="text.tertiary" textAlign="center">
           No messages yet. Start the conversation!
         </Text>
       </Box>

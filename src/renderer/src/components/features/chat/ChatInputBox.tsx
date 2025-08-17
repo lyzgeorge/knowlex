@@ -14,21 +14,11 @@ import FilePreview from './FilePreview'
 import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
 import type { TemporaryFileResult } from '../../../../shared/types'
 
-// File upload constants (for UI display)
-const MAX_FILES = 10
-
 // Animation for refresh icon
 const spinAnimation = keyframes`
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 `
-
-// ChatInputBoxPayload interface
-export interface ChatInputBoxPayload {
-  input: string
-  files: File[]
-  temporaryFiles?: TemporaryFileResult[]
-}
 
 export type ChatInputVariant = 'main-entrance' | 'conversation'
 
@@ -91,7 +81,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const getDefaultPlaceholder = (): string => {
     switch (variant) {
       case 'main-entrance':
-        return 'Ask Knowlex about anything ...'
+        return 'Ask a question about ...'
       case 'conversation':
         return '' // No placeholder when there are messages
       default:
@@ -290,52 +280,6 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           }))
         )
         await sendMessage(conversationId, content)
-      }
-      // If conversationId is provided but variant is main-entrance, use store sendMessage
-      else if (conversationId) {
-        console.log(
-          'handleSend: Using fallback conversationId path, conversationId:',
-          conversationId,
-          'variant:',
-          variant
-        )
-        const content = []
-
-        // Add text content part only if there's actual text
-        if (originalInput.trim().length > 0) {
-          content.push({ type: 'text' as const, text: originalInput })
-        }
-
-        // Add temporary file content parts or image parts
-        processedFiles.forEach((file) => {
-          if (!file.error) {
-            if (file.isImage) {
-              // Add as image content part
-              content.push({
-                type: 'image' as const,
-                image: {
-                  url: file.content, // This is a data URL
-                  alt: file.filename,
-                  mimeType: file.mimeType,
-                  size: file.size
-                }
-              })
-            } else {
-              // Add as temporary file content part
-              content.push({
-                type: 'temporary-file' as const,
-                temporaryFile: {
-                  filename: file.filename,
-                  content: file.content,
-                  size: file.size,
-                  mimeType: file.mimeType
-                }
-              })
-            }
-          }
-        })
-
-        await sendMessage(conversationId, content)
       } else {
         console.log('handleSend: No matching path found!', {
           onSendMessage: !!onSendMessage,
@@ -375,13 +319,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     [handleSend, isStreaming, streamingMessageId]
   )
 
-  // Can send message?
+  // Button state logic
+  const hasContent = input.trim().length > 0 || fileUpload.state.files.length > 0
+  const isGenerating = isStreaming && streamingMessageId
   const canSend =
-    (input.trim().length > 0 || fileUpload.state.files.length > 0) &&
-    !isSending &&
-    !disabled &&
-    !fileUpload.state.isProcessing &&
-    !(isStreaming && streamingMessageId)
+    hasContent && !isSending && !disabled && !fileUpload.state.isProcessing && !isGenerating
 
   // Unified render - single implementation for all variants
   return (
@@ -451,7 +393,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 size="sm"
                 variant="ghost"
                 borderRadius="full"
-                isDisabled={disabled || fileUpload.state.files.length >= MAX_FILES}
+                isDisabled={disabled || fileUpload.state.files.length >= 10}
                 onClick={() => fileInputRef.current?.click()}
               />
 
@@ -495,44 +437,45 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           </Box>
 
           {/* Send/Stop Button */}
-          {isStreaming && streamingMessageId ? (
-            // State 3 & 5: When receiving chunk messages, show rotating button
+          {isGenerating ? (
+            // State 4: When assistant is generating, show refresh button with spin animation
+            // On hover, show red stop button
             <IconButton
-              aria-label={isHoveringStreamButton ? 'Stop streaming' : 'Receiving response'}
+              aria-label={isHoveringStreamButton ? 'Stop streaming' : 'Generating response'}
               icon={
                 isHoveringStreamButton ? (
                   <FaStop />
                 ) : (
                   <RepeatIcon
                     css={{
-                      animation: `${spinAnimation} 2s linear infinite`
+                      animation: `${spinAnimation} 1s linear infinite`
                     }}
                   />
                 )
               }
-              colorScheme={isHoveringStreamButton ? 'red' : 'gray'}
+              variant={isHoveringStreamButton ? 'solid' : 'solid'}
+              colorScheme={isHoveringStreamButton ? 'red' : 'primary'}
               size="sm"
               borderRadius="md"
               onClick={isHoveringStreamButton ? handleStop : undefined}
               onMouseEnter={() => setIsHoveringStreamButton(true)}
               onMouseLeave={() => setIsHoveringStreamButton(false)}
-              cursor={isHoveringStreamButton ? 'pointer' : 'not-allowed'}
-              pointerEvents="auto"
-              _hover={{
-                bg: isHoveringStreamButton ? 'red.600' : 'gray'
-              }}
+              cursor={isHoveringStreamButton ? 'pointer' : 'default'}
+              bg={isHoveringStreamButton ? undefined : 'gray.300'}
             />
           ) : (
-            // State 1 & 2: Normal send button
+            // State 1, 2, 5: Send button with proper enabled/disabled states
             <IconButton
               aria-label="Send message"
               icon={<ArrowUpIcon />}
-              colorScheme="primary"
+              colorScheme={canSend ? 'primary' : undefined}
+              color={canSend ? undefined : undefined}
               size="sm"
               borderRadius="md"
               isDisabled={!canSend}
               isLoading={isSending || fileUpload.state.isProcessing}
               onClick={handleSend}
+              cursor={canSend ? 'pointer' : 'not-allowed'}
             />
           )}
         </HStack>

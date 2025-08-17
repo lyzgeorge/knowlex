@@ -189,7 +189,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
         animateOpacity
         transition={{ enter: { duration: 0.2 }, exit: { duration: 0.15 } }}
       >
-        <Box px={3} pt={2} pb={0} color={textColor}>
+        <Box px={3} pt={2} pb={2} color={textColor}>
           {reasoning?.trim() ? (
             renderReasoningContent(reasoning, isReasoningStreaming)
           ) : isReasoningStreaming ? (

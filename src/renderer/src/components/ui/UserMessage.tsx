@@ -88,34 +88,34 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
   return (
     <HStack
       align="flex-start"
-      spacing={3}
+      spacing={2}
       width="100%"
       justify="flex-end"
-      mb={4}
+      mb={2}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <VStack align="flex-end" spacing={1} maxWidth="70%">
+      <VStack align="flex-end" spacing={2} maxWidth="70%">
         <Box
           bg={userBg}
           color={userTextColor}
-          px={4}
-          py={3}
+          px={3}
+          py={2}
           borderRadius="lg"
           border="1px solid"
           borderColor="rgba(74, 124, 74, 0.2)"
-          width="100%"
+          alignSelf="flex-end"
         >
           {renderContent(message.content)}
         </Box>
 
-        <Box px={2} minHeight="16px" display="flex" alignItems="center">
+        <HStack spacing={2} px={1} minHeight="16px" alignItems="center" alignSelf="flex-end">
           {isHovered ? (
             <MessageActionIcons message={message} isVisible={isHovered} />
           ) : (
             showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
           )}
-        </Box>
+        </HStack>
       </VStack>
     </HStack>
   )

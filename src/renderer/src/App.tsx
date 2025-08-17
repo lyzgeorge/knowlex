@@ -26,7 +26,7 @@ function LoadingFallback() {
     >
       <VStack spacing={4}>
         <Spinner size="lg" color="primary.500" />
-        <Text fontSize="md" color="text.secondary">
+        <Text fontSize="sm" color="text.secondary">
           Loading Knowlex...
         </Text>
       </VStack>

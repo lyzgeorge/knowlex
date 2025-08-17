@@ -142,7 +142,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       >
         {/* Welcome Message */}
         <Text fontSize="3xl" fontWeight="medium" color="text.primary">
-          您在忙什么?
+          How do you do?
         </Text>
 
         {/* Chat Entrance */}
@@ -189,7 +189,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       >
         {/* Welcome Message */}
         <Text fontSize="3xl" fontWeight="medium" color="text.primary">
-          您在忙什么?
+          How do you do?
         </Text>
 
         {/* Chat Input - Always use main-entrance variant for consistency */}

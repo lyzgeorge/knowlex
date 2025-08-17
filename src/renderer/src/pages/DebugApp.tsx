@@ -18,7 +18,7 @@ function DebugApp(): JSX.Element {
           Knowlex Debug Console
         </Text>
 
-        <Text fontSize="md" color="gray.400" textAlign="center" maxW="md">
+        <Text fontSize="sm" color="gray.400" textAlign="center" maxW="md">
           This debug window is running separately from the main application. Use the main window to
           test the chat interface and core functionality.
         </Text>

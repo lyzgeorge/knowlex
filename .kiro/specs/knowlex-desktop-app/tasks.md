@@ -252,8 +252,8 @@
 ## 项目管理界面
 
 - [ ] 20. 项目管理界面
-  - 实现components/features/project/ProjectList.tsx：项目卡片显示，创建按钮，搜索过滤
-  - 实现components/features/project/ProjectDetail.tsx：项目信息展示，统计数据，快速操作入口
+  - 实现components/features/project/ProjectList.tsx：项目卡片显示，创建按钮
+  - 实现components/features/project/ProjectDetail.tsx：项目信息展示，快速操作入口
   - 实现项目CRUD：创建对话框，编辑表单，删除确认，重命名功能
   - 定义Project接口：id, name, description, createdAt, updatedAt, stats
   - _Requirements: 1.5, 1.6, 1.9, 1.10_

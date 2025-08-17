@@ -215,7 +215,7 @@ export const markdownComponents: Components = {
 
   // Paragraphs with consistent spacing and line height
   p: ({ children }) => (
-    <Text fontSize="md" lineHeight="1.6" mb={3} color="text.primary">
+    <Text fontSize="sm" lineHeight="1.6" mb={3} color="text.primary">
       {children}
     </Text>
   ),
@@ -245,7 +245,7 @@ export const markdownComponents: Components = {
   ),
   li: ({ children }) => (
     <ListItem
-      fontSize="md"
+      fontSize="sm"
       lineHeight="1.6"
       color="text.primary"
       pl={2} // Additional padding for better readability

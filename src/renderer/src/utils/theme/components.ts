@@ -24,7 +24,7 @@ export const components = {
       md: {
         h: '40px',
         minW: '40px',
-        fontSize: 'md',
+        fontSize: 'sm',
         px: 4
       },
       lg: {
@@ -126,7 +126,7 @@ export const components = {
       md: {
         field: {
           h: '40px',
-          fontSize: 'md',
+          fontSize: 'sm',
           px: 4
         }
       },

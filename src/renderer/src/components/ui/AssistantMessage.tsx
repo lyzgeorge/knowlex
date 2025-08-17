@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon } from '@chakra-ui/react'
-import { FaRobot } from 'react-icons/fa'
+import { FaForumbee } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -70,7 +70,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         </ReactMarkdown>
         {showCursor && (
           <Icon
-            as={FaRobot}
+            as={FaForumbee}
             boxSize={3}
             color="gray.400"
             ml={1}
@@ -157,15 +157,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           borderColor={avatarBorder}
           flexShrink={0}
         >
-          <Icon as={FaRobot} boxSize={4} color={iconColor} />
+          <Icon as={FaForumbee} boxSize={4} color={iconColor} />
         </Box>
       )}
 
       {/* Message Content */}
-      <VStack align="flex-start" spacing={1} maxWidth="70%" flex={1}>
+      <VStack align="flex-start" spacing={2} maxWidth="70%" flex={1}>
         {/* Reasoning Box - Show before main content for assistant messages */}
         {(message.reasoning || isReasoningStreamingForMessage) && (
-          <Box width="100%">
+          <Box alignSelf="flex-start">
             <ReasoningBox
               reasoning={message.reasoning}
               isReasoningStreaming={isReasoningStreamingForMessage}
@@ -177,21 +177,21 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         <Box
           bg="transparent"
           color={assistantTextColor}
-          px={3}
-          py={2}
+          px={2}
+          py={0}
           borderRadius="lg"
-          width="100%"
+          alignSelf="flex-start"
         >
           {renderContent(message.content)}
         </Box>
 
-        <Box px={2} minHeight="16px" display="flex" alignItems="center">
+        <HStack spacing={2} px={1} minHeight="16px" alignItems="center" alignSelf="flex-start">
           {isHovered ? (
             <MessageActionIcons message={message} isVisible={isHovered} />
           ) : (
             showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
           )}
-        </Box>
+        </HStack>
       </VStack>
     </HStack>
   )
