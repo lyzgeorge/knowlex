@@ -121,6 +121,10 @@ The AI chat system is fully functional and ready for daily use. All the backend 
 - **Reasoning Display**: New UI component shows AI thinking process
 - **Smoother Streaming**: Better real-time response handling
 - **Error Handling**: Clear, user-friendly error messages
+- **Modular Services**: New assistant message generator service for code reuse
+- **Auto Titles**: Intelligent conversation title generation after first AI response
+- **Streaming Architecture**: Improved real-time event handling with cancellation support
+- **Enhanced UI**: Better markdown rendering and reasoning box interactions
 
 ## 🚀 Getting Started as a Developer
 
@@ -142,6 +146,11 @@ pnpm build     # Build for production
 3. **Update State**: Modify Zustand stores in `src/renderer/src/stores/`
 4. **Build UI**: Create React components using Chakra UI
 5. **Connect Everything**: Use custom hooks to connect UI to backend
+
+### New Services Architecture
+- **Assistant Message Generator** (`assistant-message-generator.ts`): Unified streaming message generation
+- **Title Generation** (`title-generation.ts`): Automatic conversation title generation
+- **Enhanced IPC Events**: Real-time streaming events for better UX
 
 ### Code Organization
 - **`src/main/`** - Backend logic (Node.js, database, AI integration)

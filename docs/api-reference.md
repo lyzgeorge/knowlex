@@ -2,6 +2,18 @@
 
 This document provides comprehensive technical documentation for all services, interfaces, and APIs in Knowlex Desktop.
 
+## Recent Service Additions
+
+### Assistant Message Generator Service
+- **File**: `src/main/services/assistant-message-generator.ts`
+- **Purpose**: Unified service for generating AI responses with streaming support
+- **Key Functions**: `generateAssistantMessage()`, `generateAssistantMessageForNewUserMessage()`, `regenerateAssistantMessage()`
+
+### Title Generation Service  
+- **File**: `src/main/services/title-generation.ts`
+- **Purpose**: Automatic conversation title generation using AI
+- **Key Functions**: `generateTitleForConversation()`, `shouldTriggerAutoGeneration()`
+
 ## Core Types & Interfaces
 
 ### Project Domain

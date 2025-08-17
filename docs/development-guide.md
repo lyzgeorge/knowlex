@@ -37,6 +37,11 @@ Follow the established pattern for all new features:
 ```
 Main Process (Node.js/Electron)
 ├── Services (src/main/services/)
+│   ├── assistant-message-generator.ts  # NEW: Unified AI response generation
+│   ├── title-generation.ts             # NEW: Auto conversation titles
+│   ├── ai-chat-vercel.ts              # Core AI integration
+│   ├── conversation.ts                # Conversation management
+│   └── message.ts                     # Message operations
 ├── IPC Handlers (src/main/ipc/) 
 ├── Database (src/main/database/)
 └── Utils (src/main/utils/)

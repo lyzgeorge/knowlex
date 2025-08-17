@@ -44,6 +44,9 @@ pnpm build
 - **Data Storage**: Complete database with search capabilities
 - **User Interface**: Dark/light themes, responsive design, smooth animations
 - **Code Rendering**: Syntax highlighting for code blocks in chat
+- **Auto Titles**: Conversations automatically get meaningful titles after first exchange
+- **Message Management**: Edit, regenerate, and copy message functionality
+- **Streaming Architecture**: Real-time AI responses with cancellation support
 
 ### 🚧 What's Half Done (Backend Ready, Need UI)
 - **Project Management**: Can create/delete projects, need management interface
@@ -66,12 +69,16 @@ pnpm build
 - Switched to Vercel AI SDK (more reliable, faster)
 - Support for multiple AI providers (OpenAI, compatible APIs)
 - Better error messages when AI calls fail
+- **New**: Automatic conversation title generation after first exchange
+- **New**: Modular assistant message generation with streaming
 
 ### 🎨 Enhanced: User Experience
 - Smoother scrolling during conversations
 - Better file upload feedback
 - Improved markdown rendering with syntax highlighting
 - More responsive interface overall
+- **New**: Enhanced markdown components with better code rendering
+- **New**: Improved ReasoningBox component for better AI thought display
 
 ## 🎯 For New Developers
 
