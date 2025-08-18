@@ -94,7 +94,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
     return content.map((part: MessageContentPart, index: number) => {
       const key = `part-${index}`
       const isLastTextPart = index === content.length - 1 && part.type === 'text'
-      const showCursor = isStreaming && isLastTextPart
+      // Hide the streaming cursor (FaForumbee icon) when reasoning is streaming for this message
+      const showCursor = isStreaming && isLastTextPart && !isReasoningStreamingForMessage
 
       switch (part.type) {
         case 'text':
