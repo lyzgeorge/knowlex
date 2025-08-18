@@ -10,7 +10,7 @@ import {
   useStreamingMessageId,
   useStopStreaming
 } from '../../../stores/conversation'
-import FilePreview from './FilePreview'
+import TempFileCard from './TempFileCard'
 import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
 import type { TemporaryFileResult } from '../../../../shared/types'
 
@@ -328,7 +328,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Unified render - single implementation for all variants
   return (
     <Box
-      p={variant === 'main-entrance' ? 0 : 4}
+      p={4}
       className={className}
       maxW="752px"
       w="full"
@@ -372,7 +372,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               }}
             >
               {fileUpload.state.files.map((fileItem: FileUploadItem) => (
-                <FilePreview
+                <TempFileCard
                   key={fileItem.id}
                   file={fileItem.file}
                   onRemove={() => fileUpload.removeFile(fileItem)}

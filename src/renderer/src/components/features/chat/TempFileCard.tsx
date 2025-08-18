@@ -3,7 +3,7 @@ import { Box, HStack, Text, IconButton, useColorModeValue, Image } from '@chakra
 import { CloseIcon, AttachmentIcon } from '@chakra-ui/icons'
 import { isImageFile } from '../../../../../shared/utils/validation'
 
-export interface FilePreviewProps {
+export interface TempFileCardProps {
   /** File to preview */
   file: File
   /** Callback when file is removed */
@@ -15,7 +15,7 @@ export interface FilePreviewProps {
 }
 
 /**
- * FilePreview component for displaying uploaded file information
+ * TempFileCard component for displaying uploaded file information
  *
  * Features:
  * - Shows file name and size
@@ -23,7 +23,7 @@ export interface FilePreviewProps {
  * - Remove button
  * - Compact card layout
  */
-export const FilePreview: React.FC<FilePreviewProps> = ({
+export const TempFileCard: React.FC<TempFileCardProps> = ({
   file,
   onRemove,
   variant = 'default',
@@ -72,8 +72,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
           borderColor={borderColor}
           borderRadius="md"
           overflow="hidden"
-          minW="120px"
-          maxW="200px"
+          w="160px"
           flexShrink={0}
           className={className}
           position="relative"
@@ -91,10 +90,11 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
                   color={textColor}
                   noOfLines={1}
                   title={file.name}
+                  textAlign="left"
                 >
                   {file.name}
                 </Text>
-                <Text fontSize="2xs" color={secondaryTextColor}>
+                <Text fontSize="2xs" color={secondaryTextColor} textAlign="left">
                   {formatFileSize(file.size)}
                 </Text>
               </Box>
@@ -126,8 +126,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
         borderColor={borderColor}
         borderRadius="md"
         p={2}
-        minW="120px"
-        maxW="200px"
+        w="160px"
         flexShrink={0}
         className={className}
       >
@@ -143,10 +142,11 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
               color={textColor}
               noOfLines={1}
               title={file.name}
+              textAlign="left"
             >
               {file.name}
             </Text>
-            <Text fontSize="2xs" color={secondaryTextColor}>
+            <Text fontSize="2xs" color={secondaryTextColor} textAlign="left">
               {formatFileSize(file.size)}
             </Text>
           </Box>
@@ -220,6 +220,6 @@ export const FilePreview: React.FC<FilePreviewProps> = ({
   )
 }
 
-FilePreview.displayName = 'FilePreview'
+TempFileCard.displayName = 'TempFileCard'
 
-export default FilePreview
+export default TempFileCard

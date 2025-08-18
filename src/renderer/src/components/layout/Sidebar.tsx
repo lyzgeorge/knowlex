@@ -500,16 +500,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                                           onChange={(e) => setEditingTitle(e.target.value)}
                                           fontSize="xs"
                                           fontWeight="medium"
+                                          variant="unstyled"
                                           size="sm"
                                           h="22px"
+                                          lineHeight="22px"
+                                          px={0}
+                                          py={0}
                                           bg="transparent"
-                                          border="none"
-                                          _focus={{
-                                            boxShadow: 'none',
-                                            bg: 'surface.secondary',
-                                            border: '1px solid',
-                                            borderColor: 'primary.500'
-                                          }}
+                                          _focus={{ boxShadow: 'none', bg: 'transparent' }}
                                           onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                               e.preventDefault()
@@ -689,15 +687,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             onChange={(e) => setEditingTitle(e.target.value)}
                             fontSize="sm"
                             fontWeight="medium"
+                            variant="unstyled"
                             size="sm"
-                            h="24px"
+                            h="22px"
+                            lineHeight="22px"
+                            px={0}
+                            py={0}
                             bg="transparent"
-                            border="none"
-                            _focus={{
-                              boxShadow: 'none',
-                              bg: 'transparent',
-                              border: '0px'
-                            }}
+                            _focus={{ boxShadow: 'none', bg: 'transparent' }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault()

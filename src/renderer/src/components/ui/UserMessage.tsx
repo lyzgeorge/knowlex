@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Box, VStack, HStack, Text, useColorModeValue } from '@chakra-ui/react'
+import { Box, VStack, HStack, Text, useColorModeValue, Image } from '@chakra-ui/react'
+import { AttachmentIcon } from '@chakra-ui/icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -61,19 +62,78 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
             return (
               <Box
                 key={key}
-                p={3}
-                bg="gray.50"
-                borderRadius="md"
+                bg="surface.secondary"
                 border="1px solid"
-                borderColor="gray.200"
-                fontSize="sm"
+                borderColor="border.secondary"
+                borderRadius="md"
+                p={2}
+                minW="120px"
+                maxW="200px"
+                flexShrink={0}
               >
-                <Text fontWeight="medium" mb={2}>
-                  {part.temporaryFile.filename}
-                </Text>
-                <Text fontSize="xs" color="gray.600" noOfLines={3}>
-                  {part.temporaryFile.content.substring(0, 200)}...
-                </Text>
+                <HStack spacing={2} align="center">
+                  {/* File Icon */}
+                  <AttachmentIcon color="text.secondary" flexShrink={0} boxSize={3} />
+
+                  {/* File Info */}
+                  <Box flex={1} minWidth={0}>
+                    <Text
+                      fontSize="xs"
+                      fontWeight="medium"
+                      color="text.primary"
+                      noOfLines={1}
+                      title={part.temporaryFile.filename}
+                    >
+                      {part.temporaryFile.filename}
+                    </Text>
+                    <Text fontSize="2xs" color="text.secondary">
+                      {Math.round(part.temporaryFile.size / 1024)} KB
+                    </Text>
+                  </Box>
+                </HStack>
+              </Box>
+            )
+          }
+          return null
+
+        case 'image':
+          if (part.image) {
+            return (
+              <Box
+                key={key}
+                bg="surface.secondary"
+                border="1px solid"
+                borderColor="border.secondary"
+                borderRadius="md"
+                overflow="hidden"
+                minW="120px"
+                maxW="200px"
+                flexShrink={0}
+              >
+                {/* Image thumbnail */}
+                <Image
+                  src={part.image.url}
+                  alt={part.image.alt || 'Uploaded image'}
+                  objectFit="cover"
+                  width="100%"
+                  height="80px"
+                />
+
+                {/* File info overlay */}
+                <Box p={2} bg="surface.secondary">
+                  <Text
+                    fontSize="xs"
+                    fontWeight="medium"
+                    color="text.primary"
+                    noOfLines={1}
+                    title={part.image.alt || 'Image'}
+                  >
+                    {part.image.alt || 'Image'}
+                  </Text>
+                  <Text fontSize="2xs" color="text.secondary">
+                    {part.image.size ? `${Math.round(part.image.size / 1024)} KB` : 'Image'}
+                  </Text>
+                </Box>
               </Box>
             )
           }

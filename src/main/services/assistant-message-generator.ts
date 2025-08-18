@@ -101,17 +101,28 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
         cancellationToken
       )
 
+      // Check if the operation was cancelled
+      const wasCancelled = cancellationToken.isCancelled
+
       // Update the message with final content and reasoning
       const updatedMessage = await updateMessage(messageId, {
         content: response.content,
         reasoning: response.reasoning
       })
 
-      // Send streaming end event with final message
-      sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
-        messageId,
-        message: updatedMessage
-      })
+      if (wasCancelled) {
+        // Send streaming cancelled event with partial message
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
+          messageId,
+          message: updatedMessage
+        })
+      } else {
+        // Send streaming end event with final message
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
+          messageId,
+          message: updatedMessage
+        })
+      }
 
       // Clean up the cancellation token
       cancellationManager.complete(messageId)

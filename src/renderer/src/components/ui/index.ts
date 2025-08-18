@@ -8,7 +8,6 @@
 export { Button, type ButtonProps } from './Button'
 export { Input, type InputProps } from './Input'
 export { Modal, type ModalProps } from './Modal'
-export { FileCard, type FileCardProps } from './FileCard'
 export { MessageBubble, type MessageBubbleProps } from './MessageBubble'
 export { UserMessage, type UserMessageProps } from './UserMessage'
 export { AssistantMessage, type AssistantMessageProps } from './AssistantMessage'

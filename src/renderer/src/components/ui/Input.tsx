@@ -58,7 +58,7 @@ export interface InputProps extends Omit<ChakraInputProps, 'size'> {
  */
 export const Input = forwardRef<InputProps, 'input'>((props, ref) => {
   const {
-    size = 'md',
+    size = 'sm',
     variant = 'outline',
     label,
     helperText,

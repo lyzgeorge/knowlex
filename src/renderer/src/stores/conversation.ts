@@ -265,20 +265,15 @@ function setupEventListeners() {
         state.isStreaming = false
         state.streamingMessageId = null
 
-        // Find and update the message to indicate it was cancelled
-        for (const conversationMessages of Object.values(state.messages)) {
-          const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
-          if (messageIndex !== -1) {
-            const message = conversationMessages[messageIndex]
-            // Add cancellation indicator to the last text part
-            const lastPart = message.content[message.content.length - 1]
-            if (lastPart && lastPart.type === 'text') {
-              lastPart.text = (lastPart.text || '') + '\n\n[Response cancelled by user]'
-            } else {
-              message.content.push({ type: 'text', text: '[Response cancelled by user]' })
+        // Update the message with the partial content from the server
+        if (data.message) {
+          for (const conversationMessages of Object.values(state.messages)) {
+            const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
+            if (messageIndex !== -1) {
+              // Replace with the partial message from server
+              conversationMessages[messageIndex] = data.message
+              break
             }
-            message.updatedAt = new Date().toISOString()
-            break
           }
         }
       })

@@ -192,12 +192,8 @@ export async function generateAIResponse(
       maxTokens: config.maxTokens,
       topP: config.topP,
       frequencyPenalty: config.frequencyPenalty,
-      presencePenalty: config.presencePenalty
-    }
-
-    // Only add reasoningEffort if it's configured
-    if (config.reasoningEffort) {
-      modelParams.reasoningEffort = config.reasoningEffort
+      presencePenalty: config.presencePenalty,
+      reasoningEffort: config.reasoningEffort
     }
 
     // Generate response
@@ -246,6 +242,9 @@ export async function generateAIResponseWithStreaming(
   const config = getAIConfigFromEnv()
   const model = createOpenAIModel(config)
 
+  let streamedText = ''
+  let streamedReasoning = ''
+
   try {
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
@@ -260,12 +259,8 @@ export async function generateAIResponseWithStreaming(
       maxTokens: config.maxTokens,
       topP: config.topP,
       frequencyPenalty: config.frequencyPenalty,
-      presencePenalty: config.presencePenalty
-    }
-
-    // Only add reasoningEffort if it's configured
-    if (config.reasoningEffort) {
-      modelParams.reasoningEffort = config.reasoningEffort
+      presencePenalty: config.presencePenalty,
+      reasoningEffort: config.reasoningEffort
     }
 
     // Stream response
@@ -275,9 +270,8 @@ export async function generateAIResponseWithStreaming(
     const streamCallbacks: StreamingCallbacks =
       typeof callbacks === 'function' ? { onTextChunk: callbacks } : callbacks
 
-    // Try both textStream and fullStream approaches
-    let reasoningPhaseComplete = false
-    let hasSeenReasoningStart = false
+    // Stream response using fullStream for reasoning support
+    let wasCancelled = false
 
     try {
       // First try to use fullStream for reasoning support
@@ -285,6 +279,7 @@ export async function generateAIResponseWithStreaming(
         // Check for cancellation
         if (cancellationToken?.isCancelled) {
           console.log('AI streaming cancelled by user')
+          wasCancelled = true
           break
         }
 
@@ -318,34 +313,27 @@ export async function generateAIResponseWithStreaming(
           case 'text-delta':
             // console.log('[AI] Text delta received:', JSON.stringify(part.text))
 
-            // If we had reasoning but haven't seen reasoning-end yet, call it now
-            if (hasSeenReasoningStart && !reasoningPhaseComplete) {
-              console.log('[AI] First text chunk after reasoning - calling onReasoningEnd')
-              reasoningPhaseComplete = true
-              streamCallbacks.onReasoningEnd?.()
-            }
-
             if (part.text && part.text.length > 0) {
+              streamedText += part.text
               streamCallbacks.onTextChunk(part.text)
             }
             break
 
           case 'reasoning-start':
             console.log('[AI] Reasoning start')
-            hasSeenReasoningStart = true
             streamCallbacks.onReasoningStart?.()
             break
 
           case 'reasoning-delta':
             // console.log('[AI] Reasoning delta received:', JSON.stringify(part.text))
             if (part.text && part.text.length > 0) {
+              streamedReasoning += part.text
               streamCallbacks.onReasoningChunk?.(part.text)
             }
             break
 
           case 'reasoning-end':
             console.log('[AI] Reasoning end event received')
-            reasoningPhaseComplete = true
             streamCallbacks.onReasoningEnd?.()
             break
 
@@ -385,17 +373,33 @@ export async function generateAIResponseWithStreaming(
         // Check for cancellation
         if (cancellationToken?.isCancelled) {
           console.log('AI streaming cancelled by user')
+          wasCancelled = true
           break
         }
 
         console.log('[AI] TextStream chunk received:', JSON.stringify(textChunk))
         if (textChunk && textChunk.length > 0) {
+          streamedText += textChunk
           streamCallbacks.onTextChunk(textChunk)
         }
       }
     }
 
-    // Wait for completion and get final results
+    // If cancelled, return immediately with streamed content
+    if (wasCancelled) {
+      console.log('[AI] Returning partial content due to cancellation')
+      return {
+        content: [
+          {
+            type: 'text',
+            text: streamedText
+          }
+        ],
+        reasoning: streamedReasoning || undefined
+      }
+    }
+
+    // Wait for completion and get final results only if not cancelled
     const [text, reasoningText] = await Promise.all([result.text, result.reasoningText])
 
     // Convert final response to application format
@@ -443,12 +447,8 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
           role: 'user',
           content: 'Hello! Please respond with just "OK" to confirm the connection.'
         }
-      ]
-    }
-
-    // Only add reasoningEffort if it's configured
-    if (chatConfig.reasoningEffort) {
-      modelParams.reasoningEffort = chatConfig.reasoningEffort
+      ],
+      reasoningEffort: chatConfig.reasoningEffort
     }
 
     // Test with a simple message
