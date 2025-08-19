@@ -50,16 +50,16 @@ describe('Temporary File Processing', () => {
       expect(results).toHaveLength(2)
 
       // Check text file result
-      expect(results[0].filename).toBe('test.txt')
-      expect(results[0].content).toBe('Hello, world!')
-      expect(results[0].mimeType).toBe('text/plain')
-      expect(results[0].error).toBeUndefined()
+      expect(results[0]?.filename).toBe('test.txt')
+      expect(results[0]?.content).toBe('Hello, world!')
+      expect(results[0]?.mimeType).toBe('text/plain')
+      expect(results[0]?.error).toBeUndefined()
 
       // Check markdown file result
-      expect(results[1].filename).toBe('test.md')
-      expect(results[1].content).toBe('# Markdown\nContent here')
-      expect(results[1].mimeType).toBe('text/markdown')
-      expect(results[1].error).toBeUndefined()
+      expect(results[1]?.filename).toBe('test.md')
+      expect(results[1]?.content).toBe('# Markdown\nContent here')
+      expect(results[1]?.mimeType).toBe('text/markdown')
+      expect(results[1]?.error).toBeUndefined()
     })
 
     test('handles non-existent files gracefully', async () => {
@@ -68,9 +68,9 @@ describe('Temporary File Processing', () => {
       const results = await processTemporaryFiles([nonExistentFile])
 
       expect(results).toHaveLength(1)
-      expect(results[0].filename).toBe('does-not-exist.txt')
-      expect(results[0].content).toBe('')
-      expect(results[0].error).toContain('Failed to read file')
+      expect(results[0]?.filename).toBe('does-not-exist.txt')
+      expect(results[0]?.content).toBe('')
+      expect(results[0]?.error).toContain('Failed to read file')
     })
 
     test('processes PDF files successfully', async () => {
@@ -89,10 +89,10 @@ describe('Temporary File Processing', () => {
       const results = await processTemporaryFiles([testPdfPath])
 
       expect(results).toHaveLength(1)
-      expect(results[0].filename).toBe('test.pdf')
-      expect(results[0].content.length).toBeGreaterThan(0) // Should have extracted some text
-      expect(results[0].mimeType).toBe('application/pdf')
-      expect(results[0].error).toBeUndefined()
+      expect(results[0]?.filename).toBe('test.pdf')
+      expect(results[0]?.content.length).toBeGreaterThan(0) // Should have extracted some text
+      expect(results[0]?.mimeType).toBe('application/pdf')
+      expect(results[0]?.error).toBeUndefined()
     })
 
     test('handles mixed success and failure', async () => {

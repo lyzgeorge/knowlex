@@ -79,7 +79,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   })
 
   // Add error handling
-  window.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  window.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL)
   })
 

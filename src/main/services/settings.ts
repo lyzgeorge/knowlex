@@ -93,11 +93,8 @@ class SettingsService {
           apiKey: process.env.OPENAI_API_KEY || '',
           baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
           model: process.env.OPENAI_MODEL || 'gpt-4',
-          reasoningEffort: process.env.OPENAI_REASONING_EFFORT as
-            | 'low'
-            | 'medium'
-            | 'high'
-            | undefined,
+          reasoningEffort:
+            (process.env.OPENAI_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
           timeout: 30000
         },
         claude: {
@@ -105,11 +102,8 @@ class SettingsService {
           apiKey: process.env.CLAUDE_API_KEY || '',
           baseURL: process.env.CLAUDE_BASE_URL || 'https://api.anthropic.com',
           model: process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229',
-          reasoningEffort: process.env.CLAUDE_REASONING_EFFORT as
-            | 'low'
-            | 'medium'
-            | 'high'
-            | undefined,
+          reasoningEffort:
+            (process.env.CLAUDE_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
           timeout: 30000
         },
         embedding: {
@@ -133,6 +127,7 @@ class SettingsService {
    */
   getProviderConfig(provider: string): APIProviderConfig | null {
     const settings = this.getSettings()
+    if (!settings) return null
     return settings.apiProviders[provider as keyof typeof settings.apiProviders] || null
   }
 

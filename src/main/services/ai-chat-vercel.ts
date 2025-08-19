@@ -1,22 +1,8 @@
 import { streamText, generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '../../shared/types'
 import type { CancellationToken } from '../utils/cancellation'
-
-/**
- * Model parameters for AI SDK
- */
-interface ModelParams {
-  model: any
-  messages: any[]
-  temperature?: number
-  maxTokens?: number
-  topP?: number
-  frequencyPenalty?: number
-  presencePenalty?: number
-  reasoningEffort?: 'low' | 'medium' | 'high'
-}
 
 /**
  * Simplified AI Chat Service using official AI SDK
@@ -28,7 +14,7 @@ interface ModelParams {
  */
 export interface AIChatConfig {
   apiKey: string
-  baseURL?: string
+  baseURL: string | undefined
   model: string
   temperature?: number
   maxTokens?: number
@@ -44,7 +30,7 @@ export interface AIChatConfig {
 export function getAIConfigFromEnv(): AIChatConfig {
   const config: AIChatConfig = {
     apiKey: process.env.OPENAI_API_KEY || '',
-    baseURL: process.env.OPENAI_BASE_URL,
+    baseURL: process.env.OPENAI_BASE_URL || undefined,
     model: process.env.OPENAI_MODEL || 'gpt-4o',
     temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
@@ -151,17 +137,19 @@ function convertMessagesToAIFormat(messages: Message[]) {
 function createOpenAIModel(config: AIChatConfig) {
   if (config.baseURL && !config.baseURL.includes('api.openai.com')) {
     // Custom OpenAI-compatible API (like SiliconFlow)
-    return createOpenAICompatible({
+    const provider = createOpenAICompatible({
       name: 'custom-provider',
       apiKey: config.apiKey,
       baseURL: config.baseURL,
       includeUsage: true // Include usage information in streaming responses
     })
+    return provider(config.model)
   } else {
-    // Official OpenAI API
-    return openai({
+    // Official OpenAI API - create provider with custom API key
+    const provider = createOpenAI({
       apiKey: config.apiKey
     })
+    return provider(config.model)
   }
 }
 
@@ -185,15 +173,15 @@ export async function generateAIResponse(
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
     // Prepare model parameters
-    const modelParams: ModelParams = {
-      model: model(config.model),
+    const modelParams = {
+      model,
       messages: aiMessages,
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      topP: config.topP,
-      frequencyPenalty: config.frequencyPenalty,
-      presencePenalty: config.presencePenalty,
-      reasoningEffort: config.reasoningEffort
+      ...(config.temperature !== undefined && { temperature: config.temperature }),
+      ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+      ...(config.topP !== undefined && { topP: config.topP }),
+      ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
+      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
+      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort })
     }
 
     // Generate response
@@ -207,7 +195,7 @@ export async function generateAIResponse(
           text: result.text
         }
       ],
-      reasoning: result.reasoningText
+      ...(result.reasoningText !== undefined && { reasoning: result.reasoningText })
     }
   } catch (error) {
     console.error('AI response generation failed:', error)
@@ -252,15 +240,15 @@ export async function generateAIResponseWithStreaming(
     console.log(`[AI] Using model: ${config.model}`)
 
     // Prepare model parameters
-    const modelParams: ModelParams = {
-      model: model(config.model),
+    const modelParams = {
+      model,
       messages: aiMessages,
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      topP: config.topP,
-      frequencyPenalty: config.frequencyPenalty,
-      presencePenalty: config.presencePenalty,
-      reasoningEffort: config.reasoningEffort
+      ...(config.temperature !== undefined && { temperature: config.temperature }),
+      ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+      ...(config.topP !== undefined && { topP: config.topP }),
+      ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
+      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
+      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort })
     }
 
     // Stream response
@@ -338,21 +326,14 @@ export async function generateAIResponseWithStreaming(
             break
 
           case 'finish-step':
-          case 'step-finish':
             // Step completion events
             break
 
           case 'finish':
-          case 'done':
             // Stream completion events
             break
 
-          case 'stream-start':
-            // Stream start event
-            break
-
           case 'tool-call':
-          case 'tool-call-delta':
           case 'tool-result':
             console.log(`[AI] Tool event: ${part.type}`)
             break
@@ -395,7 +376,7 @@ export async function generateAIResponseWithStreaming(
             text: streamedText
           }
         ],
-        reasoning: streamedReasoning || undefined
+        ...(streamedReasoning && { reasoning: streamedReasoning })
       }
     }
 
@@ -410,7 +391,7 @@ export async function generateAIResponseWithStreaming(
           text
         }
       ],
-      reasoning: reasoningText
+      ...(reasoningText !== undefined && { reasoning: reasoningText })
     }
   } catch (error) {
     console.error('AI streaming response generation failed:', error)
@@ -433,22 +414,24 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
     if (!validation.isValid) {
       return {
         success: false,
-        error: validation.error
+        ...(validation.error && { error: validation.error })
       }
     }
 
     const model = createOpenAIModel(chatConfig)
 
     // Prepare model parameters
-    const modelParams: ModelParams = {
-      model: model(chatConfig.model),
+    const modelParams = {
+      model,
       messages: [
         {
-          role: 'user',
+          role: 'user' as const,
           content: 'Hello! Please respond with just "OK" to confirm the connection.'
         }
       ],
-      reasoningEffort: chatConfig.reasoningEffort
+      ...(chatConfig.reasoningEffort !== undefined && {
+        reasoningEffort: chatConfig.reasoningEffort
+      })
     }
 
     // Test with a simple message
@@ -461,7 +444,9 @@ export async function testAIConfiguration(config?: AIChatConfig): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during AI configuration test'
+      ...(error instanceof Error
+        ? { error: error.message }
+        : { error: 'Unknown error during AI configuration test' })
     }
   }
 }

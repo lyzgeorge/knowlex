@@ -123,7 +123,7 @@ export async function processTemporaryFiles(filePaths: string[]): Promise<Tempor
       content: '',
       size: 0,
       mimeType: '',
-      error: stat.error
+      error: stat.error || undefined
     }))
   }
 
@@ -219,7 +219,8 @@ async function processSingleTemporaryFile(
       filename,
       content: result.content,
       size,
-      mimeType: result.mimeType
+      mimeType: result.mimeType,
+      error: undefined
     }
   } catch (error) {
     return {
@@ -432,7 +433,8 @@ async function processSingleTemporaryFileContent(
           filename,
           content: parseResult.content,
           size,
-          mimeType: parseResult.mimeType
+          mimeType: parseResult.mimeType,
+          error: undefined
         }
       } catch (parseError) {
         console.error(`[MAIN] Parse error occurred for ${filename}:`, parseError)
@@ -463,7 +465,8 @@ async function processSingleTemporaryFileContent(
         filename,
         content: content.trim(),
         size,
-        mimeType
+        mimeType,
+        error: undefined
       }
     }
   } catch (error) {

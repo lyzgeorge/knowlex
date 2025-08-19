@@ -5,7 +5,7 @@ export function isValidFileType(filename: string, context: 'temporary' | 'projec
   const supportedTypes =
     context === 'temporary' ? SUPPORTED_FILE_TYPES.TEMPORARY : SUPPORTED_FILE_TYPES.PROJECT
 
-  return supportedTypes.includes(extension)
+  return supportedTypes.includes(extension as any)
 }
 
 export function isValidFileSize(size: number, context: 'temporary' | 'project'): boolean {

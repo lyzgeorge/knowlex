@@ -175,6 +175,7 @@ export const components = {
 
   // Card component
   Card: {
+    parts: ['container'],
     baseStyle: {
       container: {
         borderRadius: 'lg',
@@ -360,20 +361,23 @@ export const components = {
 
   // Alert component
   Alert: {
+    parts: ['container'],
     baseStyle: {
       container: {
-        borderRadius: 'md',
-        border: '1px solid'
+        bg: 'gray.50',
+        px: 4,
+        py: 3,
+        borderRadius: 'md'
       }
     },
     variants: {
       subtle: (props: any) => ({
         container: {
           bg: `${props.colorScheme}.50`,
-          borderColor: `${props.colorScheme}.200`,
+          color: `${props.colorScheme}.800`,
           _dark: {
             bg: `${props.colorScheme}.900`,
-            borderColor: `${props.colorScheme}.700`
+            color: `${props.colorScheme}.200`
           }
         }
       })

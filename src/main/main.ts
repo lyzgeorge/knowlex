@@ -10,7 +10,6 @@ import {
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
-import { startProcessingQueue } from './services/file-project'
 // TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
 // Application lifecycle management
@@ -43,16 +42,6 @@ class Application {
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
-      throw error
-    }
-
-    // Start file processing queue
-    try {
-      console.log('Starting file processing queue...')
-      startProcessingQueue()
-      console.log('File processing queue started successfully')
-    } catch (error) {
-      console.error('Failed to start file processing queue:', error)
       throw error
     }
 
@@ -131,8 +120,8 @@ app.on('before-quit', async () => {
 
 // Security: Prevent new window creation
 app.on('web-contents-created', (_, contents) => {
-  contents.on('new-window', (event) => {
-    event.preventDefault()
+  contents.setWindowOpenHandler(() => {
+    return { action: 'deny' }
   })
 })
 

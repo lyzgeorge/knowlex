@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { markdownComponents } from '../../utils/markdownComponents'
-import type { Message, MessageContent, MessageContentPart } from '../../../shared/types'
+import type { Message, MessageContent, MessageContentPart } from '../../../../shared/types'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 import ReasoningBox from './ReasoningBox'
 import { useIsReasoningStreaming, useReasoningStreamingMessageId } from '../../stores/conversation'
@@ -168,7 +168,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         {(message.reasoning || isReasoningStreamingForMessage) && (
           <Box alignSelf="flex-start">
             <ReasoningBox
-              reasoning={message.reasoning}
+              {...(message.reasoning ? { reasoning: message.reasoning } : {})}
               isReasoningStreaming={isReasoningStreamingForMessage}
               showWhenEmpty={isReasoningStreamingForMessage}
             />

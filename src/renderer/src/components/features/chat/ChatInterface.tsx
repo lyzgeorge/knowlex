@@ -5,7 +5,8 @@ import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
 import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
 import { useAutoScroll } from '../../../hooks/useAutoScroll'
-import type { TemporaryFileResult, MessageContent } from '../../../../shared/types'
+import type { ProcessedFile } from '../../../hooks/useFileUpload'
+import type { MessageContent } from '../../../../../shared/types/message'
 
 export interface ChatInterfaceProps {
   /** Additional CSS classes */
@@ -58,7 +59,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const handleSendMessage = async (
     message: string,
     files: File[] = [],
-    temporaryFiles: TemporaryFileResult[] = []
+    temporaryFiles: ProcessedFile[] = []
   ) => {
     console.log('handleSendMessage called with:', {
       message: message.substring(0, 50) + '...',
@@ -118,7 +119,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
     if (!conversationId) {
       startNewChat()
       // Get the fresh pending conversation ID after startNewChat
-      conversationId = useConversationStore.getState().pendingConversation?.id
+      conversationId = useConversationStore.getState().pendingConversation?.id || null
     }
 
     if (conversationId) {

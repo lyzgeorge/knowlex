@@ -7,9 +7,7 @@ import { breakpoints } from './breakpoints'
 
 const config: ThemeConfig = {
   initialColorMode: 'system',
-  useSystemColorMode: true,
-  storageType: 'localStorage',
-  storageKey: 'knowlex-color-mode'
+  useSystemColorMode: true
 }
 
 const themeOverrides: ThemeOverride = {

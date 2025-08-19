@@ -7,7 +7,9 @@ import {
   deleteConversation,
   moveConversation,
   updateConversationSettings,
-  generateConversationTitle
+  generateConversationTitle,
+  type CreateConversationData,
+  type UpdateConversationData
 } from '../services/conversation'
 import {
   addMessage,
@@ -157,10 +159,11 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Invalid conversation creation data')
         }
 
-        return await createConversation({
-          projectId: data.projectId,
-          title: data.title
-        })
+        const createData: CreateConversationData = {}
+        if (data.projectId !== undefined) createData.projectId = data.projectId
+        if (data.title !== undefined) createData.title = data.title
+
+        return await createConversation(createData)
       })
     }
   )
@@ -199,11 +202,12 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Invalid conversation update data')
         }
 
-        return await updateConversation(data.id, {
-          title: data.title,
-          projectId: data.projectId,
-          settings: data.settings
-        })
+        const updateData: UpdateConversationData = {}
+        if (data.title !== undefined) updateData.title = data.title
+        if (data.projectId !== undefined) updateData.projectId = data.projectId
+        if (data.settings !== undefined) updateData.settings = data.settings
+
+        return await updateConversation(data.id, updateData)
       })
     }
   )
@@ -487,7 +491,6 @@ export function registerConversationIPCHandlers(): void {
 
         // Create the actual conversation record in database
         const result = await createConversation({
-          projectId: undefined, // TODO: Handle projectId from request if needed
           title: 'New Chat'
         })
 
@@ -555,8 +558,7 @@ export function registerConversationIPCHandlers(): void {
 
         // Clear the current message content and set placeholder
         const clearedMessage = await updateMessage(messageId, {
-          content: [{ type: 'text' as const, text: '\u200B' }], // Zero-width space placeholder
-          reasoning: undefined // Clear reasoning as well
+          content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
         })
 
         // Generate new response using the atomic module
@@ -584,13 +586,12 @@ export function registerConversationIPCHandlers(): void {
 
         // Create new conversation
         const newConversation = await createConversation({
-          title: 'Forked Conversation',
-          projectId: undefined
+          title: 'Forked Conversation'
         })
 
         // Copy messages up to the fork point
         const messages = await getMessages(message.conversationId)
-        const messagesToCopy = messages.filter((m, index) => {
+        const messagesToCopy = messages.filter((_, index) => {
           const messageIndex = messages.findIndex((msg) => msg.id === messageId)
           return index <= messageIndex
         })

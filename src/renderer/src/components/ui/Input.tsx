@@ -56,7 +56,7 @@ export interface InputProps extends Omit<ChakraInputProps, 'size'> {
  * - Controlled component functionality
  * - Full accessibility support
  */
-export const Input = forwardRef<InputProps, 'input'>((props, ref) => {
+export const Input = forwardRef<'input', InputProps>((props, ref) => {
   const {
     size = 'sm',
     variant = 'outline',

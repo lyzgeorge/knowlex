@@ -224,13 +224,17 @@ export async function buildSearchIndex(
         const embeddings = await generateEmbeddings(texts, embeddingConfig)
 
         // Insert vectors into database
-        const vectorData = chunks.map((chunk, index) => ({
-          fileId: file.id,
-          chunkIndex: chunk.chunk_index,
-          chunkText: chunk.content,
-          embedding: embeddings[index],
-          metadata: chunk.metadata ? JSON.parse(chunk.metadata) : undefined
-        }))
+        const vectorData = chunks
+          .map((chunk, index) => ({
+            fileId: file.id,
+            chunkIndex: chunk.chunk_index,
+            chunkText: chunk.content,
+            embedding: embeddings[index],
+            metadata: chunk.metadata ? JSON.parse(chunk.metadata) : undefined
+          }))
+          .filter(
+            (item): item is typeof item & { embedding: number[] } => item.embedding !== undefined
+          )
 
         const { batchInsertVectors } = await import('./embedding')
         const insertedCount = await batchInsertVectors(vectorData)
@@ -373,10 +377,10 @@ async function searchConversations(
     sql += ' ORDER BY m.created_at DESC LIMIT ?'
     params.push(options.limit || DEFAULT_SEARCH_LIMIT)
 
-    const result = await executeQuery(sql, params)
+    const result = await executeQuery(sql, params as string[])
 
     // Convert results and calculate basic similarity scores
-    return result.rows.map((row: Record<string, unknown>) => {
+    return (result.rows as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
       const content = typeof row.content === 'string' ? row.content : JSON.stringify(row.content)
       const queryLower = query.toLowerCase()
       const contentLower = content.toLowerCase()
@@ -393,7 +397,7 @@ async function searchConversations(
         messageId: row.message_id as string,
         content: content.substring(0, 500), // Truncate for preview
         conversationTitle: row.conversation_title as string,
-        projectName: (row.project_name as string) || undefined,
+        ...(row.project_name ? { projectName: row.project_name as string } : {}),
         similarity,
         metadata: {
           createdAt: row.created_at as string,
@@ -444,9 +448,9 @@ async function enhanceSearchResult(
 
     const enhanced: EnhancedSearchResult = {
       ...result,
-      projectId: fileInfo?.project_id,
-      projectName: fileInfo?.project_name,
-      lastModified: fileInfo?.updated_at,
+      ...(fileInfo?.project_id && { projectId: fileInfo.project_id }),
+      ...(fileInfo?.project_name && { projectName: fileInfo.project_name }),
+      ...(fileInfo?.updated_at && { lastModified: fileInfo.updated_at }),
       relevanceScore: calculateRelevanceScore(result, query)
     }
 
@@ -456,8 +460,8 @@ async function enhanceSearchResult(
         result.fileId,
         result.metadata?.chunkIndex as number
       )
-      enhanced.contextBefore = context.before
-      enhanced.contextAfter = context.after
+      if (context.before) enhanced.contextBefore = context.before
+      if (context.after) enhanced.contextAfter = context.after
     }
 
     return enhanced

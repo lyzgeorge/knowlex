@@ -1,7 +1,7 @@
 import React from 'react'
 import { HStack, IconButton, useToast, useDisclosure } from '@chakra-ui/react'
 import { EditIcon, RepeatIcon, CopyIcon, ExternalLinkIcon, LinkIcon } from '@chakra-ui/icons'
-import type { Message } from '../../../../shared/types'
+import type { Message, MessageContentPart } from '../../../../../shared/types'
 import { useRegenerateMessage, useForkConversation } from '../../../stores/conversation'
 import MessageEditModal from './MessageEditModal'
 
@@ -39,7 +39,7 @@ export const MessageActionIcons: React.FC<MessageActionIconsProps> = ({
     try {
       // Convert message content to Markdown format
       const markdownContent = message.content
-        .map((part) => {
+        .map((part: MessageContentPart) => {
           switch (part.type) {
             case 'text':
               return part.text || ''
@@ -55,7 +55,7 @@ export const MessageActionIcons: React.FC<MessageActionIconsProps> = ({
               return ''
           }
         })
-        .filter((content) => content.trim())
+        .filter((content: string) => content.trim())
         .join('\n\n')
 
       await navigator.clipboard.writeText(markdownContent)

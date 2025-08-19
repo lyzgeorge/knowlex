@@ -256,16 +256,18 @@ export async function queryVectorSimilarity(
 
     params.push(JSON.stringify(queryEmbedding), similarityThreshold, limit)
 
-    const result = await executeQuery(sql, params)
+    const result = await executeQuery(sql, params as [string, number, number])
 
     // Convert results to SearchResult format
-    const searchResults: SearchResult[] = result.rows.map((row: Record<string, unknown>) => ({
-      content: row.content as string,
-      filename: row.filename as string,
-      fileId: row.file_id as string,
-      similarity: row.similarity as number,
-      metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined
-    }))
+    const searchResults: SearchResult[] = (result.rows as Record<string, unknown>[]).map(
+      (row: Record<string, unknown>) => ({
+        content: row.content as string,
+        filename: row.filename as string,
+        fileId: row.file_id as string,
+        similarity: row.similarity as number,
+        metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined
+      })
+    )
 
     console.log(`[EMBEDDING] Found ${searchResults.length} similar vectors`)
     return searchResults

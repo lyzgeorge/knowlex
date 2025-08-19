@@ -26,7 +26,7 @@ export interface TemporaryFileResult {
   content: string
   size: number
   mimeType: string
-  error?: string
+  error: string | undefined
 }
 
 export interface ProcessingResult {

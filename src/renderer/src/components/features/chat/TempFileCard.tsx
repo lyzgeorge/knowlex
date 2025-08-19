@@ -49,6 +49,7 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
         URL.revokeObjectURL(url)
       }
     }
+    return undefined
   }, [file, isImage])
 
   // Format file size

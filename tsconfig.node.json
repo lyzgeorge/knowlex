@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
     "composite": true,
-    "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "types": ["node", "vitest/globals"],
     "allowSyntheticDefaultImports": true
   },
-  "include": ["electron.vite.config.ts"]
+  "include": ["electron.vite.config.ts", "src/main/**/*", "src/preload/**/*"],
+  "exclude": ["node_modules", "dist", "out"]
 }

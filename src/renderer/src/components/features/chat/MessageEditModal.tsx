@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Textarea, VStack, HStack, Text, useToast } from '@chakra-ui/react'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
-import type { Message } from '../../../../shared/types'
+import type { Message, MessageContentPart } from '../../../../../shared/types'
 import { useEditMessage, useSendMessage } from '../../../stores/conversation'
 
 export interface MessageEditModalProps {
@@ -40,8 +40,8 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
   React.useEffect(() => {
     if (message) {
       const textContent = message.content
-        .filter((part) => part.type === 'text' && part.text)
-        .map((part) => part.text)
+        .filter((part: MessageContentPart) => part.type === 'text' && part.text)
+        .map((part: MessageContentPart) => part.text)
         .join('\n')
       setEditedContent(textContent)
     }
@@ -124,8 +124,8 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
     editedContent.trim().length > 0 &&
     editedContent.trim() !==
       (message?.content
-        .filter((part) => part.type === 'text' && part.text)
-        .map((part) => part.text)
+        .filter((part: MessageContentPart) => part.type === 'text' && part.text)
+        .map((part: MessageContentPart) => part.text)
         .join('\n') || '')
 
   return (

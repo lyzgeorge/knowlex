@@ -1,4 +1,3 @@
-import React from 'react'
 import { Box } from '@chakra-ui/react'
 import { MainLayout } from '../components/layout'
 import { ChatInterface } from '../components/features/chat'

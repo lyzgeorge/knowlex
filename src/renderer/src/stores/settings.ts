@@ -185,10 +185,10 @@ export const useSettingsStore = create<SettingsState>()(
             ])
 
           set((state) => {
-            state.apiProviders = apiProviders
-            state.generalSettings = { ...defaultGeneralSettings, ...generalSettings }
-            state.shortcutSettings = { ...defaultShortcutSettings, ...shortcutSettings }
-            state.advancedSettings = { ...defaultAdvancedSettings, ...advancedSettings }
+            state.apiProviders = Array.isArray(apiProviders) ? apiProviders : []
+            state.generalSettings = { ...defaultGeneralSettings, ...(generalSettings || {}) }
+            state.shortcutSettings = { ...defaultShortcutSettings, ...(shortcutSettings || {}) }
+            state.advancedSettings = { ...defaultAdvancedSettings, ...(advancedSettings || {}) }
             state.isLoading = false
             state.hasUnsavedChanges = false
           })
@@ -290,7 +290,10 @@ export const useSettingsStore = create<SettingsState>()(
               state.apiProviders.forEach((p) => (p.isDefault = false))
             }
 
-            Object.assign(state.apiProviders[providerIndex], updates)
+            const existingProvider = state.apiProviders[providerIndex]
+            if (existingProvider) {
+              Object.assign(existingProvider, updates)
+            }
             state.hasUnsavedChanges = true
           }
         })
@@ -303,7 +306,10 @@ export const useSettingsStore = create<SettingsState>()(
 
           // If we removed the default, set the first remaining as default
           if (wasDefault && state.apiProviders.length > 0) {
-            state.apiProviders[0].isDefault = true
+            const firstProvider = state.apiProviders[0]
+            if (firstProvider) {
+              firstProvider.isDefault = true
+            }
           }
 
           state.hasUnsavedChanges = true
@@ -331,7 +337,10 @@ export const useSettingsStore = create<SettingsState>()(
             throw new Error('Provider not found')
           }
 
-          const result = await window.electronAPI?.invoke('settings:test-provider', provider)
+          const result = (await window.electronAPI?.invoke('settings:test-provider', provider)) as {
+            success: boolean
+            message?: string
+          }
 
           set((state) => {
             state.testResults[id] = {

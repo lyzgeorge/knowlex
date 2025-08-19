@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { markdownComponents } from '../../utils/markdownComponents'
-import type { Message, MessageContent, MessageContentPart } from '../../../shared/types'
+import type { Message, MessageContent, MessageContentPart } from '../../../../shared/types'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 
 export interface UserMessageProps {

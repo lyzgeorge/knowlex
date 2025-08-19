@@ -59,8 +59,7 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
   sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
     messageId,
     message: await updateMessage(messageId, {
-      content: [{ type: 'text' as const, text: '\u200B' }], // Zero-width space placeholder
-      reasoning: undefined
+      content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
     })
   })
 
@@ -105,10 +104,15 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
       const wasCancelled = cancellationToken.isCancelled
 
       // Update the message with final content and reasoning
-      const updatedMessage = await updateMessage(messageId, {
-        content: response.content,
-        reasoning: response.reasoning
-      })
+      const updateData: any = {
+        content: response.content
+      }
+
+      if (response.reasoning !== undefined) {
+        updateData.reasoning = response.reasoning
+      }
+
+      const updatedMessage = await updateMessage(messageId, updateData)
 
       if (wasCancelled) {
         // Send streaming cancelled event with partial message

@@ -1,4 +1,4 @@
-import { createClient, Client } from '@libsql/client'
+import { createClient, Client, InArgs } from '@libsql/client'
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
@@ -56,8 +56,7 @@ export async function getDB(): Promise<Client> {
 
     // Create libsql client with file-based storage
     db = createClient({
-      url: `file:${databasePath}`,
-      authToken: undefined // No auth token needed for local file
+      url: `file:${databasePath}`
     })
 
     // Test the connection
@@ -97,7 +96,7 @@ export async function closeDB(): Promise<void> {
  */
 export async function executeQuery(
   sql: string,
-  params?: unknown[]
+  params?: InArgs
 ): Promise<{ rows: unknown[]; rowsAffected: number }> {
   const database = await getDB()
 
@@ -124,7 +123,7 @@ export async function executeQuery(
  * Ensures atomicity for related database operations
  */
 export async function executeTransaction(
-  queries: Array<{ sql: string; params?: unknown[] }>
+  queries: Array<{ sql: string; params?: InArgs }>
 ): Promise<void> {
   const database = await getDB()
 

@@ -11,8 +11,7 @@ import {
   useStopStreaming
 } from '../../../stores/conversation'
 import TempFileCard from './TempFileCard'
-import { useFileUpload, FileUploadItem } from '../../../hooks/useFileUpload'
-import type { TemporaryFileResult } from '../../../../shared/types'
+import { useFileUpload, FileUploadItem, ProcessedFile } from '../../../hooks/useFileUpload'
 
 // Animation for refresh icon
 const spinAnimation = keyframes`
@@ -39,7 +38,7 @@ export interface ChatInputBoxProps {
   onSendMessage?: (
     message: string,
     files: File[],
-    temporaryFiles?: TemporaryFileResult[]
+    temporaryFiles?: ProcessedFile[]
   ) => Promise<void>
 }
 
@@ -190,7 +189,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       })
 
       // Process temporary files if any
-      let processedFiles: TemporaryFileResult[] = []
+      let processedFiles: ProcessedFile[] = []
       if (hasFiles) {
         console.log('handleSend: Processing files...')
         processedFiles = await fileUpload.processFiles()
@@ -275,8 +274,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             ...(c.type === 'text'
               ? { textLength: c.text?.length }
               : c.type === 'image'
-                ? { filename: c.image?.alt, url: c.image?.url?.substring(0, 50) + '...' }
-                : { filename: c.temporaryFile?.filename })
+                ? {
+                    filename: (c as any).image?.alt || 'image',
+                    url: (c as any).image?.url?.substring(0, 50) + '...' || undefined
+                  }
+                : { filename: (c as any).temporaryFile?.filename || 'file' })
           }))
         )
         await sendMessage(conversationId, content)
@@ -333,7 +335,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       maxW="752px"
       w="full"
       mx="auto"
-      style={{ WebkitAppRegion: 'no-drag' }}
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Unified Input Area */}
       <Box
@@ -375,7 +377,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 <TempFileCard
                   key={fileItem.id}
                   file={fileItem.file}
-                  onRemove={() => fileUpload.removeFile(fileItem)}
+                  onRemove={() => fileUpload.removeFile(fileItem.file)}
                   variant="compact"
                 />
               ))}
@@ -461,15 +463,14 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               onMouseEnter={() => setIsHoveringStreamButton(true)}
               onMouseLeave={() => setIsHoveringStreamButton(false)}
               cursor={isHoveringStreamButton ? 'pointer' : 'default'}
-              bg={isHoveringStreamButton ? undefined : 'gray.300'}
+              {...(isHoveringStreamButton ? {} : { bg: 'gray.300' })}
             />
           ) : (
             // State 1, 2, 5: Send button with proper enabled/disabled states
             <IconButton
               aria-label="Send message"
               icon={<ArrowUpIcon />}
-              colorScheme={canSend ? 'primary' : undefined}
-              color={canSend ? undefined : undefined}
+              {...(canSend ? { colorScheme: 'primary' } : {})}
               size="sm"
               borderRadius="md"
               isDisabled={!canSend}

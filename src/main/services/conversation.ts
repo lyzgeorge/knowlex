@@ -5,6 +5,7 @@ import {
   updateConversation as dbUpdateConversation,
   deleteConversation as dbDeleteConversation
 } from '../database/queries'
+import { getDB } from '../database'
 import { generateId } from '../../shared/utils/id'
 import type { Conversation, SessionSettings } from '../../shared/types'
 
@@ -45,11 +46,17 @@ export async function createConversation(data: CreateConversationData): Promise<
 
   const newConversation: Conversation = {
     id: conversationId,
-    projectId: data.projectId?.trim() || undefined,
     title: data.title?.trim() || 'New Chat',
-    settings: data.settings,
     createdAt: now,
     updatedAt: now
+  }
+
+  if (data.projectId?.trim()) {
+    newConversation.projectId = data.projectId.trim()
+  }
+
+  if (data.settings) {
+    newConversation.settings = data.settings
   }
 
   try {
@@ -143,7 +150,9 @@ export async function updateConversation(
     updates.title = data.title.trim()
   }
   if (data.projectId !== undefined) {
-    updates.projectId = data.projectId?.trim() || undefined
+    if (data.projectId?.trim()) {
+      updates.projectId = data.projectId.trim()
+    }
   }
   if (data.settings !== undefined) {
     updates.settings = data.settings
@@ -220,9 +229,27 @@ export async function moveConversation(
   }
 
   try {
-    const updatedConversation = await updateConversation(id, {
-      projectId: targetProjectId || undefined
-    })
+    let updatedConversation: Conversation
+
+    if (!targetProjectId) {
+      // We need to explicitly remove the projectId by setting it to undefined
+      const result = await (
+        await getDB()
+      ).execute({
+        sql: 'UPDATE conversations SET project_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *',
+        args: [id]
+      })
+      const conversation = result.rows[0] as Conversation | undefined
+
+      if (!conversation) {
+        throw new Error('Failed to update conversation')
+      }
+
+      updatedConversation = { ...conversation } as Conversation
+    } else {
+      const updateData: UpdateConversationData = { projectId: targetProjectId }
+      updatedConversation = await updateConversation(id, updateData)
+    }
 
     const action = targetProjectId ? 'moved to project' : 'moved out of project'
     console.log(`Conversation ${action}: ${id} - ${updatedConversation.title}`)

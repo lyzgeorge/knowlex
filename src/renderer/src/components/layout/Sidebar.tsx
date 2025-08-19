@@ -290,7 +290,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         top={0}
         left={0}
         zIndex={1000}
-        style={{ WebkitAppRegion: 'drag' }}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         bg="transparent"
         pointerEvents="all"
       />
@@ -315,13 +315,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             justifyContent="flex-start"
             onClick={handleNewChat}
             aria-label="Create new chat conversation (Ctrl/Cmd+N)"
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             New Chat
           </Button>
 
           {/* Global Search */}
-          <InputGroup size="sm" style={{ WebkitAppRegion: 'no-drag' }}>
+          <InputGroup size="sm" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <InputLeftElement>
               <SearchIcon color="text.secondary" />
             </InputLeftElement>

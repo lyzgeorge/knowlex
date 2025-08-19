@@ -123,10 +123,10 @@ export class PlainTextParser extends FileParser {
           let cleanContent = content
           for (let i = 0; i <= 31; i++) {
             if (i === 9 || i === 10 || i === 13) continue // Keep tab, newline, carriage return
-            cleanContent = cleanContent.replaceAll(String.fromCharCode(i), '')
+            cleanContent = cleanContent.replace(new RegExp(String.fromCharCode(i), 'g'), '')
           }
           // Remove DEL character
-          cleanContent = cleanContent.replaceAll(String.fromCharCode(127), '')
+          cleanContent = cleanContent.replace(new RegExp(String.fromCharCode(127), 'g'), '')
 
           return cleanContent.trim()
         }

@@ -255,13 +255,15 @@ export const markdownComponents: Components = {
   ),
 
   // Code styling consistent with theme
-  code: ({ children, className }) => <CodeBlock className={className}>{children}</CodeBlock>,
+  code: ({ children, className }: any) => (
+    <CodeBlock className={className || undefined}>{children}</CodeBlock>
+  ),
 
   // Blockquotes with visual styling
   blockquote: ({ children }) => <BlockQuote>{children}</BlockQuote>,
 
   // Links with proper styling
-  a: ({ children, href }) => (
+  a: ({ children, href }: any) => (
     <Link
       href={href}
       color="brand.secondary"
@@ -270,7 +272,7 @@ export const markdownComponents: Components = {
         color: 'brand.primary',
         textDecoration: 'none'
       }}
-      isExternal={href?.startsWith('http')}
+      {...(href?.startsWith('http') ? { isExternal: true } : {})}
     >
       {children}
     </Link>

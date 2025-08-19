@@ -80,11 +80,16 @@ export async function generateTitleForConversation(conversationId: string): Prom
     ]
 
     const response = await generateAIResponse(
-      titlePrompt.map((msg) => ({
-        id: `title-gen-${Date.now()}`,
+      titlePrompt.map((msg, index) => ({
+        id: `title-gen-${Date.now()}-${index}`,
         conversationId: 'title-generation',
-        role: msg.role,
-        content: [{ type: 'text', text: msg.content }],
+        role: msg.role === 'system' ? 'user' : msg.role,
+        content: [
+          {
+            type: 'text' as const,
+            text: msg.role === 'system' ? `System: ${msg.content}` : msg.content
+          }
+        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }))

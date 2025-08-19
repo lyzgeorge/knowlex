@@ -50,11 +50,14 @@ export const useNavigationStore = create<NavigationState>()(
       set((state) => {
         // Add current state to history before navigating
         if (state.currentView !== view || state.selectedProjectId !== projectId) {
-          state.navigationHistory.push({
+          const historyEntry: { view: MainView; projectId?: string; timestamp: number } = {
             view: state.currentView,
-            projectId: state.selectedProjectId || undefined,
             timestamp: Date.now()
-          })
+          }
+          if (state.selectedProjectId) {
+            historyEntry.projectId = state.selectedProjectId
+          }
+          state.navigationHistory.push(historyEntry)
 
           // Limit history to 20 items
           if (state.navigationHistory.length > 20) {
@@ -108,10 +111,14 @@ export const useNavigationStore = create<NavigationState>()(
       if (history.length === 0) return null
 
       const previous = history[history.length - 1]
-      return {
-        view: previous.view,
-        projectId: previous.projectId
+      if (!previous) return null
+      const result: { view: MainView; projectId?: string } = {
+        view: previous.view
       }
+      if (previous.projectId) {
+        result.projectId = previous.projectId
+      }
+      return result
     }
   }))
 )

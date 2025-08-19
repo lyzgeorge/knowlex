@@ -19,17 +19,7 @@ export {
   initializeThemeSync,
   cleanupThemeSync
 } from './app'
-export {
-  default as useProjectStore,
-  useCurrentProject,
-  useProjects,
-  useCreateProject,
-  useUpdateProject,
-  useDeleteProject,
-  useIsCreating,
-  useIsUpdating,
-  useIsDeleting
-} from './project'
+export { default as useProjectStore, useCurrentProject, useProjects } from './project'
 export {
   default as useConversationStore,
   useCurrentConversation,
@@ -66,7 +56,7 @@ export {
 
 // Type exports
 export type { Theme, Language, AppState } from './app'
-export type { ProjectState, CreateProjectData, UpdateProjectData } from './project'
+export type { ProjectState } from './project'
 export type { ConversationState, SendMessageData } from './conversation'
 export type {
   SettingsState,

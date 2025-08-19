@@ -29,7 +29,7 @@ function createMenuTemplate(): Electron.MenuItemConstructorOptions[] {
               { label: 'Services', role: 'services' as const, submenu: [] },
               { type: 'separator' as const },
               { label: 'Hide Knowlex', role: 'hide' as const },
-              { label: 'Hide Others', role: 'hideothers' as const },
+              { label: 'Hide Others', role: 'hideOthers' as const },
               { label: 'Show All', role: 'unhide' as const },
               { type: 'separator' as const },
               { label: 'Quit Knowlex', role: 'quit' as const }
@@ -96,22 +96,22 @@ function createMenuTemplate(): Electron.MenuItemConstructorOptions[] {
         { label: 'Paste', role: 'paste' },
         ...(isMac
           ? [
-              { label: 'Paste and Match Style', role: 'pasteandmatchstyle' as const },
+              { label: 'Paste and Match Style', role: 'pasteAndMatchStyle' as const },
               { label: 'Delete', role: 'delete' as const },
-              { label: 'Select All', role: 'selectall' as const },
+              { label: 'Select All', role: 'selectAll' as const },
               { type: 'separator' as const },
               {
                 label: 'Speech',
                 submenu: [
-                  { label: 'Start Speaking', role: 'startspeaking' as const },
-                  { label: 'Stop Speaking', role: 'stopspeaking' as const }
+                  { label: 'Start Speaking', role: 'startSpeaking' as const },
+                  { label: 'Stop Speaking', role: 'stopSpeaking' as const }
                 ]
               }
             ]
           : [
               { label: 'Delete', role: 'delete' as const },
               { type: 'separator' as const },
-              { label: 'Select All', role: 'selectall' as const }
+              { label: 'Select All', role: 'selectAll' as const }
             ])
       ]
     },

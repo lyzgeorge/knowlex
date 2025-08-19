@@ -43,20 +43,20 @@ function validateMessageContent(content: MessageContent): void {
     let isValid = false
     switch (part.type) {
       case 'text':
-        isValid = part.text && part.text.trim().length > 0
+        isValid = Boolean(part.text && part.text.trim().length > 0)
         break
       case 'temporary-file':
-        isValid = part.temporaryFile && part.temporaryFile.filename
+        isValid = Boolean(part.temporaryFile && part.temporaryFile.filename)
         break
       case 'image':
         // Image support removed
         isValid = false
         break
       case 'citation':
-        isValid = part.citation && part.citation.filename
+        isValid = Boolean(part.citation && part.citation.filename)
         break
       case 'tool-call':
-        isValid = part.toolCall && part.toolCall.name
+        isValid = Boolean(part.toolCall && part.toolCall.name)
         break
       default:
         isValid = false
@@ -188,9 +188,12 @@ export async function addMessage(data: CreateMessageData): Promise<Message> {
     conversationId: data.conversationId.trim(),
     role: data.role,
     content: data.content,
-    parentMessageId: data.parentMessageId?.trim() || undefined,
     createdAt: now,
     updatedAt: now
+  }
+
+  if (data.parentMessageId?.trim()) {
+    newMessage.parentMessageId = data.parentMessageId.trim()
   }
 
   try {
@@ -270,7 +273,7 @@ export async function updateMessage(id: string, data: UpdateMessageData): Promis
   }
 
   try {
-    await dbUpdateMessage(id, data.content, data.reasoning)
+    await dbUpdateMessage(id, data.content)
 
     // Fetch and return updated message
     const updatedMessage = await dbGetMessage(id)
@@ -335,12 +338,17 @@ export async function addTextMessage(
     }
   ]
 
-  return await addMessage({
+  const messageData: CreateMessageData = {
     conversationId,
     role,
-    content,
-    parentMessageId
-  })
+    content
+  }
+
+  if (parentMessageId !== undefined) {
+    messageData.parentMessageId = parentMessageId
+  }
+
+  return await addMessage(messageData)
 }
 
 /**
@@ -357,12 +365,17 @@ export async function addMultiPartMessage(
     throw new Error('At least one content part is required')
   }
 
-  return await addMessage({
+  const messageData: CreateMessageData = {
     conversationId,
     role,
-    content: parts,
-    parentMessageId
-  })
+    content: parts
+  }
+
+  if (parentMessageId !== undefined) {
+    messageData.parentMessageId = parentMessageId
+  }
+
+  return await addMessage(messageData)
 }
 
 /**
@@ -383,15 +396,20 @@ export async function addCitationToMessage(
   }
 
   // Add citation part to existing content
+  const citation: any = {
+    filename,
+    fileId,
+    content,
+    similarity
+  }
+
+  if (pageNumber !== undefined) {
+    citation.pageNumber = pageNumber
+  }
+
   const citationPart: MessageContentPart = {
     type: 'citation',
-    citation: {
-      filename,
-      fileId,
-      content,
-      similarity,
-      pageNumber
-    }
+    citation
   }
 
   const updatedContent = [...existingMessage.content, citationPart]
@@ -519,10 +537,15 @@ export async function addMessageWithTemporaryFiles(
     throw new Error('Message must have at least some content')
   }
 
-  return await addMessage({
+  const messageData: CreateMessageData = {
     conversationId,
     role,
-    content,
-    parentMessageId
-  })
+    content
+  }
+
+  if (parentMessageId !== undefined) {
+    messageData.parentMessageId = parentMessageId
+  }
+
+  return await addMessage(messageData)
 }

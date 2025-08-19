@@ -369,7 +369,7 @@ export const useConversationStore = create<ConversationState>()(
       try {
         console.log('Creating conversation with:', { projectId, title: title || 'New Chat' })
         const result = await window.knowlex.conversation.create({
-          projectId,
+          ...(projectId && { projectId }),
           title: title || 'New Chat'
         })
 
@@ -379,7 +379,7 @@ export const useConversationStore = create<ConversationState>()(
           throw new Error(result?.error || 'Failed to create conversation')
         }
 
-        const conversation = result.data
+        const conversation = result.data as Conversation
         console.log('Conversation created:', conversation)
 
         set((state) => {
@@ -428,7 +428,11 @@ export const useConversationStore = create<ConversationState>()(
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
           if (conversation) {
-            conversation.projectId = projectId
+            if (projectId !== null) {
+              conversation.projectId = projectId
+            } else {
+              delete conversation.projectId
+            }
             conversation.updatedAt = new Date().toISOString()
           }
         })
@@ -468,7 +472,7 @@ export const useConversationStore = create<ConversationState>()(
           throw new Error(result?.error || 'Failed to generate title')
         }
 
-        const title = result.data
+        const title = result.data as string
 
         set((state) => {
           const conversation = state.conversations.find((c) => c.id === conversationId)
@@ -493,7 +497,7 @@ export const useConversationStore = create<ConversationState>()(
         const tempId = `pending-${Date.now()}`
         state.pendingConversation = {
           id: tempId,
-          projectId,
+          ...(projectId && { projectId }),
           title: 'New Chat',
           createdAt: new Date().toISOString()
         }
@@ -613,7 +617,9 @@ export const useConversationStore = create<ConversationState>()(
 
           // Create the actual conversation record in database
           const result = await window.knowlex.conversation.create({
-            projectId: currentState.pendingConversation.projectId,
+            ...(currentState.pendingConversation.projectId && {
+              projectId: currentState.pendingConversation.projectId
+            }),
             title: currentState.pendingConversation.title
           })
 
@@ -621,7 +627,7 @@ export const useConversationStore = create<ConversationState>()(
             throw new Error(result?.error || 'Failed to create conversation')
           }
 
-          const newConversation = result.data
+          const newConversation = result.data as Conversation
           console.log('Actual conversation created:', newConversation)
 
           // Update state: add to conversations, clear pending, update current ID
@@ -654,7 +660,7 @@ export const useConversationStore = create<ConversationState>()(
           if (!state.messages[actualConversationId]) {
             state.messages[actualConversationId] = []
           }
-          state.messages[actualConversationId].push(userMessage)
+          state.messages[actualConversationId]?.push(userMessage)
         })
 
         // Send message - this will now return immediately with initial messages
@@ -673,7 +679,8 @@ export const useConversationStore = create<ConversationState>()(
             // Remove the temporary user message
             const filteredMessages = messages.filter((m) => !m.id.startsWith('temp-'))
             // Add the real messages from server (user + initial assistant placeholder)
-            state.messages[actualConversationId] = [...filteredMessages, ...result.data]
+            const newMessages = Array.isArray(result.data) ? result.data : []
+            state.messages[actualConversationId] = [...filteredMessages, ...newMessages]
             state.isSending = false
           })
         } else {
@@ -720,8 +727,11 @@ export const useConversationStore = create<ConversationState>()(
           for (const conversationMessages of Object.values(state.messages)) {
             const messageIndex = conversationMessages.findIndex((m) => m.id === messageId)
             if (messageIndex !== -1) {
-              conversationMessages[messageIndex].content = content
-              conversationMessages[messageIndex].updatedAt = new Date().toISOString()
+              const message = conversationMessages[messageIndex]
+              if (message) {
+                message.content = content
+                message.updatedAt = new Date().toISOString()
+              }
               break
             }
           }
@@ -762,7 +772,7 @@ export const useConversationStore = create<ConversationState>()(
         if (!result?.success || !result.data) {
           throw new Error(result?.error || 'Failed to fork conversation')
         }
-        const newConversation = result.data
+        const newConversation = result.data as Conversation
 
         set((state) => {
           state.conversations.push(newConversation)
@@ -790,7 +800,7 @@ export const useConversationStore = create<ConversationState>()(
         if (!result?.success) {
           throw new Error(result?.error || 'Failed to load messages')
         }
-        const messages = result.data || []
+        const messages = (result.data as Message[]) || []
 
         set((state) => {
           state.messages[conversationId] = messages
@@ -922,7 +932,7 @@ export const useConversationStore = create<ConversationState>()(
         const result = await window.knowlex.conversation.list()
 
         if (result?.success) {
-          const conversations = result.data || []
+          const conversations = (result.data as Conversation[]) || []
           set((state) => {
             state.conversations = conversations
             state.isLoading = false

@@ -5,13 +5,10 @@
 
 import { useState, useCallback } from 'react'
 import { useToast } from '@chakra-ui/react'
+import type { TemporaryFileResult } from '../../../shared/types/file'
 
-export interface ProcessedFile {
-  filename: string
-  content: string
-  size: number
-  mimeType: string
-  error?: string
+export interface ProcessedFile extends TemporaryFileResult {
+  isImage?: boolean
 }
 
 // Wrapper interface to add a unique ID to each File object for React keys
@@ -220,12 +217,12 @@ export const useFileUpload = (): FileUploadHook => {
   )
 
   // Remove a specific file
-  const removeFile = useCallback((fileToRemove: FileUploadItem) => {
+  const removeFile = useCallback((fileToRemove: File) => {
     setState((prevState) => ({
       ...prevState,
-      files: prevState.files.filter((item) => item.id !== fileToRemove.id),
+      files: prevState.files.filter((item) => item.file !== fileToRemove),
       processedFiles: prevState.processedFiles.filter(
-        (processed) => processed.filename !== fileToRemove.file.name
+        (processed) => processed.filename !== fileToRemove.name
       )
     }))
   }, [])
@@ -267,7 +264,8 @@ export const useFileUpload = (): FileUploadHook => {
             const CHUNK_SIZE = 8192
             let binary = ''
             for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
-              binary += String.fromCharCode.apply(null, uint8Array.subarray(i, i + CHUNK_SIZE))
+              const chunk = uint8Array.subarray(i, i + CHUNK_SIZE)
+              binary += String.fromCharCode(...Array.from(chunk))
             }
             content = btoa(binary)
           } else {
@@ -304,7 +302,7 @@ export const useFileUpload = (): FileUploadHook => {
         throw new Error(result.error || 'Failed to process files')
       }
 
-      const processedFiles = result.data || []
+      const processedFiles: TemporaryFileResult[] = Array.isArray(result.data) ? result.data : []
       console.log(
         'Processed files:',
         processedFiles.map((f) => ({
@@ -316,7 +314,10 @@ export const useFileUpload = (): FileUploadHook => {
 
       setState((prevState) => ({
         ...prevState,
-        processedFiles,
+        processedFiles: processedFiles.map((file) => ({
+          ...file,
+          isImage: file.mimeType.startsWith('image/')
+        })),
         isProcessing: false
       }))
 
@@ -344,7 +345,13 @@ export const useFileUpload = (): FileUploadHook => {
         })
       })
 
-      return processedFiles
+      // Add isImage property to each file
+      const processedFilesWithImage: ProcessedFile[] = processedFiles.map((file) => ({
+        ...file,
+        isImage: file.mimeType.startsWith('image/')
+      }))
+
+      return processedFilesWithImage
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to process files'
 

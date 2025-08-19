@@ -128,9 +128,9 @@ export class CancellationManager {
    * Cancels all active operations and clears all tokens.
    */
   cancelAll(): void {
-    for (const token of this.tokens.values()) {
+    Array.from(this.tokens.values()).forEach((token) => {
       token.cancel()
-    }
+    })
     this.tokens.clear()
   }
 

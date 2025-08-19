@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
 import { promises as fs } from 'fs'
 import path from 'path'
 import os from 'os'

@@ -70,7 +70,7 @@ export function useAutoScroll<T extends HTMLElement>(
         clearTimeout(scrollTimeoutRef.current)
       }
     }
-  }, [enabled])
+  }, [enabled, isNearBottom])
 
   // Capture scroll position BEFORE DOM updates (useLayoutEffect runs before useEffect)
   useLayoutEffect(() => {
@@ -79,7 +79,7 @@ export function useAutoScroll<T extends HTMLElement>(
 
     // Capture whether user was at bottom before the new content renders
     wasAtBottomRef.current = isNearBottom(element)
-  }, dependencies)
+  }, [enabled, isNearBottom, ...dependencies])
 
   // Auto-scroll effect triggered by dependencies (runs AFTER DOM updates)
   useEffect(() => {
@@ -92,7 +92,7 @@ export function useAutoScroll<T extends HTMLElement>(
     if (!isUserScrollingRef.current && wasAtBottomRef.current) {
       scrollToBottom(element)
     }
-  }, dependencies)
+  }, [enabled, ...dependencies])
 
   return scrollRef
 }

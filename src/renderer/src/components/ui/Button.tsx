@@ -62,11 +62,11 @@ export const Button = forwardRef<ButtonProps, 'button'>((props, ref) => {
       ref={ref}
       variant={finalVariant}
       size={size}
-      colorScheme={finalColorScheme}
+      {...(finalColorScheme ? { colorScheme: finalColorScheme } : {})}
       isLoading={isLoading}
       isDisabled={isDisabled || isLoading}
-      leftIcon={isLoading ? <Spinner size="sm" /> : leftIcon}
-      rightIcon={rightIcon}
+      {...(isLoading ? { leftIcon: <Spinner size="sm" /> } : leftIcon ? { leftIcon } : {})}
+      {...(rightIcon ? { rightIcon } : {})}
       width={isFullWidth ? '100%' : 'auto'}
       type={type}
       // Accessibility

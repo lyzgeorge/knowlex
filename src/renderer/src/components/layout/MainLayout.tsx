@@ -33,7 +33,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
           top={0}
           left={0}
           zIndex={1000}
-          style={{ WebkitAppRegion: 'drag' }}
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
           bg="transparent"
           pointerEvents="all"
         />

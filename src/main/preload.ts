@@ -273,11 +273,8 @@ if (process.contextIsolated) {
   }
 } else {
   // Fallback for non-isolated contexts
-  // @ts-expect-error (define in global)
   window.electron = electronAPI
-  // @ts-expect-error (define in global)
   window.knowlex = knowlexAPI
-  // @ts-expect-error (define in global)
   window.node = {
     process: {
       platform: process.platform,
