@@ -27,6 +27,8 @@ export interface ConversationState {
   // Streaming state
   isStreaming: boolean
   streamingMessageId: string | null
+  isTextStreaming: boolean
+  textStreamingMessageId: string | null
 
   // Reasoning streaming state
   isReasoningStreaming: boolean
@@ -96,6 +98,8 @@ const initialState = {
   pendingConversation: null,
   isStreaming: false,
   streamingMessageId: null,
+  isTextStreaming: false,
+  textStreamingMessageId: null,
   isReasoningStreaming: false,
   reasoningStreamingMessageId: null,
   isLoading: false,
@@ -114,8 +118,10 @@ let eventListenersSetup = false
 function setupEventListeners() {
   // Prevent duplicate setup in React.StrictMode
   if (eventListenersSetup) {
+    console.log('[STORE] Event listeners already set up, skipping...')
     return
   }
+  console.log('[STORE] Setting up event listeners...')
   eventListenersSetup = true
 
   // Listen for title generation events
@@ -187,6 +193,13 @@ function setupEventListeners() {
 
     if (data && data.messageId && data.chunk) {
       useConversationStore.setState((state) => {
+        // Start text streaming on first chunk
+        if (!state.isTextStreaming || state.textStreamingMessageId !== data.messageId) {
+          console.log('[STORE] Text streaming started for message:', data.messageId)
+          state.isTextStreaming = true
+          state.textStreamingMessageId = data.messageId
+        }
+
         // Find the streaming message and append the chunk
         for (const conversationMessages of Object.values(state.messages)) {
           const message = conversationMessages.find((m) => m.id === data.messageId)
@@ -217,12 +230,23 @@ function setupEventListeners() {
         // Set streaming state to false
         state.isStreaming = false
         state.streamingMessageId = null
+        state.isTextStreaming = false
+        state.textStreamingMessageId = null
 
-        // Update the message with the final content
+        // Update the message with the final content, preserving accumulated reasoning
         for (const conversationMessages of Object.values(state.messages)) {
           const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
           if (messageIndex !== -1) {
-            conversationMessages[messageIndex] = data.message
+            const currentMessage = conversationMessages[messageIndex]
+            const finalMessage = data.message
+
+            // Preserve accumulated reasoning if it exists and final message doesn't have reasoning
+            if (currentMessage && currentMessage.reasoning && !finalMessage.reasoning) {
+              console.log('[STORE] Preserving accumulated reasoning content from UI state')
+              finalMessage.reasoning = currentMessage.reasoning
+            }
+
+            conversationMessages[messageIndex] = finalMessage
             break
           }
         }
@@ -270,8 +294,19 @@ function setupEventListeners() {
           for (const conversationMessages of Object.values(state.messages)) {
             const messageIndex = conversationMessages.findIndex((m) => m.id === data.messageId)
             if (messageIndex !== -1) {
+              const currentMessage = conversationMessages[messageIndex]
+              const partialMessage = data.message
+
+              // Preserve accumulated reasoning if it exists and partial message doesn't have reasoning
+              if (currentMessage && currentMessage.reasoning && !partialMessage.reasoning) {
+                console.log(
+                  '[STORE] Preserving accumulated reasoning content from UI state (cancelled)'
+                )
+                partialMessage.reasoning = currentMessage.reasoning
+              }
+
               // Replace with the partial message from server
-              conversationMessages[messageIndex] = data.message
+              conversationMessages[messageIndex] = partialMessage
               break
             }
           }
@@ -281,11 +316,16 @@ function setupEventListeners() {
   })
 
   // Listen for reasoning start events
+  console.log('[STORE] Registering reasoning_start event listener...')
   window.knowlex.events.on('message:reasoning_start', (_, data: any) => {
-    console.log('Received reasoning start event:', data)
+    console.log('[STORE] Received reasoning start event:', data)
 
     if (data && data.messageId) {
       useConversationStore.setState((state) => {
+        console.log('[STORE] Setting reasoning streaming to true for message:', data.messageId, {
+          previousReasoningStreaming: state.isReasoningStreaming,
+          previousReasoningStreamingMessageId: state.reasoningStreamingMessageId
+        })
         // Set reasoning streaming state
         state.isReasoningStreaming = true
         state.reasoningStreamingMessageId = data.messageId
@@ -325,12 +365,16 @@ function setupEventListeners() {
   })
 
   // Listen for reasoning end events
+  console.log('[STORE] Registering reasoning_end event listener...')
   window.knowlex.events.on('message:reasoning_end', (_, data: any) => {
     console.log('[STORE] Received reasoning end event:', data)
 
     if (data && data.messageId) {
       useConversationStore.setState((state) => {
-        console.log('[STORE] Setting reasoning streaming to false for message:', data.messageId)
+        console.log('[STORE] Setting reasoning streaming to false for message:', data.messageId, {
+          currentReasoningStreaming: state.isReasoningStreaming,
+          currentReasoningStreamingMessageId: state.reasoningStreamingMessageId
+        })
         // Clear reasoning streaming state
         state.isReasoningStreaming = false
         state.reasoningStreamingMessageId = null
@@ -352,7 +396,7 @@ function setupEventListeners() {
     }
   })
 
-  console.log('Conversation event listeners set up')
+  console.log('[STORE] All conversation event listeners set up successfully')
 }
 
 export const useConversationStore = create<ConversationState>()(
@@ -970,6 +1014,7 @@ export const useConversationStore = create<ConversationState>()(
         }
 
         // Set up event listeners for real-time updates
+        console.log('[STORE] About to set up event listeners...')
         setupEventListeners()
       } catch (error) {
         console.error('Failed to initialize conversations:', error)
@@ -1061,5 +1106,10 @@ export const useIsReasoningStreaming = () =>
   useConversationStore((state) => state.isReasoningStreaming)
 export const useReasoningStreamingMessageId = () =>
   useConversationStore((state) => state.reasoningStreamingMessageId)
+
+// Text streaming selectors
+export const useIsTextStreaming = () => useConversationStore((state) => state.isTextStreaming)
+export const useTextStreamingMessageId = () =>
+  useConversationStore((state) => state.textStreamingMessageId)
 
 export default useConversationStore

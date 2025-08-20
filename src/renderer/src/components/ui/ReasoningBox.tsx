@@ -11,6 +11,8 @@ export interface ReasoningBoxProps {
   reasoning?: string
   /** Whether reasoning is currently being streamed */
   isReasoningStreaming?: boolean
+  /** Whether text streaming has started */
+  isTextStreaming?: boolean
   /** Whether to show the reasoning box when empty (for streaming state) */
   showWhenEmpty?: boolean
 }
@@ -22,6 +24,7 @@ export interface ReasoningBoxProps {
 export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   reasoning = '',
   isReasoningStreaming = false,
+  isTextStreaming = false,
   showWhenEmpty = false
 }) => {
   // Start expanded if reasoning is streaming or has content, otherwise collapsed
@@ -37,17 +40,21 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   const blockCodeBg = useColorModeValue('gray.50', 'gray.800')
   const hoverBg = useColorModeValue('rgba(168, 85, 247, 0.08)', 'rgba(168, 85, 247, 0.15)')
 
-  // Track previous reasoning streaming state to detect when it changes from true to false
+  // Track previous streaming states to detect changes
   const prevIsReasoningStreamingRef = useRef(isReasoningStreaming)
+  const prevIsTextStreamingRef = useRef(isTextStreaming)
 
   // Auto-expand/collapse based on reasoning streaming state changes
   useEffect(() => {
     console.log('[ReasoningBox] useEffect triggered:', {
       isReasoningStreaming,
       prevIsReasoningStreaming: prevIsReasoningStreamingRef.current,
+      isTextStreaming,
+      prevIsTextStreaming: prevIsTextStreamingRef.current,
       hasReasoning: !!reasoning?.trim(),
       reasoning: reasoning?.substring(0, 50) + '...',
-      isExpanded
+      isExpanded,
+      timestamp: new Date().toISOString()
     })
 
     // If reasoning streaming just started (went from false to true), expand
@@ -55,17 +62,22 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
       console.log('[ReasoningBox] Expanding reasoning box - reasoning started')
       setIsExpanded(true)
     }
-    // If reasoning streaming just stopped (went from true to false), collapse
+    // Don't auto-collapse on reasoning-end due to out-of-order events
+    // The collapse will be triggered by text streaming start instead
     else if (prevIsReasoningStreamingRef.current && !isReasoningStreaming) {
-      console.log(
-        '[ReasoningBox] Collapsing reasoning box - reasoning ended (streaming changed from true to false)'
-      )
+      console.log('[ReasoningBox] Reasoning ended, but keeping expanded until text starts')
+    }
+
+    // Collapse when text streaming starts (reasoning is complete at this point)
+    if (!prevIsTextStreamingRef.current && isTextStreaming) {
+      console.log('[ReasoningBox] Auto-collapsing reasoning box - text streaming started')
       setIsExpanded(false)
     }
 
-    // Update previous state ref
+    // Update previous state refs
     prevIsReasoningStreamingRef.current = isReasoningStreaming
-  }, [isReasoningStreaming, reasoning, isExpanded])
+    prevIsTextStreamingRef.current = isTextStreaming
+  }, [isReasoningStreaming, isTextStreaming, reasoning, isExpanded])
 
   // Don't render if no reasoning and not showing for streaming
   if (!reasoning?.trim() && !isReasoningStreaming && !showWhenEmpty) {

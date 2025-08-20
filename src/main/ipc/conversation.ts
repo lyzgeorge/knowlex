@@ -713,9 +713,17 @@ export function sendMessageEvent(eventType: string, data: unknown): void {
   // Get all windows and send the event
   const windows = BrowserWindow.getAllWindows()
 
-  windows.forEach((window) => {
+  console.log(
+    `[IPC] Sending message event: message:${eventType} to ${windows.length} windows`,
+    data
+  )
+
+  windows.forEach((window, index) => {
     if (window.webContents && !window.webContents.isDestroyed()) {
+      console.log(`[IPC] Sending to window ${index}: message:${eventType}`)
       window.webContents.send(`message:${eventType}`, data)
+    } else {
+      console.log(`[IPC] Skipping destroyed window ${index}`)
     }
   })
 }

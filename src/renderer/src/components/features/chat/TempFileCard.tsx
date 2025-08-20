@@ -3,11 +3,20 @@ import { Box, HStack, Text, IconButton, useColorModeValue, Image } from '@chakra
 import { CloseIcon, AttachmentIcon } from '@chakra-ui/icons'
 import { isImageFile } from '../../../../../shared/utils/validation'
 
+export interface MessageFileLike {
+  filename: string
+  size: number
+  mimeType: string
+  url?: string
+}
+
 export interface TempFileCardProps {
-  /** File to preview */
-  file: File
+  /** File to preview (when uploading) */
+  file?: File
+  /** Message-based file data (when rendering from a saved message) */
+  messageFile?: MessageFileLike
   /** Callback when file is removed */
-  onRemove: () => void
+  onRemove?: () => void
   /** Display variant */
   variant?: 'default' | 'compact'
   /** Additional CSS classes */
@@ -25,12 +34,16 @@ export interface TempFileCardProps {
  */
 export const TempFileCard: React.FC<TempFileCardProps> = ({
   file,
+  messageFile,
   onRemove,
   variant = 'default',
   className
 }) => {
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const isImage = isImageFile(file.name)
+  const [imagePreview, setImagePreview] = useState<string | null>(messageFile?.url || null)
+  const filename = file ? file.name : messageFile?.filename || ''
+  const filesize = file ? file.size : messageFile?.size || 0
+  const mimeType = file ? file.type : messageFile?.mimeType || ''
+  const isImage = isImageFile(filename) || (mimeType?.startsWith('image/') ?? false)
 
   // Theme colors
   const bgColor = useColorModeValue('surface.secondary', 'surface.secondary')
@@ -40,11 +53,10 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
 
   // Create image preview URL for image files
   useEffect(() => {
+    if (!file) return
     if (isImage) {
       const url = URL.createObjectURL(file)
       setImagePreview(url)
-
-      // Cleanup function to revoke the URL
       return () => {
         URL.revokeObjectURL(url)
       }
@@ -79,7 +91,7 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
           position="relative"
         >
           {/* Image thumbnail */}
-          <Image src={imagePreview} alt={file.name} objectFit="cover" width="100%" height="80px" />
+          <Image src={imagePreview} alt={filename} objectFit="cover" width="100%" height="80px" />
 
           {/* File info overlay */}
           <Box p={2} bg={bgColor}>
@@ -90,29 +102,31 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
                   fontWeight="medium"
                   color={textColor}
                   noOfLines={1}
-                  title={file.name}
+                  title={filename}
                   textAlign="left"
                 >
-                  {file.name}
+                  {filename}
                 </Text>
                 <Text fontSize="2xs" color={secondaryTextColor} textAlign="left">
-                  {formatFileSize(file.size)}
+                  {formatFileSize(filesize)}
                 </Text>
               </Box>
 
               {/* Remove Button */}
-              <IconButton
-                aria-label={`Remove ${file.name}`}
-                icon={<CloseIcon />}
-                size="2xs"
-                variant="ghost"
-                colorScheme="red"
-                onClick={onRemove}
-                _hover={{ bg: 'red.50' }}
-                minW="auto"
-                h="auto"
-                p={1}
-              />
+              {onRemove && (
+                <IconButton
+                  aria-label={`Remove ${filename}`}
+                  icon={<CloseIcon />}
+                  size="2xs"
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={onRemove}
+                  _hover={{ bg: 'red.50' }}
+                  minW="auto"
+                  h="auto"
+                  p={1}
+                />
+              )}
             </HStack>
           </Box>
         </Box>
@@ -142,29 +156,31 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
               fontWeight="medium"
               color={textColor}
               noOfLines={1}
-              title={file.name}
+              title={filename}
               textAlign="left"
             >
-              {file.name}
+              {filename}
             </Text>
             <Text fontSize="2xs" color={secondaryTextColor} textAlign="left">
-              {formatFileSize(file.size)}
+              {formatFileSize(filesize)}
             </Text>
           </Box>
 
           {/* Remove Button */}
-          <IconButton
-            aria-label={`Remove ${file.name}`}
-            icon={<CloseIcon />}
-            size="2xs"
-            variant="ghost"
-            colorScheme="red"
-            onClick={onRemove}
-            _hover={{ bg: 'red.50' }}
-            minW="auto"
-            h="auto"
-            p={1}
-          />
+          {onRemove && (
+            <IconButton
+              aria-label={`Remove ${filename}`}
+              icon={<CloseIcon />}
+              size="2xs"
+              variant="ghost"
+              colorScheme="red"
+              onClick={onRemove}
+              _hover={{ bg: 'red.50' }}
+              minW="auto"
+              h="auto"
+              p={1}
+            />
+          )}
         </HStack>
       </Box>
     )
@@ -185,7 +201,7 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
         {isImage && imagePreview ? (
           <Image
             src={imagePreview}
-            alt={file.name}
+            alt={filename}
             objectFit="cover"
             width="60px"
             height="60px"
@@ -198,24 +214,26 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
 
         {/* File Info */}
         <Box flex={1} minWidth={0}>
-          <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={1} title={file.name}>
-            {file.name}
+          <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={1} title={filename}>
+            {filename}
           </Text>
           <Text fontSize="xs" color={secondaryTextColor}>
-            {formatFileSize(file.size)}
+            {formatFileSize(filesize)}
           </Text>
         </Box>
 
         {/* Remove Button */}
-        <IconButton
-          aria-label={`Remove ${file.name}`}
-          icon={<CloseIcon />}
-          size="xs"
-          variant="ghost"
-          colorScheme="red"
-          onClick={onRemove}
-          _hover={{ bg: 'red.50' }}
-        />
+        {onRemove && (
+          <IconButton
+            aria-label={`Remove ${filename}`}
+            icon={<CloseIcon />}
+            size="xs"
+            variant="ghost"
+            colorScheme="red"
+            onClick={onRemove}
+            _hover={{ bg: 'red.50' }}
+          />
+        )}
       </HStack>
     </Box>
   )

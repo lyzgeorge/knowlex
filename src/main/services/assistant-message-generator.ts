@@ -14,7 +14,7 @@
 
 import type { Message, MessageContent } from '../../shared/types'
 import { generateAIResponseWithStreaming } from './ai-chat-vercel'
-import { updateMessage, getMessages } from './message'
+import { updateMessage, getMessages, getMessage } from './message'
 import { cancellationManager } from '../utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
 
@@ -65,12 +65,20 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
 
   // Start background streaming process (don't await)
   setImmediate(async () => {
+    // Track accumulated content for immediate DB writes
+    let accumulatedText = ''
+    let accumulatedReasoning = ''
+    let streamingActive = true
+
     try {
       // Generate AI response with streaming
       const response = await generateAIResponseWithStreaming(
         contextMessages,
         {
           onTextChunk: (chunk: string) => {
+            // Accumulate text content
+            accumulatedText += chunk
+
             // Send each text chunk via event
             sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
               messageId,
@@ -78,12 +86,16 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
             })
           },
           onReasoningStart: () => {
+            console.log('[ASSISTANT_GEN] Sending reasoning start event for message:', messageId)
             // Send reasoning start event
             sendMessageEvent(MESSAGE_EVENTS.REASONING_START, {
               messageId
             })
           },
           onReasoningChunk: (chunk: string) => {
+            // Accumulate reasoning content
+            accumulatedReasoning += chunk
+
             // Send each reasoning chunk via event
             sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
               messageId,
@@ -91,6 +103,7 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
             })
           },
           onReasoningEnd: () => {
+            console.log('[ASSISTANT_GEN] Sending reasoning end event for message:', messageId)
             // Send reasoning end event
             sendMessageEvent(MESSAGE_EVENTS.REASONING_END, {
               messageId
@@ -100,27 +113,47 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
         cancellationToken
       )
 
+      streamingActive = false
+
       // Check if the operation was cancelled
       const wasCancelled = cancellationToken.isCancelled
 
-      // Update the message with final content and reasoning
-      const updateData: any = {
-        content: response.content
-      }
-
-      if (response.reasoning !== undefined) {
-        updateData.reasoning = response.reasoning
-      }
-
-      const updatedMessage = await updateMessage(messageId, updateData)
-
       if (wasCancelled) {
+        console.log('Streaming cancelled, writing accumulated content to DB:', {
+          textLength: accumulatedText.length,
+          reasoningLength: accumulatedReasoning.length
+        })
+
+        // Write accumulated partial content immediately on cancellation
+        const partialUpdateData: any = {
+          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
+        }
+
+        if (accumulatedReasoning) {
+          partialUpdateData.reasoning = accumulatedReasoning
+        }
+
+        const updatedMessage = await updateMessage(messageId, partialUpdateData)
+
         // Send streaming cancelled event with partial message
         sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
           messageId,
           message: updatedMessage
         })
       } else {
+        console.log('Streaming completed, writing final content to DB')
+
+        // Write complete final content on successful completion
+        const finalUpdateData: any = {
+          content: response.content
+        }
+
+        if (response.reasoning !== undefined) {
+          finalUpdateData.reasoning = response.reasoning
+        }
+
+        const updatedMessage = await updateMessage(messageId, finalUpdateData)
+
         // Send streaming end event with final message
         sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
           messageId,
@@ -132,8 +165,11 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
       cancellationManager.complete(messageId)
 
       // Call success callback if provided
-      if (onSuccess) {
-        await onSuccess(updatedMessage)
+      if (onSuccess && !wasCancelled) {
+        const finalMessage = await getMessage(messageId)
+        if (finalMessage) {
+          await onSuccess(finalMessage)
+        }
       }
     } catch (error) {
       console.error('Failed to generate AI response:', error)
@@ -141,24 +177,52 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
       // Clean up the cancellation token
       cancellationManager.complete(messageId)
 
-      // Update message with error content
-      const errorContent: MessageContent = [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
+      // Check if streaming was cancelled during error
+      const wasCancelled = cancellationToken.isCancelled
+
+      let errorMessage: Message
+
+      if (wasCancelled && streamingActive && (accumulatedText || accumulatedReasoning)) {
+        console.log(
+          'Error occurred during streaming after cancellation, preserving accumulated content'
+        )
+
+        // Preserve accumulated content even in error case if user cancelled
+        const partialUpdateData: any = {
+          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
         }
-      ]
 
-      const errorMessage = await updateMessage(messageId, {
-        content: errorContent
-      })
+        if (accumulatedReasoning) {
+          partialUpdateData.reasoning = accumulatedReasoning
+        }
 
-      // Send streaming error event
-      sendMessageEvent(MESSAGE_EVENTS.STREAMING_ERROR, {
-        messageId,
-        message: errorMessage,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      })
+        errorMessage = await updateMessage(messageId, partialUpdateData)
+
+        // Send streaming cancelled event instead of error
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
+          messageId,
+          message: errorMessage
+        })
+      } else {
+        // Update message with error content
+        const errorContent: MessageContent = [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
+          }
+        ]
+
+        errorMessage = await updateMessage(messageId, {
+          content: errorContent
+        })
+
+        // Send streaming error event
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_ERROR, {
+          messageId,
+          message: errorMessage,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
 
       // Call error callback if provided
       if (onError) {

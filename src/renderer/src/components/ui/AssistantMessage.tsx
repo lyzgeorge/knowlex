@@ -5,10 +5,16 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { markdownComponents } from '../../utils/markdownComponents'
+import { formatTime } from '../../../../shared/utils/time'
 import type { Message, MessageContent, MessageContentPart } from '../../../../shared/types'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 import ReasoningBox from './ReasoningBox'
-import { useIsReasoningStreaming, useReasoningStreamingMessageId } from '../../stores/conversation'
+import {
+  useIsReasoningStreaming,
+  useReasoningStreamingMessageId,
+  useIsTextStreaming,
+  useTextStreamingMessageId
+} from '../../stores/conversation'
 
 export interface AssistantMessageProps {
   /** Message data */
@@ -38,21 +44,16 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const isReasoningStreamingForMessage =
     isReasoningStreaming && reasoningStreamingMessageId === message.id
 
+  // Text streaming state
+  const isTextStreaming = useIsTextStreaming()
+  const textStreamingMessageId = useTextStreamingMessageId()
+  const isTextStreamingForMessage = isTextStreaming && textStreamingMessageId === message.id
+
   // Color mode values
   const avatarBg = useColorModeValue('gray.100', 'gray.700')
   const avatarBorder = useColorModeValue('gray.200', 'gray.600')
   const iconColor = useColorModeValue('gray.600', 'gray.300')
   const assistantTextColor = useColorModeValue('text.primary', 'text.primary')
-
-  // Format timestamp
-  const formatTime = (timestamp: string): string => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
 
   // Render text content with streaming cursor
   const renderTextContent = (text: string, showCursor: boolean = false) => {
@@ -170,6 +171,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             <ReasoningBox
               {...(message.reasoning ? { reasoning: message.reasoning } : {})}
               isReasoningStreaming={isReasoningStreamingForMessage}
+              isTextStreaming={isTextStreamingForMessage}
               showWhenEmpty={isReasoningStreamingForMessage}
             />
           </Box>

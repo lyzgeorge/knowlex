@@ -218,14 +218,18 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
   }))
 }
 
-export async function updateMessage(id: string, content: MessageContent): Promise<void> {
+export async function updateMessage(
+  id: string,
+  content: MessageContent,
+  reasoning?: string
+): Promise<void> {
   await executeQuery(
     `
     UPDATE messages
-    SET content = ?, updated_at = datetime('now')
+    SET content = ?, reasoning = ?, updated_at = datetime('now')
     WHERE id = ?
   `,
-    [JSON.stringify(content), id]
+    [JSON.stringify(content), reasoning || null, id]
   )
 }
 

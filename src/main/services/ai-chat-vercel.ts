@@ -298,6 +298,11 @@ export async function generateAIResponseWithStreaming(
             // Step initialization
             break
 
+          case 'text-start':
+            console.log('[AI] Text start')
+            // Text streaming is about to begin
+            break
+
           case 'text-delta':
             // console.log('[AI] Text delta received:', JSON.stringify(part.text))
 
@@ -305,6 +310,11 @@ export async function generateAIResponseWithStreaming(
               streamedText += part.text
               streamCallbacks.onTextChunk(part.text)
             }
+            break
+
+          case 'text-end':
+            console.log('[AI] Text end')
+            // Text streaming has completed
             break
 
           case 'reasoning-start':
