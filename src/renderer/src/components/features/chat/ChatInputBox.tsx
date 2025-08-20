@@ -8,7 +8,8 @@ import {
   useIsSending,
   useIsStreaming,
   useStreamingMessageId,
-  useStopStreaming
+  useStopStreaming,
+  useCurrentConversation
 } from '../../../stores/conversation'
 import TempFileCard from './TempFileCard'
 import { useFileUpload, FileUploadItem, ProcessedFile } from '../../../hooks/useFileUpload'
@@ -22,8 +23,6 @@ const spinAnimation = keyframes`
 export type ChatInputVariant = 'main-entrance' | 'conversation'
 
 export interface ChatInputBoxProps {
-  /** Current conversation ID (required for conversation variant) */
-  conversationId?: string
   /** Input variant determines styling and behavior */
   variant?: ChatInputVariant
   /** Whether the input is disabled */
@@ -50,7 +49,6 @@ export interface ChatInputBoxProps {
  * - conversation: Bottom-positioned with full features for existing chats
  */
 export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
-  conversationId,
   variant = 'conversation',
   disabled = false,
   placeholder,
@@ -68,6 +66,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const isStreaming = useIsStreaming()
   const streamingMessageId = useStreamingMessageId()
   const stopStreaming = useStopStreaming()
+  const { currentConversation } = useCurrentConversation()
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
@@ -184,7 +183,6 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         hasFiles,
         fileCount: fileUpload.state.files.length,
         variant,
-        conversationId,
         onSendMessage: !!onSendMessage
       })
 
@@ -214,8 +212,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         await onSendMessage(originalInput, [], processedFiles)
       }
       // Use store sendMessage for conversation variant
-      else if (conversationId && variant === 'conversation') {
-        console.log('handleSend: Using conversation variant, conversationId:', conversationId)
+      else if (variant === 'conversation') {
+        console.log('handleSend: Using conversation variant')
         const content = []
 
         // Add text content part only if there's actual text
@@ -281,12 +279,15 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 : { filename: (c as any).temporaryFile?.filename || 'file' })
           }))
         )
-        await sendMessage(conversationId, content)
+        await sendMessage(
+          content,
+          [],
+          currentConversation?.id ? { conversationId: currentConversation.id } : {}
+        )
       } else {
         console.log('handleSend: No matching path found!', {
           onSendMessage: !!onSendMessage,
           variant,
-          conversationId,
           hasProcessedFiles: processedFiles.length > 0
         })
       }
@@ -302,7 +303,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       }
       console.error('Failed to send message:', error)
     }
-  }, [input, fileUpload, isSending, disabled, conversationId, sendMessage, onSendMessage, variant])
+  }, [input, fileUpload, isSending, disabled, sendMessage, onSendMessage, variant])
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(

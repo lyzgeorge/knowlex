@@ -4,12 +4,12 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
 import { setupApplicationMenu } from './menu'
 import { runMigrations } from './database/migrations'
-import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
+import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
 // TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
 // Application lifecycle management
@@ -36,9 +36,9 @@ class Application {
     // Register IPC handlers
     try {
       console.log('Registering IPC handlers...')
-      registerProjectIPCHandlers()
       registerConversationIPCHandlers()
       registerFileIPCHandlers()
+      registerSettingsIPCHandlers()
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -104,9 +104,9 @@ app.on('before-quit', async () => {
 
   try {
     // Unregister IPC handlers
-    unregisterProjectIPCHandlers()
     unregisterConversationIPCHandlers()
     unregisterFileIPCHandlers()
+    unregisterSettingsIPCHandlers()
 
     // Close database connections
     const { closeDB } = await import('./database/index')

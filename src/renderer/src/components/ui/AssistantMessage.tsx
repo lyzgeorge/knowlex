@@ -1,14 +1,11 @@
 import React, { useState } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon } from '@chakra-ui/react'
 import { FaForumbee } from 'react-icons/fa'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import { markdownComponents } from '../../utils/markdownComponents'
 import { formatTime } from '../../../../shared/utils/time'
-import type { Message, MessageContent, MessageContentPart } from '../../../../shared/types'
+import type { Message } from '../../../../shared/types/message'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
 import ReasoningBox from './ReasoningBox'
+import MessageContentRenderer from './MessageContentRenderer'
 import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId,
@@ -54,86 +51,6 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const avatarBorder = useColorModeValue('gray.200', 'gray.600')
   const iconColor = useColorModeValue('gray.600', 'gray.300')
   const assistantTextColor = useColorModeValue('text.primary', 'text.primary')
-
-  // Render text content with streaming cursor
-  const renderTextContent = (text: string, showCursor: boolean = false) => {
-    // Clean up zero-width space placeholder
-    const displayText = text.replace(/\u200B/g, '')
-
-    return (
-      <Box as="span" display="inline" className="markdown-content">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeHighlight]}
-          components={markdownComponents}
-        >
-          {displayText}
-        </ReactMarkdown>
-        {showCursor && (
-          <Icon
-            as={FaForumbee}
-            boxSize={3}
-            color="gray.400"
-            ml={1}
-            display="inline"
-            verticalAlign="baseline"
-            animation="flash 1.5s ease-in-out infinite"
-            sx={{
-              '@keyframes flash': {
-                '0%, 50%': { opacity: 1 },
-                '51%, 100%': { opacity: 0.3 }
-              }
-            }}
-          />
-        )}
-      </Box>
-    )
-  }
-
-  // Render message content parts
-  const renderContent = (content: MessageContent) => {
-    return content.map((part: MessageContentPart, index: number) => {
-      const key = `part-${index}`
-      const isLastTextPart = index === content.length - 1 && part.type === 'text'
-      // Hide the streaming cursor (FaForumbee icon) when reasoning is streaming for this message
-      const showCursor = isStreaming && isLastTextPart && !isReasoningStreamingForMessage
-
-      switch (part.type) {
-        case 'text':
-          // Always render text parts during streaming, even if empty
-          if (part.text || showCursor) {
-            return <Box key={key}>{renderTextContent(part.text || '', showCursor)}</Box>
-          }
-          return null
-
-        case 'temporary-file':
-          if (part.temporaryFile) {
-            return (
-              <Box
-                key={key}
-                p={3}
-                bg="gray.50"
-                borderRadius="md"
-                border="1px solid"
-                borderColor="gray.200"
-                fontSize="sm"
-              >
-                <Text fontWeight="medium" mb={2}>
-                  {part.temporaryFile.filename}
-                </Text>
-                <Text fontSize="xs" color="gray.600" noOfLines={3}>
-                  {part.temporaryFile.content.substring(0, 200)}...
-                </Text>
-              </Box>
-            )
-          }
-          return null
-
-        default:
-          return null
-      }
-    })
-  }
 
   return (
     <HStack
@@ -185,7 +102,13 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           borderRadius="lg"
           alignSelf="flex-start"
         >
-          {renderContent(message.content)}
+          <MessageContentRenderer
+            content={message.content}
+            variant="assistant"
+            isStreaming={isStreaming}
+            showCursor={true}
+            isReasoningStreaming={isReasoningStreamingForMessage}
+          />
         </Box>
 
         <HStack spacing={2} px={1} minHeight="16px" alignItems="center" alignSelf="flex-start">

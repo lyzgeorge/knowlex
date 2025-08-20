@@ -5,7 +5,6 @@ import {
   listConversations,
   updateConversation,
   deleteConversation,
-  moveConversation,
   updateConversationSettings,
   generateConversationTitle,
   type CreateConversationData,
@@ -25,12 +24,10 @@ import type {
   ConversationCreateRequest,
   MessageAddRequest
 } from '../../shared/types/ipc'
-import type { Conversation, Message, SessionSettings, MessageContent } from '../../shared/types'
+import type { Conversation, SessionSettings } from '../../shared/types/conversation'
+import type { Message, MessageContent } from '../../shared/types/message'
 import { testAIConfiguration } from '../services/ai-chat-vercel'
-import {
-  generateAssistantMessageForNewUserMessage,
-  regenerateAssistantMessage
-} from '../services/assistant-message-generator'
+import { regenerateAssistantMessage } from '../services/assistant-message-generator'
 import { cancellationManager } from '../utils/cancellation'
 
 /**
@@ -39,71 +36,35 @@ import { cancellationManager } from '../utils/cancellation'
  * Provides error handling and validation for all conversation and message-related IPC calls
  */
 
-/**
- * Wraps service calls with consistent error handling and response format
- * Ensures all IPC responses follow the IPCResult pattern
- */
-async function handleIPCCall<T>(operation: () => Promise<T>): Promise<IPCResult<T>> {
-  try {
-    const data = await operation()
-    return {
-      success: true,
-      data
-    }
-  } catch (error) {
-    console.error('IPC operation failed:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    }
-  }
-}
+import {
+  handleIPCCall,
+  validateRequest,
+  requireValidId,
+  ValidationPatterns,
+  validateObject,
+  validateStringProperty
+} from './common'
 
 /**
  * Validates conversation creation request data
  */
 function validateConversationCreateRequest(data: unknown): data is ConversationCreateRequest {
-  if (!data || typeof data !== 'object') {
-    return false
-  }
-
+  if (!validateObject(data)) return false
   const request = data as ConversationCreateRequest
-  return (
-    (request.projectId === undefined || typeof request.projectId === 'string') &&
-    (request.title === undefined || typeof request.title === 'string')
-  )
+  return request.title === undefined || typeof request.title === 'string'
 }
 
 /**
  * Validates message add request data
  */
 function validateMessageAddRequest(data: unknown): data is MessageAddRequest {
-  if (!data || typeof data !== 'object') {
-    return false
-  }
-
+  if (!validateObject(data)) return false
   const request = data as MessageAddRequest
   return (
-    typeof request.conversationId === 'string' &&
-    request.conversationId.trim().length > 0 &&
-    ['user', 'assistant'].includes(request.role) &&
-    Array.isArray(request.content) &&
-    request.content.length > 0
+    ValidationPatterns.conversationId(request.conversationId) &&
+    ValidationPatterns.messageRole(request.role) &&
+    ValidationPatterns.messageContent(request.content)
   )
-}
-
-/**
- * Validates conversation ID parameter
- */
-function validateConversationId(id: unknown): id is string {
-  return typeof id === 'string' && id.trim().length > 0
-}
-
-/**
- * Validates message ID parameter
- */
-function validateMessageId(id: unknown): id is string {
-  return typeof id === 'string' && id.trim().length > 0
 }
 
 /**
@@ -112,32 +73,22 @@ function validateMessageId(id: unknown): id is string {
 function validateConversationUpdateData(data: unknown): data is {
   id: string
   title?: string
-  projectId?: string
   settings?: SessionSettings
 } {
-  if (!data || typeof data !== 'object') {
-    return false
-  }
-
+  if (!validateObject(data)) return false
   const request = data as any
   return (
-    typeof request.id === 'string' &&
-    request.id.trim().length > 0 &&
-    (request.title === undefined || typeof request.title === 'string') &&
-    (request.projectId === undefined ||
-      request.projectId === null ||
-      typeof request.projectId === 'string') &&
+    ValidationPatterns.conversationId(request.id) &&
+    validateStringProperty(request, 'title', false) &&
     (request.settings === undefined ||
       (typeof request.settings === 'object' && request.settings !== null))
   )
 }
 
-/**
- * Validates message content for updates
- */
-function validateMessageContent(content: unknown): content is MessageContent {
-  return Array.isArray(content) && content.length > 0
-}
+// Temporary aliases for backward compatibility during migration
+const validateConversationId = ValidationPatterns.conversationId
+const validateMessageId = ValidationPatterns.messageId
+const validateMessageContent = ValidationPatterns.messageContent
 
 /**
  * Registers all conversation and message-related IPC handlers
@@ -155,13 +106,14 @@ export function registerConversationIPCHandlers(): void {
     'conversation:create',
     async (_, data: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationCreateRequest(data)) {
-          throw new Error('Invalid conversation creation data')
-        }
+        const requestData = validateRequest(
+          data,
+          validateConversationCreateRequest,
+          'Invalid conversation creation data'
+        )
 
         const createData: CreateConversationData = {}
-        if (data.projectId !== undefined) createData.projectId = data.projectId
-        if (data.title !== undefined) createData.title = data.title
+        if (requestData.title !== undefined) createData.title = requestData.title
 
         return await createConversation(createData)
       })
@@ -169,26 +121,19 @@ export function registerConversationIPCHandlers(): void {
   )
 
   // List conversations
-  ipcMain.handle(
-    'conversation:list',
-    async (_, projectId?: unknown): Promise<IPCResult<Conversation[]>> => {
-      return handleIPCCall(async () => {
-        const validProjectId = projectId && typeof projectId === 'string' ? projectId : undefined
-        return await listConversations(validProjectId)
-      })
-    }
-  )
+  ipcMain.handle('conversation:list', async (): Promise<IPCResult<Conversation[]>> => {
+    return handleIPCCall(async () => {
+      return await listConversations()
+    })
+  })
 
   // Get single conversation
   ipcMain.handle(
     'conversation:get',
     async (_, id: unknown): Promise<IPCResult<Conversation | null>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationId(id)) {
-          throw new Error('Invalid conversation ID')
-        }
-
-        return await getConversation(id)
+        const conversationId = requireValidId(id, 'Conversation ID')
+        return await getConversation(conversationId)
       })
     }
   )
@@ -198,16 +143,17 @@ export function registerConversationIPCHandlers(): void {
     'conversation:update',
     async (_, data: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationUpdateData(data)) {
-          throw new Error('Invalid conversation update data')
-        }
+        const requestData = validateRequest(
+          data,
+          validateConversationUpdateData,
+          'Invalid conversation update data'
+        )
 
         const updateData: UpdateConversationData = {}
-        if (data.title !== undefined) updateData.title = data.title
-        if (data.projectId !== undefined) updateData.projectId = data.projectId
-        if (data.settings !== undefined) updateData.settings = data.settings
+        if (requestData.title !== undefined) updateData.title = requestData.title
+        if (requestData.settings !== undefined) updateData.settings = requestData.settings
 
-        return await updateConversation(data.id, updateData)
+        return await updateConversation(requestData.id, updateData)
       })
     }
   )
@@ -217,15 +163,13 @@ export function registerConversationIPCHandlers(): void {
     'conversation:update-title',
     async (_, conversationId: unknown, title: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationId(conversationId)) {
-          throw new Error('Invalid conversation ID')
-        }
+        const validConversationId = requireValidId(conversationId, 'Conversation ID')
 
         if (!title || typeof title !== 'string' || title.trim().length === 0) {
           throw new Error('Invalid title')
         }
 
-        return await updateConversation(conversationId, {
+        return await updateConversation(validConversationId, {
           title: title.trim()
         })
       })
@@ -235,39 +179,10 @@ export function registerConversationIPCHandlers(): void {
   // Delete conversation
   ipcMain.handle('conversation:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
-      if (!validateConversationId(id)) {
-        throw new Error('Invalid conversation ID')
-      }
-
-      await deleteConversation(id)
+      const conversationId = requireValidId(id, 'Conversation ID')
+      await deleteConversation(conversationId)
     })
   })
-
-  // Move conversation between projects
-  ipcMain.handle(
-    'conversation:move',
-    async (_, data: unknown): Promise<IPCResult<Conversation>> => {
-      return handleIPCCall(async () => {
-        if (!data || typeof data !== 'object') {
-          throw new Error('Invalid move conversation data')
-        }
-
-        const request = data as any
-        if (!validateConversationId(request.conversationId)) {
-          throw new Error('Invalid conversation ID')
-        }
-
-        const targetProjectId =
-          request.projectId === null
-            ? null
-            : typeof request.projectId === 'string'
-              ? request.projectId
-              : null
-
-        return await moveConversation(request.conversationId, targetProjectId)
-      })
-    }
-  )
 
   // Update conversation settings
   ipcMain.handle(
@@ -472,68 +387,244 @@ export function registerConversationIPCHandlers(): void {
       }
 
       const request = data as any
-      if (!validateConversationId(request.conversationId)) {
-        throw new Error('Invalid conversation ID')
-      }
 
       if (!validateMessageContent(request.content)) {
         throw new Error('Invalid message content')
       }
 
-      let actualConversationId = request.conversationId
+      const providedConversationId: string | undefined =
+        typeof request.conversationId === 'string' && request.conversationId.trim().length > 0
+          ? request.conversationId.trim()
+          : undefined
 
-      // Check if this is a pending conversation that needs to be created
-      if (request.conversationId.startsWith('pending-')) {
-        console.log(
-          'Creating actual conversation for pending conversation:',
-          request.conversationId
-        )
-
-        // Create the actual conversation record in database
-        const result = await createConversation({
-          title: 'New Chat'
-        })
-
-        if (!result) {
-          throw new Error('Failed to create conversation')
-        }
-
-        const newConversation = result
-        console.log('Actual conversation created:', newConversation)
-        actualConversationId = newConversation.id
+      // Prepare context messages for AI: use existing conversation if provided, else just current user message
+      let contextMessages: Message[]
+      if (providedConversationId) {
+        contextMessages = await getMessages(providedConversationId)
+        // Append a virtual user message for context
+        contextMessages = [
+          ...contextMessages,
+          {
+            id: 'virtual-user',
+            conversationId: providedConversationId,
+            role: 'user',
+            content: request.content,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          } as Message
+        ]
+      } else {
+        contextMessages = [
+          {
+            id: 'virtual-user',
+            conversationId: 'virtual',
+            role: 'user',
+            content: request.content,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          } as Message
+        ]
       }
 
-      // Step 1: Add user message
-      const userMessage = await addMessage({
-        conversationId: actualConversationId,
-        role: 'user',
-        content: request.content
-      })
+      // Accumulators for partial writes
+      let accumulatedText = ''
+      let accumulatedReasoning = ''
 
-      // Send event for user message added
-      sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
+      // We'll assign these on stream start
+      let actualConversationId: string | undefined = providedConversationId
+      let assistantMessageId: string | undefined
 
-      // Step 2: Create placeholder assistant message immediately (with small delay to ensure different timestamp)
-      await new Promise((resolve) => setTimeout(resolve, 1)) // 1ms delay to ensure different timestamp
-      const assistantMessage = await addMessage({
-        conversationId: actualConversationId,
-        role: 'assistant',
-        content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
-      })
+      // Create a cancellation token (to be registered later when we have assistantMessageId)
+      const token = cancellationManager.createToken(`temp-${Date.now()}`)
 
-      // Step 3: Start streaming - send streaming start event
-      sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
-        messageId: assistantMessage.id,
-        message: assistantMessage
-      })
+      // Start streaming using AI service, relying only on fullStream
+      const { generateAIResponseWithStreaming } = await import('../services/ai-chat-vercel')
 
-      // Step 4: Return immediately with the initial messages
-      const initialMessages = [userMessage, assistantMessage]
+      const response = await generateAIResponseWithStreaming(
+        contextMessages,
+        {
+          onStreamStart: async () => {
+            try {
+              // Ensure conversation exists (create only when not provided)
+              if (!actualConversationId) {
+                const newConv = await createConversation({
+                  title: 'New Chat'
+                })
+                actualConversationId = newConv.id
 
-      // Step 5: Generate assistant response using the atomic module
-      await generateAssistantMessageForNewUserMessage(assistantMessage.id, actualConversationId)
+                // Notify renderer about new conversation
+                sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConv)
+              }
 
-      return initialMessages
+              // Prepare user content for DB: map unsupported parts (image) to text marker
+              const userContentForDB = (request.content as any[]).map((part) => {
+                if (part.type === 'image') {
+                  const alt = part.image?.alt || 'image'
+                  return { type: 'text', text: `[Image: ${alt}]` }
+                }
+                return part
+              })
+
+              // Write user message
+              const userMessage = await addMessage({
+                conversationId: actualConversationId!,
+                role: 'user',
+                content: userContentForDB
+              })
+              sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
+
+              // Small delay to ensure different timestamp ordering
+              await new Promise((r) => setTimeout(r, 1))
+
+              // Create assistant placeholder
+              const assistantMessage = await addMessage({
+                conversationId: actualConversationId!,
+                role: 'assistant',
+                content: [{ type: 'text' as const, text: '\u200B' }]
+              })
+              assistantMessageId = assistantMessage.id
+
+              // Register token with real message id for cancellation
+              cancellationManager.registerToken(assistantMessageId, token)
+
+              // Emit streaming start
+              sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
+                messageId: assistantMessageId,
+                message: assistantMessage
+              })
+            } catch (err) {
+              console.error('Failed during onStreamStart:', err)
+              throw err
+            }
+          },
+          onTextChunk: (chunk: string) => {
+            accumulatedText += chunk
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
+                messageId: assistantMessageId,
+                chunk
+              })
+            }
+          },
+          onReasoningStart: () => {
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.REASONING_START, { messageId: assistantMessageId })
+            }
+          },
+          onReasoningChunk: (chunk: string) => {
+            accumulatedReasoning += chunk
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
+                messageId: assistantMessageId,
+                chunk
+              })
+            }
+          },
+          onReasoningEnd: () => {
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.REASONING_END, { messageId: assistantMessageId })
+            }
+          },
+          onStreamFinish: () => {
+            // no-op; final write handled after await
+          }
+        },
+        token
+      )
+
+      // Determine if cancelled
+      const wasCancelled = token.isCancelled
+
+      if (!assistantMessageId || !actualConversationId) {
+        // This shouldn't happen if onStreamStart executed
+        throw new Error('Streaming did not initialize properly')
+      }
+
+      if (wasCancelled) {
+        // Persist partial content
+        const partialUpdateData: any = {
+          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
+        }
+        if (accumulatedReasoning) partialUpdateData.reasoning = accumulatedReasoning
+
+        const { updateMessage } = await import('../services/message')
+        const updated = await updateMessage(assistantMessageId, partialUpdateData)
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
+          messageId: assistantMessageId,
+          message: updated
+        })
+      } else {
+        // Persist final content
+        const finalUpdateData: any = {
+          content: response.content
+        }
+        if (response.reasoning !== undefined) finalUpdateData.reasoning = response.reasoning
+
+        const { updateMessage } = await import('../services/message')
+        const updated = await updateMessage(assistantMessageId, finalUpdateData)
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
+          messageId: assistantMessageId,
+          message: updated
+        })
+      }
+
+      // Clean up token mapping
+      cancellationManager.complete(assistantMessageId)
+
+      // Check if automatic title generation should be triggered
+      try {
+        const { getMessages } = await import('../services/message')
+        const totalMessages = await getMessages(actualConversationId)
+        const { shouldTriggerAutoGeneration } = await import('../services/title-generation')
+
+        if (shouldTriggerAutoGeneration(totalMessages)) {
+          console.log(
+            `Triggering automatic title generation for conversation ${actualConversationId} after first exchange`
+          )
+
+          // Use setImmediate to trigger title generation asynchronously
+          setImmediate(async () => {
+            try {
+              const { generateTitleForConversation } = await import('../services/title-generation')
+              const { updateConversation } = await import('../services/conversation')
+
+              const title = await generateTitleForConversation(actualConversationId!)
+
+              // Only update if we got a meaningful title (not "New Chat")
+              if (title && title !== 'New Chat') {
+                await updateConversation(actualConversationId!, { title })
+
+                // Send title update event to renderer
+                sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
+                  conversationId: actualConversationId,
+                  title
+                })
+
+                console.log(
+                  `Successfully auto-generated title for conversation ${actualConversationId}: "${title}"`
+                )
+              } else {
+                console.log(
+                  `Skipping title update for conversation ${actualConversationId}: got fallback title "${title}"`
+                )
+              }
+            } catch (titleError) {
+              console.error('Failed to automatically generate title:', titleError)
+            }
+          })
+        } else {
+          const userMessages = totalMessages.filter((m) => m.role === 'user')
+          const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
+          console.log(
+            `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
+          )
+        }
+      } catch (titleError) {
+        console.error('Failed to check title generation conditions:', titleError)
+      }
+
+      // Return empty list (UI updates via events)
+      return []
     })
   })
 
@@ -565,47 +656,6 @@ export function registerConversationIPCHandlers(): void {
         await regenerateAssistantMessage(messageId)
 
         return clearedMessage
-      })
-    }
-  )
-
-  // Fork conversation
-  ipcMain.handle(
-    'conversation:fork',
-    async (_, messageId: unknown): Promise<IPCResult<Conversation>> => {
-      return handleIPCCall(async () => {
-        if (!validateMessageId(messageId)) {
-          throw new Error('Invalid message ID')
-        }
-
-        // Get the message to fork from
-        const message = await getMessage(messageId)
-        if (!message) {
-          throw new Error('Message not found')
-        }
-
-        // Create new conversation
-        const newConversation = await createConversation({
-          title: 'Forked Conversation'
-        })
-
-        // Copy messages up to the fork point
-        const messages = await getMessages(message.conversationId)
-        const messagesToCopy = messages.filter((_, index) => {
-          const messageIndex = messages.findIndex((msg) => msg.id === messageId)
-          return index <= messageIndex
-        })
-
-        for (const msg of messagesToCopy) {
-          await addMessage({
-            conversationId: newConversation.id,
-            role: msg.role,
-            content: msg.content
-          })
-        }
-
-        sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConversation)
-        return newConversation
       })
     }
   )
@@ -664,8 +714,6 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:move',
     'conversation:update-settings',
     'conversation:generate-title',
-    'conversation:fork',
-
     // Message channels
     'message:add',
     'message:add-text',

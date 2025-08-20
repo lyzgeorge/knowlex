@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, VStack, Text } from '@chakra-ui/react'
-import type { Message } from '../../../../../shared/types'
+import type { Message } from '../../../../../shared/types/message'
 import MessageBubble from '../../ui/MessageBubble'
 
 export interface MessageListProps {

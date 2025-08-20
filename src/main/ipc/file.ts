@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { processTemporaryFiles, processTemporaryFileContents } from '../services/file-temp'
 import type { IPCResult, TemporaryFileRequest } from '../../shared/types/ipc'
 import type { TemporaryFileResult } from '../../shared/types/file'
+import { handleIPCCall, validateRequest, validateObject } from './common'
 
 /**
  * Simplified File IPC Handler
@@ -9,40 +10,17 @@ import type { TemporaryFileResult } from '../../shared/types/file'
  */
 
 /**
- * Wraps service calls with consistent error handling and response format
- * Ensures all IPC responses follow the IPCResult pattern
- */
-async function handleIPCCall<T>(operation: () => Promise<T>): Promise<IPCResult<T>> {
-  try {
-    const data = await operation()
-    return {
-      success: true,
-      data
-    }
-  } catch (error) {
-    console.error('File IPC operation failed:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    }
-  }
-}
-
-/**
  * Validates temporary file processing request data
  */
 function validateTemporaryFileRequest(data: unknown): data is TemporaryFileRequest {
-  if (!data || typeof data !== 'object') {
-    return false
-  }
+  if (!validateObject(data)) return false
 
   const request = data as TemporaryFileRequest
   return (
     Array.isArray(request.files) &&
     request.files.every(
       (file) =>
-        file &&
-        typeof file === 'object' &&
+        validateObject(file) &&
         'name' in file &&
         'path' in file &&
         typeof file.name === 'string' &&
@@ -57,17 +35,14 @@ function validateTemporaryFileRequest(data: unknown): data is TemporaryFileReque
 function validateTemporaryFileContentRequest(data: unknown): data is {
   files: Array<{ name: string; content: string; size: number }>
 } {
-  if (!data || typeof data !== 'object') {
-    return false
-  }
+  if (!validateObject(data)) return false
 
   const request = data as { files: Array<{ name: string; content: string; size: number }> }
   return (
     Array.isArray(request.files) &&
     request.files.every(
       (file) =>
-        file &&
-        typeof file === 'object' &&
+        validateObject(file) &&
         'name' in file &&
         'content' in file &&
         'size' in file &&
@@ -90,12 +65,14 @@ export function registerFileIPCHandlers(): void {
     'file:process-temp',
     async (_, data: unknown): Promise<IPCResult<TemporaryFileResult[]>> => {
       return handleIPCCall(async () => {
-        if (!validateTemporaryFileRequest(data)) {
-          throw new Error('Invalid temporary file processing request')
-        }
+        const request = validateRequest(
+          data,
+          validateTemporaryFileRequest,
+          'Invalid temporary file processing request'
+        )
 
         // Extract file paths from the request
-        const filePaths = data.files.map((file) => file.path)
+        const filePaths = request.files.map((file) => file.path)
 
         return await processTemporaryFiles(filePaths)
       })

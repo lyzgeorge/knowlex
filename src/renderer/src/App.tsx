@@ -9,7 +9,8 @@ import {
   AlertTitle,
   AlertDescription
 } from '@chakra-ui/react'
-import { MainApp, DebugApp } from './pages'
+import MainApp from './pages/MainApp'
+import DebugApp from './pages/DebugApp'
 import { initializeStores, useAppStore } from './stores'
 
 /**

@@ -5,9 +5,8 @@ import {
   updateConversation as dbUpdateConversation,
   deleteConversation as dbDeleteConversation
 } from '../database/queries'
-import { getDB } from '../database'
 import { generateId } from '../../shared/utils/id'
-import type { Conversation, SessionSettings } from '../../shared/types'
+import type { Conversation, SessionSettings } from '../../shared/types/conversation'
 
 /**
  * Conversation Management Service
@@ -16,14 +15,12 @@ import type { Conversation, SessionSettings } from '../../shared/types'
  */
 
 export interface CreateConversationData {
-  projectId?: string
   title?: string
   settings?: SessionSettings
 }
 
 export interface UpdateConversationData {
   title?: string
-  projectId?: string
   settings?: SessionSettings
 }
 
@@ -37,10 +34,6 @@ export async function createConversation(data: CreateConversationData): Promise<
     throw new Error('Conversation title must be 200 characters or less')
   }
 
-  if (data.projectId && typeof data.projectId !== 'string') {
-    throw new Error('Project ID must be a valid string')
-  }
-
   const conversationId = generateId()
   const now = new Date().toISOString()
 
@@ -49,10 +42,6 @@ export async function createConversation(data: CreateConversationData): Promise<
     title: data.title?.trim() || 'New Chat',
     createdAt: now,
     updatedAt: now
-  }
-
-  if (data.projectId?.trim()) {
-    newConversation.projectId = data.projectId.trim()
   }
 
   if (data.settings) {
@@ -95,9 +84,9 @@ export async function getConversation(id: string): Promise<Conversation | null> 
  * Lists all conversations, optionally filtered by project
  * Returns conversations ordered by last updated date
  */
-export async function listConversations(projectId?: string): Promise<Conversation[]> {
+export async function listConversations(): Promise<Conversation[]> {
   try {
-    const conversations = await dbListConversations(projectId)
+    const conversations = await dbListConversations()
     return conversations
   } catch (error) {
     console.error('Failed to list conversations:', error)
@@ -136,23 +125,10 @@ export async function updateConversation(
     }
   }
 
-  if (
-    data.projectId !== undefined &&
-    data.projectId !== null &&
-    typeof data.projectId !== 'string'
-  ) {
-    throw new Error('Project ID must be a valid string')
-  }
-
   // Prepare update data
-  const updates: Partial<Pick<Conversation, 'title' | 'projectId' | 'settings'>> = {}
+  const updates: Partial<Pick<Conversation, 'title' | 'settings'>> = {}
   if (data.title !== undefined) {
     updates.title = data.title.trim()
-  }
-  if (data.projectId !== undefined) {
-    if (data.projectId?.trim()) {
-      updates.projectId = data.projectId.trim()
-    }
   }
   if (data.settings !== undefined) {
     updates.settings = data.settings
@@ -206,59 +182,6 @@ export async function deleteConversation(id: string): Promise<void> {
     console.error(`Failed to delete conversation ${id}:`, error)
     throw new Error(
       `Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Moves a conversation between projects
- * Special case of conversation update that handles project association
- */
-export async function moveConversation(
-  id: string,
-  targetProjectId: string | null
-): Promise<Conversation> {
-  if (!id || id.trim().length === 0) {
-    throw new Error('Conversation ID is required')
-  }
-
-  // Check if conversation exists
-  const existingConversation = await dbGetConversation(id.trim())
-  if (!existingConversation) {
-    throw new Error('Conversation not found')
-  }
-
-  try {
-    let updatedConversation: Conversation
-
-    if (!targetProjectId) {
-      // We need to explicitly remove the projectId by setting it to undefined
-      const result = await (
-        await getDB()
-      ).execute({
-        sql: 'UPDATE conversations SET project_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *',
-        args: [id]
-      })
-      const conversation = result.rows[0] as Conversation | undefined
-
-      if (!conversation) {
-        throw new Error('Failed to update conversation')
-      }
-
-      updatedConversation = { ...conversation } as Conversation
-    } else {
-      const updateData: UpdateConversationData = { projectId: targetProjectId }
-      updatedConversation = await updateConversation(id, updateData)
-    }
-
-    const action = targetProjectId ? 'moved to project' : 'moved out of project'
-    console.log(`Conversation ${action}: ${id} - ${updatedConversation.title}`)
-
-    return updatedConversation
-  } catch (error) {
-    console.error(`Failed to move conversation ${id}:`, error)
-    throw new Error(
-      `Failed to move conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }

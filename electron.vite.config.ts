@@ -13,7 +13,7 @@ export default defineConfig({
     },
     build: {
       lib: {
-        entry: 'src/main/index.ts'
+        entry: 'src/main/main.ts'
       }
     }
   },
@@ -27,7 +27,7 @@ export default defineConfig({
     },
     build: {
       lib: {
-        entry: 'src/preload/index.ts'
+        entry: 'src/main/preload.ts'
       }
     }
   },

@@ -6,7 +6,6 @@
 // Store imports for internal use
 import useAppStoreInternal from './app'
 import useSettingsStoreInternal from './settings'
-import useProjectStoreInternal from './project'
 import useConversationStoreInternal from './conversation'
 
 // Store exports
@@ -19,7 +18,6 @@ export {
   initializeThemeSync,
   cleanupThemeSync
 } from './app'
-export { default as useProjectStore, useCurrentProject, useProjects } from './project'
 export {
   default as useConversationStore,
   useCurrentConversation,
@@ -30,7 +28,6 @@ export {
   useRegenerateMessage,
   useEditMessage,
   useDeleteMessage,
-  useForkConversation,
   useIsSending,
   useIsStreaming,
   useStreamingMessageId,
@@ -56,8 +53,7 @@ export {
 
 // Type exports
 export type { Theme, Language, AppState } from './app'
-export type { ProjectState } from './project'
-export type { ConversationState, SendMessageData } from './conversation'
+export type { ConversationState } from './conversation'
 export type {
   SettingsState,
   APIProvider,
@@ -88,7 +84,6 @@ export const initializeStores = async () => {
   // Initialize stores that need async setup
   const settingsStore = useSettingsStoreInternal.getState()
   const conversationStore = useConversationStoreInternal.getState()
-  const projectStore = useProjectStoreInternal.getState()
   const appStore = useAppStoreInternal.getState()
 
   try {
@@ -103,7 +98,7 @@ export const initializeStores = async () => {
 
     console.log('Initializing data stores...')
     // Initialize data stores
-    await Promise.all([conversationStore.initialize(), projectStore.initialize()])
+    await conversationStore.initialize()
 
     console.log('Marking app as initialized...')
     // Mark app as initialized
@@ -124,7 +119,6 @@ export const initializeStores = async () => {
 
 export const resetAllStores = () => {
   useAppStoreInternal.getState().reset()
-  useProjectStoreInternal.getState().reset()
   useConversationStoreInternal.getState().reset()
   // Note: Don't reset settings store as it contains user preferences
 }

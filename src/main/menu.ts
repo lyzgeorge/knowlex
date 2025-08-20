@@ -221,13 +221,6 @@ export function createMessageContextMenu(messageId: string): Menu {
     })
   )
 
-  menu.append(
-    new MenuItem({
-      label: 'Fork Conversation',
-      click: () => forkConversation(messageId)
-    })
-  )
-
   menu.append(new MenuItem({ type: 'separator' }))
 
   menu.append(
@@ -388,16 +381,6 @@ function regenerateMessage(messageId: string): void {
   if (focusedWindow) {
     focusedWindow.webContents.send('context-menu-action', {
       type: 'regenerate-message',
-      messageId
-    })
-  }
-}
-
-function forkConversation(messageId: string): void {
-  const focusedWindow = BrowserWindow.getFocusedWindow()
-  if (focusedWindow) {
-    focusedWindow.webContents.send('context-menu-action', {
-      type: 'fork-conversation',
       messageId
     })
   }

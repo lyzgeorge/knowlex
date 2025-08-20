@@ -1,6 +1,6 @@
 import { Box } from '@chakra-ui/react'
-import { MainLayout } from '../components/layout'
-import { ChatInterface } from '../components/features/chat'
+import { MainLayout } from '../components/layout/MainLayout'
+import ChatInterface from '../components/features/chat/ChatInterface'
 
 /**
  * Main application interface - the primary user workspace

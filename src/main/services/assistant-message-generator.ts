@@ -12,9 +12,9 @@
  * and message regeneration to eliminate code duplication.
  */
 
-import type { Message, MessageContent } from '../../shared/types'
+import type { Message, MessageContent } from '../../shared/types/message'
 import { generateAIResponseWithStreaming } from './ai-chat-vercel'
-import { updateMessage, getMessages, getMessage } from './message'
+import { updateMessage, getMessages } from './message'
 import { cancellationManager } from '../utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
 
@@ -118,6 +118,8 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
       // Check if the operation was cancelled
       const wasCancelled = cancellationToken.isCancelled
 
+      let finalMessage: Message
+
       if (wasCancelled) {
         console.log('Streaming cancelled, writing accumulated content to DB:', {
           textLength: accumulatedText.length,
@@ -140,6 +142,8 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
           messageId,
           message: updatedMessage
         })
+
+        finalMessage = updatedMessage
       } else {
         console.log('Streaming completed, writing final content to DB')
 
@@ -159,15 +163,23 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
           messageId,
           message: updatedMessage
         })
+
+        finalMessage = updatedMessage
       }
 
       // Clean up the cancellation token
       cancellationManager.complete(messageId)
 
-      // Call success callback if provided
-      if (onSuccess && !wasCancelled) {
-        const finalMessage = await getMessage(messageId)
-        if (finalMessage) {
+      // Call appropriate callback based on result
+      if (wasCancelled) {
+        // Treat cancellation as a special case that should still trigger callbacks
+        // Use onError callback for cancellation since it's not a successful completion
+        if (onError) {
+          await onError(new Error('User cancelled'), finalMessage)
+        }
+      } else {
+        // Call success callback for normal completion
+        if (onSuccess) {
           await onSuccess(finalMessage)
         }
       }
@@ -233,6 +245,58 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
 }
 
 /**
+ * Triggers automatic title generation if conditions are met
+ * Called after assistant message completion/cancellation/error
+ */
+async function tryTriggerAutoTitleGeneration(conversationId: string): Promise<void> {
+  try {
+    // Check if automatic title generation should be triggered
+    const totalMessages = await getMessages(conversationId)
+    const { shouldTriggerAutoGeneration } = await import('./title-generation')
+
+    if (shouldTriggerAutoGeneration(totalMessages)) {
+      console.log(
+        `Triggering automatic title generation for conversation ${conversationId} after first exchange`
+      )
+
+      const { generateTitleForConversation } = await import('./title-generation')
+      const { updateConversation } = await import('./conversation')
+      const { sendConversationEvent, CONVERSATION_EVENTS } = await import('../ipc/conversation')
+
+      const title = await generateTitleForConversation(conversationId)
+
+      // Only update if we got a meaningful title (not "New Chat")
+      if (title && title !== 'New Chat') {
+        await updateConversation(conversationId, { title })
+
+        // Send title update event to renderer
+        sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
+          conversationId,
+          title
+        })
+
+        console.log(
+          `Successfully auto-generated title for conversation ${conversationId}: "${title}"`
+        )
+      } else {
+        console.log(
+          `Skipping title update for conversation ${conversationId}: got fallback title "${title}"`
+        )
+      }
+    } else {
+      const userMessages = totalMessages.filter((m) => m.role === 'user')
+      const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
+      console.log(
+        `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
+      )
+    }
+  } catch (titleError) {
+    console.error('Failed to automatically generate title:', titleError)
+    // Don't fail the entire operation if title generation fails
+  }
+}
+
+/**
  * Convenience function for generating assistant messages for new user messages
  * Automatically handles conversation context and title generation
  */
@@ -248,52 +312,12 @@ export async function generateAssistantMessageForNewUserMessage(
     conversationId,
     contextMessages: allMessages,
     onSuccess: async (_updatedMessage) => {
-      // Check if automatic title generation should be triggered
-      const totalMessages = await getMessages(conversationId)
-
-      try {
-        const { shouldTriggerAutoGeneration } = await import('./title-generation')
-
-        if (shouldTriggerAutoGeneration(totalMessages)) {
-          console.log(
-            `Triggering automatic title generation for conversation ${conversationId} after first exchange`
-          )
-
-          const { generateTitleForConversation } = await import('./title-generation')
-          const { updateConversation } = await import('./conversation')
-          const { sendConversationEvent, CONVERSATION_EVENTS } = await import('../ipc/conversation')
-
-          const title = await generateTitleForConversation(conversationId)
-
-          // Only update if we got a meaningful title (not "New Chat")
-          if (title && title !== 'New Chat') {
-            await updateConversation(conversationId, { title })
-
-            // Send title update event to renderer
-            sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-              conversationId,
-              title
-            })
-
-            console.log(
-              `Successfully auto-generated title for conversation ${conversationId}: "${title}"`
-            )
-          } else {
-            console.log(
-              `Skipping title update for conversation ${conversationId}: got fallback title "${title}"`
-            )
-          }
-        } else {
-          const userMessages = totalMessages.filter((m) => m.role === 'user')
-          const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-          console.log(
-            `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
-          )
-        }
-      } catch (titleError) {
-        console.error('Failed to automatically generate title:', titleError)
-        // Don't fail the entire send operation if title generation fails
-      }
+      // Trigger title generation after successful completion
+      await tryTriggerAutoTitleGeneration(conversationId)
+    },
+    onError: async (_error, _errorMessage) => {
+      // Trigger title generation even after error/cancellation
+      await tryTriggerAutoTitleGeneration(conversationId)
     }
   })
 }

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Textarea, VStack, HStack, Text, useToast } from '@chakra-ui/react'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
-import type { Message, MessageContentPart } from '../../../../../shared/types'
+import type { Message, MessageContentPart } from '../../../../../shared/types/message'
 import { useEditMessage, useSendMessage } from '../../../stores/conversation'
 
 export interface MessageEditModalProps {
@@ -60,7 +60,7 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
       if (message.role === 'user') {
         // For now, we'll just edit the message. In the future, we can implement
         // a regenerate functionality that replaces from a specific message
-        await sendMessage(conversationId, [{ type: 'text', text: editedContent.trim() }], [])
+        await sendMessage([{ type: 'text', text: editedContent.trim() }], [], { conversationId })
       }
 
       toast({

@@ -24,7 +24,6 @@ export interface APIProviderConfig {
 export interface AppSettings {
   apiProviders: {
     openai: APIProviderConfig
-    claude: APIProviderConfig
     embedding: APIProviderConfig
   }
   defaultProvider: string
@@ -93,17 +92,9 @@ class SettingsService {
           apiKey: process.env.OPENAI_API_KEY || '',
           baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
           model: process.env.OPENAI_MODEL || 'gpt-4',
-          reasoningEffort:
-            (process.env.OPENAI_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
-          timeout: 30000
-        },
-        claude: {
-          provider: 'claude',
-          apiKey: process.env.CLAUDE_API_KEY || '',
-          baseURL: process.env.CLAUDE_BASE_URL || 'https://api.anthropic.com',
-          model: process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229',
-          reasoningEffort:
-            (process.env.CLAUDE_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
+          ...(process.env.OPENAI_REASONING_EFFORT && {
+            reasoningEffort: process.env.OPENAI_REASONING_EFFORT as 'low' | 'medium' | 'high'
+          }),
           timeout: 30000
         },
         embedding: {

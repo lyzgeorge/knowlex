@@ -3,7 +3,7 @@ import { Box, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useCurrentConversation, useStreamingMessageId } from '../../../stores/conversation'
 import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
-import { useSendMessage, useStartNewChat, useConversationStore } from '../../../stores/conversation'
+import { useSendMessage } from '../../../stores/conversation'
 import { useAutoScroll } from '../../../hooks/useAutoScroll'
 import type { ProcessedFile } from '../../../hooks/useFileUpload'
 import type { MessageContent } from '../../../../../shared/types/message'
@@ -26,11 +26,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { currentConversation, currentMessages, isLoadingMessages } = useCurrentConversation()
   const streamingMessageId = useStreamingMessageId()
   const sendMessage = useSendMessage()
-  const startNewChat = useStartNewChat()
-  const conversationStore = useConversationStore()
+  // Access store if needed later (no-op for now)
 
   // Create a filtered dependency for assistant messages only
-  const assistantMessages = currentMessages.filter((msg) => msg.role === 'assistant')
+  const assistantMessages = currentMessages.filter((msg: any) => msg.role === 'assistant')
 
   // Auto-scroll to bottom when assistant messages change or streaming updates
   const scrollRef = useAutoScroll<HTMLDivElement>([assistantMessages, streamingMessageId])
@@ -40,7 +39,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
 
   // Track user messages count and scroll immediately when user sends a message
   useEffect(() => {
-    const userMessages = currentMessages.filter((msg) => msg.role === 'user')
+    const userMessages = currentMessages.filter((msg: any) => msg.role === 'user')
     if (userMessages.length > userMessageCountRef.current) {
       // User sent a new message, scroll to bottom immediately regardless of current position
       if (scrollRef.current) {
@@ -113,19 +112,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       }
     })
 
-    let conversationId = conversationStore.currentConversationId
-
-    // Create new conversation if none exists
-    if (!conversationId) {
-      startNewChat()
-      // Get the fresh pending conversation ID after startNewChat
-      conversationId = useConversationStore.getState().pendingConversation?.id || null
-    }
-
-    if (conversationId) {
-      console.log('handleSendMessage: Sending message with content parts:', content.length)
-      await sendMessage(conversationId, content, files)
-    }
+    console.log('handleSendMessage: Sending message with content parts:', content.length)
+    await sendMessage(
+      content,
+      files,
+      currentConversation?.id ? { conversationId: currentConversation.id } : {}
+    )
   }
 
   // No conversation or pending conversation - show main welcome state
@@ -221,7 +213,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       {/* Floating Input Area */}
       <Box position="absolute" bottom={0} left={0} right={0} zIndex={10} pointerEvents="none">
         <Box pointerEvents="auto">
-          <ChatInputBox conversationId={currentConversation.id} variant="conversation" />
+          <ChatInputBox variant="conversation" />
         </Box>
       </Box>
     </Box>

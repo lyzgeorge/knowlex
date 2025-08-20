@@ -5,7 +5,7 @@
  * If anything fails, just return "New Chat".
  */
 
-import type { Message } from '../../shared/types'
+import type { Message } from '../../shared/types/message'
 
 /**
  * Determines if automatic title generation should be triggered

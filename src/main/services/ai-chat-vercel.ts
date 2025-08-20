@@ -1,7 +1,7 @@
 import { streamText, generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import type { Message, MessageContent } from '../../shared/types'
+import type { Message, MessageContent } from '../../shared/types/message'
 import type { CancellationToken } from '../utils/cancellation'
 
 /**
@@ -207,10 +207,16 @@ export async function generateAIResponse(
  * Callback interface for streaming events
  */
 export interface StreamingCallbacks {
+  // Fired when fullStream emits 'start'. Useful to lazily create resources (e.g., conversations/messages).
+  onStreamStart?: () => void
+  // Fired for each assistant text delta
   onTextChunk: (chunk: string) => void
+  // Reasoning lifecycle
   onReasoningChunk?: (chunk: string) => void
   onReasoningStart?: () => void
   onReasoningEnd?: () => void
+  // Fired when fullStream emits 'finish' (before awaiting final text)
+  onStreamFinish?: () => void
 }
 
 /**
@@ -261,8 +267,8 @@ export async function generateAIResponseWithStreaming(
     // Stream response using fullStream for reasoning support
     let wasCancelled = false
 
+    // Use fullStream only (no fallback to textStream)
     try {
-      // First try to use fullStream for reasoning support
       for await (const part of result.fullStream) {
         // Check for cancellation
         if (cancellationToken?.isCancelled) {
@@ -292,6 +298,7 @@ export async function generateAIResponseWithStreaming(
         switch (part.type) {
           case 'start':
             // Stream initialization
+            streamCallbacks.onStreamStart?.()
             break
 
           case 'start-step':
@@ -341,6 +348,7 @@ export async function generateAIResponseWithStreaming(
 
           case 'finish':
             // Stream completion events
+            streamCallbacks.onStreamFinish?.()
             break
 
           case 'tool-call':
@@ -357,23 +365,8 @@ export async function generateAIResponseWithStreaming(
         }
       }
     } catch (error) {
-      console.log('[AI] FullStream failed, falling back to textStream:', error)
-
-      // Fallback to regular textStream if fullStream fails
-      for await (const textChunk of result.textStream) {
-        // Check for cancellation
-        if (cancellationToken?.isCancelled) {
-          console.log('AI streaming cancelled by user')
-          wasCancelled = true
-          break
-        }
-
-        console.log('[AI] TextStream chunk received:', JSON.stringify(textChunk))
-        if (textChunk && textChunk.length > 0) {
-          streamedText += textChunk
-          streamCallbacks.onTextChunk(textChunk)
-        }
-      }
+      console.error('[AI] FullStream error:', error)
+      throw error
     }
 
     // If cancelled, return immediately with streamed content

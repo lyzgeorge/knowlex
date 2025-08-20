@@ -4,31 +4,8 @@ export interface IPCResult<T = unknown> {
   error?: string
 }
 
-// Project IPC
-export interface ProjectCreateRequest {
-  name: string
-  description?: string
-}
-
-export interface ProjectUpdateRequest {
-  id: string
-  name?: string
-  description?: string
-}
-
-// File IPC
-export interface FileUploadRequest {
-  projectId: string
-  files: Array<{
-    name: string
-    path: string
-    size: number
-  }>
-}
-
 // Conversation IPC
 export interface ConversationCreateRequest {
-  projectId?: string
   title?: string
 }
 
@@ -50,7 +27,6 @@ export interface TemporaryFileRequest {
 // Search IPC
 export interface SearchRequest {
   query: string
-  projectId?: string
   limit?: number
 }
 

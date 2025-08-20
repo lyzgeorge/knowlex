@@ -2,11 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   IPCResult,
-  ProjectCreateRequest,
-  ProjectUpdateRequest,
   ConversationCreateRequest,
   MessageAddRequest,
-  FileUploadRequest,
   TemporaryFileRequest,
   SearchRequest,
   SettingsUpdateRequest
@@ -31,27 +28,16 @@ export interface KnowlexAPI {
     ) => void
   }
 
-  // Project IPC
-  project: {
-    create: (data: ProjectCreateRequest) => Promise<IPCResult>
-    list: () => Promise<IPCResult>
-    get: (id: string) => Promise<IPCResult>
-    update: (data: ProjectUpdateRequest) => Promise<IPCResult>
-    delete: (id: string) => Promise<IPCResult>
-  }
-
   // Conversation IPC
   conversation: {
     create: (data: ConversationCreateRequest) => Promise<IPCResult>
-    list: (projectId?: string) => Promise<IPCResult>
+    list: () => Promise<IPCResult>
     get: (id: string) => Promise<IPCResult>
     update: (data: any) => Promise<IPCResult>
     updateTitle: (conversationId: string, title: string) => Promise<IPCResult>
     updateSettings: (conversationId: string, settings: any) => Promise<IPCResult>
     generateTitle: (conversationId: string) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
-    move: (conversationId: string, projectId: string | null) => Promise<IPCResult>
-    fork: (messageId: string) => Promise<IPCResult>
   }
 
   // Message IPC
@@ -68,18 +54,15 @@ export interface KnowlexAPI {
 
   // File IPC
   file: {
-    uploadProject: (data: FileUploadRequest) => Promise<IPCResult>
     processTemp: (data: TemporaryFileRequest) => Promise<IPCResult>
     processTempContent: (data: {
       files: Array<{ name: string; content: string; size: number }>
     }) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
-    list: (projectId: string) => Promise<IPCResult>
   }
 
   // Search IPC
   search: {
-    project: (data: SearchRequest) => Promise<IPCResult>
     global: (data: SearchRequest) => Promise<IPCResult>
   }
 
@@ -147,19 +130,10 @@ const knowlexAPI: KnowlexAPI = {
     }
   },
 
-  // Project IPC
-  project: {
-    create: (data) => ipcRenderer.invoke('project:create', data),
-    list: () => ipcRenderer.invoke('project:list'),
-    get: (id) => ipcRenderer.invoke('project:get', id),
-    update: (data) => ipcRenderer.invoke('project:update', data),
-    delete: (id) => ipcRenderer.invoke('project:delete', id)
-  },
-
   // Conversation IPC
   conversation: {
     create: (data) => ipcRenderer.invoke('conversation:create', data),
-    list: (projectId) => ipcRenderer.invoke('conversation:list', projectId),
+    list: () => ipcRenderer.invoke('conversation:list'),
     get: (id) => ipcRenderer.invoke('conversation:get', id),
     update: (data) => ipcRenderer.invoke('conversation:update', data),
     updateTitle: (conversationId, title) =>
@@ -168,10 +142,7 @@ const knowlexAPI: KnowlexAPI = {
       ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
     generateTitle: (conversationId) =>
       ipcRenderer.invoke('conversation:generate-title', conversationId),
-    delete: (id) => ipcRenderer.invoke('conversation:delete', id),
-    move: (conversationId, projectId) =>
-      ipcRenderer.invoke('conversation:move', conversationId, projectId),
-    fork: (messageId) => ipcRenderer.invoke('conversation:fork', messageId)
+    delete: (id) => ipcRenderer.invoke('conversation:delete', id)
   },
 
   // Message IPC
@@ -188,16 +159,13 @@ const knowlexAPI: KnowlexAPI = {
 
   // File IPC
   file: {
-    uploadProject: (data) => ipcRenderer.invoke('file:uploadProject', data),
     processTemp: (data) => ipcRenderer.invoke('file:process-temp', data),
     processTempContent: (data) => ipcRenderer.invoke('file:process-temp-content', data),
-    delete: (id) => ipcRenderer.invoke('file:delete', id),
-    list: (projectId) => ipcRenderer.invoke('file:list', projectId)
+    delete: (id) => ipcRenderer.invoke('file:delete', id)
   },
 
   // Search IPC
   search: {
-    project: (data) => ipcRenderer.invoke('search:project', data),
     global: (data) => ipcRenderer.invoke('search:global', data)
   },
 

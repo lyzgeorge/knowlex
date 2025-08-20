@@ -21,7 +21,7 @@ const DEBUG_WINDOW_CONFIG = {
 
 // Common web preferences for security
 const SECURE_WEB_PREFERENCES = {
-  preload: join(__dirname, '../preload/index.js'),
+  preload: join(__dirname, '../preload/preload.js'),
   sandbox: false,
   contextIsolation: true,
   nodeIntegration: false,
@@ -36,7 +36,7 @@ const SECURE_WEB_PREFERENCES = {
  */
 export async function createMainWindow(): Promise<BrowserWindow> {
   console.log('Creating main window...')
-  console.log('Preload path:', join(__dirname, '../preload/index.js'))
+  console.log('Preload path:', join(__dirname, '../preload/preload.js'))
   console.log('__dirname:', __dirname)
 
   const window = new BrowserWindow({

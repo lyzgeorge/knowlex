@@ -108,6 +108,19 @@ export class CancellationManager {
   }
 
   /**
+   * Registers an existing cancellation token under the given ID.
+   * If a token already exists for this ID, it will be cancelled and replaced.
+   * Use this when the stream ID (e.g., messageId) is only known after start.
+   */
+  registerToken(id: string, token: CancellationToken): void {
+    const existing = this.tokens.get(id)
+    if (existing && existing !== token) {
+      existing.cancel()
+    }
+    this.tokens.set(id, token)
+  }
+
+  /**
    * Marks an operation as complete and removes its token.
    * @param id Identifier of the completed operation
    */

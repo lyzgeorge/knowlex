@@ -9,7 +9,6 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  Collapse,
   Avatar,
   Input,
   InputGroup,
@@ -29,17 +28,13 @@ import {
   AddIcon,
   SearchIcon,
   SettingsIcon,
-  ChevronRightIcon,
-  ChevronDownIcon,
-  CopyIcon,
   HamburgerIcon,
   CheckIcon,
   CloseIcon
 } from '@chakra-ui/icons'
 import { Button } from '../ui/Button'
-import { useProjectStore } from '../../stores/project'
 import { useConversationStore } from '../../stores/conversation'
-import { formatRelativeTime } from '../../utils/time'
+import { formatRelativeTime } from '../../../../shared/utils/time'
 
 export interface SidebarProps {
   className?: string
@@ -57,9 +52,7 @@ export interface SidebarProps {
  */
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   // Local state for UI interactions
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [hoveredProject, setHoveredProject] = useState<string | null>(null)
   const [hoveredConversation, setHoveredConversation] = useState<string | null>(null)
 
   // Inline editing state
@@ -73,10 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const cancelRef = React.useRef<HTMLButtonElement>(null)
 
   // Zustand stores
-  const projects = useProjectStore((state) => state.projects)
   const conversations = useConversationStore((state) => state.conversations)
   const messages = useConversationStore((state) => state.messages)
-  const startNewChat = useConversationStore((state) => state.startNewChat)
   const deleteConversation = useConversationStore((state) => state.deleteConversation)
   const updateConversationTitle = useConversationStore((state) => state.updateConversationTitle)
   const currentConversationId = useConversationStore((state) => state.currentConversationId)
@@ -85,23 +76,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   // Toast for notifications
   const toast = useToast()
 
-  // Toggle project expansion
-  const toggleProjectExpansion = (projectId: string) => {
-    setExpandedProjects((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(projectId)) {
-        newSet.delete(projectId)
-      } else {
-        newSet.add(projectId)
-      }
-      return newSet
-    })
-  }
-
-  // Handle new chat creation
+  // Handle new chat creation (just clear current conversation, don't create new one yet)
   const handleNewChat = useCallback(() => {
-    startNewChat()
-  }, [startNewChat])
+    // Just clear current conversation - new one will be created when user sends first message
+    setCurrentConversation(null)
+  }, [setCurrentConversation])
 
   // Handle inline editing
   const handleStartInlineEdit = useCallback((conversationId: string, currentTitle: string) => {
@@ -232,39 +211,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   )
 
   // Memoize conversation filtering to prevent re-renders
-  // Only show conversations that have at least 2 messages (user + AI response)
-  const unclassifiedConversations = useMemo(
+  // Show conversations that have at least 1 message (don't show empty conversations)
+  const allConversations = useMemo(
     () =>
       conversations
         .filter((conv) => {
-          if (conv.projectId) return false // Only unclassified conversations
           const conversationMessages = messages[conv.id] || []
-          return conversationMessages.length >= 2 // Must have at least user + AI message
+          // Only show conversations with at least 1 message (don't show empty conversations)
+          return conversationMessages.length >= 1
         })
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), // Sort by last modified (newest first)
     [conversations, messages]
   )
-
-  const projectConversationsMap = useMemo(() => {
-    const map = new Map<string, typeof conversations>()
-    conversations.forEach((conv) => {
-      if (conv.projectId) {
-        const conversationMessages = messages[conv.id] || []
-        // Only include conversations with at least 2 messages (user + AI response)
-        if (conversationMessages.length >= 2) {
-          if (!map.has(conv.projectId)) {
-            map.set(conv.projectId, [])
-          }
-          map.get(conv.projectId)!.push(conv)
-        }
-      }
-    })
-    // Sort conversations within each project by last modified (newest first)
-    map.forEach((convs, _projectId) => {
-      convs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    })
-    return map
-  }, [conversations, messages])
 
   return (
     <Box
@@ -336,7 +294,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 borderColor: 'primary.500',
                 boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
               }}
-              aria-label="Search across all conversations and projects (Ctrl/Cmd+K)"
+              aria-label="Search across all conversations (Ctrl/Cmd+K)"
             />
           </InputGroup>
         </VStack>
@@ -347,315 +305,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* Main Content Area - Scrollable */}
       <Box flex={1} overflowY="auto" px={4} py={3}>
         <VStack spacing={6} align="stretch">
-          {/* Projects Section */}
-          <Box>
-            <HStack justify="space-between" mb={3}>
-              <Text fontSize="sm" fontWeight="semibold" color="text.secondary">
-                Projects
-              </Text>
-              <IconButton
-                aria-label="Add project"
-                icon={<AddIcon />}
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  // TODO: Open create project dialog
-                  console.log('Create new project')
-                }}
-              />
-            </HStack>
-
-            <VStack spacing={1} align="stretch" role="list" aria-label="Projects list">
-              {projects.length === 0 ? (
-                <Text fontSize="sm" color="text.tertiary" fontStyle="italic" py={2}>
-                  No projects yet
-                </Text>
-              ) : (
-                projects.map((project) => {
-                  const isExpanded = expandedProjects.has(project.id)
-                  const projectConversations = projectConversationsMap.get(project.id) || []
-                  const isHovered = hoveredProject === project.id
-
-                  return (
-                    <Box key={project.id} role="listitem">
-                      {/* Project Row */}
-                      <HStack
-                        p={2}
-                        borderRadius="md"
-                        cursor="pointer"
-                        _hover={{ bg: 'surface.hover' }}
-                        onMouseEnter={() => setHoveredProject(project.id)}
-                        onMouseLeave={() => setHoveredProject(null)}
-                        onClick={() => toggleProjectExpansion(project.id)}
-                      >
-                        {/* Expand/Collapse Icon */}
-                        <IconButton
-                          aria-label={isExpanded ? 'Collapse project' : 'Expand project'}
-                          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                          size="xs"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleProjectExpansion(project.id)
-                          }}
-                        />
-
-                        {/* Project Folder Icon */}
-                        <SearchIcon color="text.secondary" boxSize={4} />
-
-                        {/* Project Name */}
-                        <Text fontSize="sm" fontWeight="medium" flex={1} noOfLines={1} ml={2}>
-                          {project.name}
-                        </Text>
-
-                        {/* Project Actions - Show on Hover */}
-                        {isHovered && (
-                          <HStack spacing={1}>
-                            <IconButton
-                              aria-label="File management"
-                              icon={<SearchIcon />}
-                              size="xs"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                console.log('Open file management for project:', project.id)
-                              }}
-                            />
-                            <IconButton
-                              aria-label="Copy project"
-                              icon={<CopyIcon />}
-                              size="xs"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                console.log('Copy project:', project.id)
-                              }}
-                            />
-                            <Menu>
-                              <MenuButton
-                                as={IconButton}
-                                aria-label="More options"
-                                icon={<HamburgerIcon />}
-                                size="xs"
-                                variant="ghost"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <MenuList>
-                                <MenuItem>Duplicate Project</MenuItem>
-                                <MenuItem>Rename</MenuItem>
-                                <MenuItem>Settings</MenuItem>
-                                <MenuItem color="red.500">Delete</MenuItem>
-                              </MenuList>
-                            </Menu>
-                          </HStack>
-                        )}
-                      </HStack>
-
-                      {/* Project Conversations */}
-                      <Collapse in={isExpanded}>
-                        <Box ml={6} mt={1}>
-                          {projectConversations.length === 0 ? (
-                            <Text fontSize="xs" color="text.tertiary" py={1}>
-                              No conversations yet
-                            </Text>
-                          ) : (
-                            <VStack
-                              spacing={0.5}
-                              align="stretch"
-                              role="list"
-                              aria-label={`Conversations in ${project.name}`}
-                            >
-                              {projectConversations.map((conversation) => {
-                                const isCurrentConversation =
-                                  currentConversationId === conversation.id
-                                const isConvHovered = hoveredConversation === conversation.id
-
-                                return (
-                                  <HStack
-                                    key={conversation.id}
-                                    role="listitem"
-                                    p={2}
-                                    borderRadius="sm"
-                                    cursor="pointer"
-                                    bg={isCurrentConversation ? 'primary.50' : 'transparent'}
-                                    borderLeft={isCurrentConversation ? '3px solid' : 'none'}
-                                    borderColor="primary.500"
-                                    shadow="0 4px 8px transparent"
-                                    transition="all 0.2s"
-                                    _hover={{
-                                      bg: isCurrentConversation ? 'primary.100' : 'surface.hover',
-                                      shadow: 'button-hover'
-                                    }}
-                                    onMouseEnter={() => setHoveredConversation(conversation.id)}
-                                    onMouseLeave={() => setHoveredConversation(null)}
-                                    onClick={() => setCurrentConversation(conversation.id)}
-                                    justify="space-between"
-                                    align="center"
-                                  >
-                                    {/* Conversation Title */}
-                                    {editingConversationId === conversation.id ? (
-                                      <HStack flex={1} spacing={2}>
-                                        <Input
-                                          value={editingTitle}
-                                          onChange={(e) => setEditingTitle(e.target.value)}
-                                          fontSize="xs"
-                                          fontWeight="medium"
-                                          variant="unstyled"
-                                          size="sm"
-                                          h="22px"
-                                          lineHeight="22px"
-                                          px={0}
-                                          py={0}
-                                          bg="transparent"
-                                          _focus={{ boxShadow: 'none', bg: 'transparent' }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault()
-                                              handleConfirmInlineEdit()
-                                            } else if (e.key === 'Escape') {
-                                              e.preventDefault()
-                                              handleCancelInlineEdit()
-                                            }
-                                          }}
-                                          onBlur={handleInputBlur}
-                                          autoFocus
-                                        />
-                                      </HStack>
-                                    ) : (
-                                      <Tooltip
-                                        label={conversation.title}
-                                        placement="right"
-                                        hasArrow
-                                        openDelay={600}
-                                        closeDelay={200}
-                                        bg="surface.primary"
-                                        color="text.primary"
-                                        borderRadius="md"
-                                        border="1px solid"
-                                        borderColor="border.primary"
-                                        shadow="dropdown"
-                                        fontSize="xs"
-                                        fontWeight="medium"
-                                        px={3}
-                                        py={2}
-                                        maxW="240px"
-                                        textAlign="left"
-                                        whiteSpace="normal"
-                                      >
-                                        <Text
-                                          fontSize="xs"
-                                          fontWeight="medium"
-                                          noOfLines={1}
-                                          flex={1}
-                                          minW={0}
-                                        >
-                                          {conversation.title}
-                                        </Text>
-                                      </Tooltip>
-                                    )}
-
-                                    {/* Time or Action Icons */}
-                                    <Box
-                                      minW="60px"
-                                      display="flex"
-                                      justifyContent="flex-end"
-                                      alignItems="center"
-                                    >
-                                      {editingConversationId === conversation.id ? (
-                                        <HStack spacing={1}>
-                                          <IconButton
-                                            aria-label="Confirm rename"
-                                            icon={<CheckIcon />}
-                                            size="xs"
-                                            variant="ghost"
-                                            color="green.500"
-                                            _hover={{ bg: 'green.50', color: 'green.600' }}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleConfirmInlineEdit()
-                                            }}
-                                          />
-                                          <IconButton
-                                            aria-label="Cancel rename"
-                                            icon={<CloseIcon />}
-                                            size="xs"
-                                            variant="ghost"
-                                            color="gray.500"
-                                            _hover={{ bg: 'gray.50', color: 'gray.600' }}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleCancelInlineEdit()
-                                            }}
-                                          />
-                                        </HStack>
-                                      ) : isConvHovered ? (
-                                        <Menu>
-                                          <MenuButton
-                                            as={IconButton}
-                                            aria-label="Conversation options"
-                                            icon={<HamburgerIcon />}
-                                            size="xs"
-                                            variant="ghost"
-                                            onClick={(e) => e.stopPropagation()}
-                                          />
-                                          <MenuList>
-                                            <MenuItem>Move to Project</MenuItem>
-                                            <MenuItem>Remove from Project</MenuItem>
-                                            <MenuItem
-                                              onClick={() =>
-                                                handleStartInlineEdit(
-                                                  conversation.id,
-                                                  conversation.title
-                                                )
-                                              }
-                                            >
-                                              Rename
-                                            </MenuItem>
-                                            <MenuItem
-                                              color="red.500"
-                                              onClick={() =>
-                                                handleDeleteConversation(conversation.id)
-                                              }
-                                            >
-                                              Delete
-                                            </MenuItem>
-                                          </MenuList>
-                                        </Menu>
-                                      ) : (
-                                        <Text fontSize="xs" color="text.tertiary" flexShrink={0}>
-                                          {formatRelativeTime(conversation.updatedAt)}
-                                        </Text>
-                                      )}
-                                    </Box>
-                                  </HStack>
-                                )
-                              })}
-                            </VStack>
-                          )}
-                        </Box>
-                      </Collapse>
-                    </Box>
-                  )
-                })
-              )}
-            </VStack>
-          </Box>
-
-          {/* Unclassified Chats Section */}
+          {/* Conversations Section */}
           <Box>
             <Text fontSize="sm" fontWeight="semibold" color="text.secondary" mb={3}>
-              Chats (未归类聊天)
+              Conversations
             </Text>
 
-            <VStack spacing={0} align="stretch" role="list" aria-label="Unclassified conversations">
-              {unclassifiedConversations.length === 0 ? (
+            <VStack spacing={0} align="stretch" role="list" aria-label="All conversations">
+              {allConversations.length === 0 ? (
                 <Text fontSize="sm" color="text.tertiary" fontStyle="italic" py={2}>
                   No conversations yet
                 </Text>
               ) : (
-                unclassifiedConversations.map((conversation) => {
+                allConversations.map((conversation) => {
                   const isCurrentConversation = currentConversationId === conversation.id
                   const isConvHovered = hoveredConversation === conversation.id
 
@@ -780,7 +442,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                               onClick={(e) => e.stopPropagation()}
                             />
                             <MenuList>
-                              <MenuItem>Move to Project</MenuItem>
                               <MenuItem
                                 onClick={() =>
                                   handleStartInlineEdit(conversation.id, conversation.title)

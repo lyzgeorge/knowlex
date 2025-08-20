@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Message } from '../../../../shared/types'
+import type { Message } from '../../../../shared/types/message'
 import UserMessage from './UserMessage'
 import AssistantMessage from './AssistantMessage'
 

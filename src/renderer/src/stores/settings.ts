@@ -155,10 +155,10 @@ export const useSettingsStore = create<SettingsState>()(
         })
 
         try {
-          // Check if electronAPI is available
-          if (!window.electronAPI) {
+          // Check if knowlex API is available
+          if (!window.knowlex) {
             // Fallback to default settings in browser/development mode
-            console.warn('ElectronAPI not available, using default settings')
+            console.warn('Knowlex API not available, using default settings')
             set((state) => {
               state.apiProviders = []
               state.generalSettings = { ...defaultGeneralSettings }
@@ -172,15 +172,21 @@ export const useSettingsStore = create<SettingsState>()(
 
           const [apiProviders, generalSettings, shortcutSettings, advancedSettings] =
             await Promise.all([
-              window.electronAPI.invoke('settings:get', 'api-providers').catch(() => []),
-              window.electronAPI
-                .invoke('settings:get', 'general')
+              window.knowlex.settings
+                .get('api-providers')
+                .then((result) => (result.success ? result.data : []))
+                .catch(() => []),
+              window.knowlex.settings
+                .get('general')
+                .then((result) => (result.success ? result.data : defaultGeneralSettings))
                 .catch(() => defaultGeneralSettings),
-              window.electronAPI
-                .invoke('settings:get', 'shortcuts')
+              window.knowlex.settings
+                .get('shortcuts')
+                .then((result) => (result.success ? result.data : defaultShortcutSettings))
                 .catch(() => defaultShortcutSettings),
-              window.electronAPI
-                .invoke('settings:get', 'advanced')
+              window.knowlex.settings
+                .get('advanced')
+                .then((result) => (result.success ? result.data : defaultAdvancedSettings))
                 .catch(() => defaultAdvancedSettings)
             ])
 
@@ -208,9 +214,9 @@ export const useSettingsStore = create<SettingsState>()(
         })
 
         try {
-          // Check if electronAPI is available
-          if (!window.electronAPI) {
-            console.warn('ElectronAPI not available, cannot save settings')
+          // Check if knowlex API is available
+          if (!window.knowlex) {
+            console.warn('Knowlex API not available, cannot save settings')
             set((state) => {
               state.isSaving = false
               state.hasUnsavedChanges = false // Clear changes flag in dev mode
@@ -221,10 +227,10 @@ export const useSettingsStore = create<SettingsState>()(
           const { apiProviders, generalSettings, shortcutSettings, advancedSettings } = get()
 
           await Promise.all([
-            window.electronAPI.invoke('settings:set', 'api-providers', apiProviders),
-            window.electronAPI.invoke('settings:set', 'general', generalSettings),
-            window.electronAPI.invoke('settings:set', 'shortcuts', shortcutSettings),
-            window.electronAPI.invoke('settings:set', 'advanced', advancedSettings)
+            window.knowlex.settings.update({ key: 'api-providers', value: apiProviders }),
+            window.knowlex.settings.update({ key: 'general', value: generalSettings }),
+            window.knowlex.settings.update({ key: 'shortcuts', value: shortcutSettings }),
+            window.knowlex.settings.update({ key: 'advanced', value: advancedSettings })
           ])
 
           set((state) => {
@@ -337,16 +343,13 @@ export const useSettingsStore = create<SettingsState>()(
             throw new Error('Provider not found')
           }
 
-          const result = (await window.electronAPI?.invoke('settings:test-provider', provider)) as {
-            success: boolean
-            message?: string
-          }
+          const result = await window.knowlex.ai.testConnection(provider)
 
           set((state) => {
             state.testResults[id] = {
               success: result.success,
               message:
-                result.message || (result.success ? 'Connection successful' : 'Connection failed')
+                result.error || (result.success ? 'Connection successful' : 'Connection failed')
             }
             state.isTesting = false
           })
