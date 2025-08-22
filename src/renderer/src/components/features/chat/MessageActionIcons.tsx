@@ -1,8 +1,9 @@
 import React from 'react'
-import { HStack, IconButton, useToast, useDisclosure } from '@chakra-ui/react'
-import { EditIcon, RepeatIcon, CopyIcon, LinkIcon } from '@chakra-ui/icons'
+import { HStack, IconButton, useDisclosure } from '@chakra-ui/react'
+import { EditIcon, RepeatIcon, CopyIcon } from '@chakra-ui/icons'
 import type { Message, MessageContentPart } from '../../../../../shared/types/message'
 import { useRegenerateMessage } from '../../../stores/conversation'
+import { useNotifications } from '../../ui'
 import MessageEditModal from './MessageEditModal'
 
 export interface MessageActionIconsProps {
@@ -21,60 +22,37 @@ export interface MessageActionIconsProps {
  * - 消息悬浮菜单：Edit & Retry, Regenerate, Copy, Delete
  * - 消息编辑：内容修改，重新提交，历史替换
  * - 消息复制：Markdown内容复制到剪贴板
- * - 消息引用和跳转功能
  */
 export const MessageActionIcons: React.FC<MessageActionIconsProps> = ({
   message,
   isVisible = true,
   className
 }) => {
-  const toast = useToast()
+  const notifications = useNotifications()
   const regenerateMessage = useRegenerateMessage()
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
 
-  // Copy message content to clipboard as Markdown
-  const handleCopy = async () => {
-    try {
-      // Convert message content to Markdown format
-      const markdownContent = message.content
-        .map((part: MessageContentPart) => {
-          switch (part.type) {
-            case 'text':
-              return part.text || ''
-            case 'image':
-              return part.image ? `![${part.image.alt || 'Image'}](${part.image.url})` : ''
-            case 'citation':
-              return part.citation ? `> [${part.citation.filename}] ${part.citation.content}` : ''
-            case 'tool-call':
-              return part.toolCall
-                ? `\`\`\`json\n${JSON.stringify(part.toolCall, null, 2)}\n\`\`\``
-                : ''
-            default:
-              return ''
-          }
-        })
-        .filter((content: string) => content.trim())
-        .join('\n\n')
-
-      await navigator.clipboard.writeText(markdownContent)
-
-      toast({
-        title: 'Message copied',
-        description: 'Message content copied to clipboard as Markdown',
-        status: 'success',
-        duration: 2000,
-        isClosable: true
+  // Convert message content to Markdown format
+  const getMessageMarkdown = () => {
+    return message.content
+      .map((part: MessageContentPart) => {
+        switch (part.type) {
+          case 'text':
+            return part.text || ''
+          case 'image':
+            return part.image ? `![${part.image.alt || 'Image'}](${part.image.url})` : ''
+          case 'citation':
+            return part.citation ? `> [${part.citation.filename}] ${part.citation.content}` : ''
+          case 'tool-call':
+            return part.toolCall
+              ? `\`\`\`json\n${JSON.stringify(part.toolCall, null, 2)}\n\`\`\``
+              : ''
+          default:
+            return ''
+        }
       })
-    } catch (error) {
-      console.error('Failed to copy message:', error)
-      toast({
-        title: 'Copy failed',
-        description: 'Failed to copy message to clipboard',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
-    }
+      .filter((content: string) => content.trim())
+      .join('\n\n')
   }
 
   // Handle edit message
@@ -82,50 +60,33 @@ export const MessageActionIcons: React.FC<MessageActionIconsProps> = ({
     onEditOpen()
   }
 
-  // Handle copy message reference
-  const handleCopyReference = async () => {
-    try {
-      const reference = `[Message ${message.id.slice(0, 8)}](message://${message.id})`
-      await navigator.clipboard.writeText(reference)
-
-      toast({
-        title: 'Reference copied',
-        description: 'Message reference copied to clipboard',
-        status: 'success',
-        duration: 2000,
-        isClosable: true
-      })
-    } catch (error) {
-      console.error('Failed to copy reference:', error)
-      toast({
-        title: 'Copy failed',
-        description: 'Failed to copy message reference',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
-    }
-  }
-
   // Handle regenerate
   const handleRegenerate = async () => {
     try {
       await regenerateMessage(message.id)
-      toast({
-        title: 'Regenerating',
-        description: 'Generating new response...',
-        status: 'info',
-        duration: 2000,
-        isClosable: true
-      })
+      notifications.messageRegenerated()
     } catch (error) {
       console.error('Failed to regenerate message:', error)
-      toast({
-        title: 'Regenerate failed',
-        description: 'Failed to regenerate message',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
+      notifications.messageError('Failed to regenerate message')
+    }
+  }
+
+  // Handle copy - merged from CopyButton component
+  const handleCopy = async () => {
+    try {
+      const content = getMessageMarkdown()
+      await navigator.clipboard.writeText(content)
+      notifications.success({
+        title: 'Copied',
+        description: 'Message content copied as Markdown',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      notifications.error({
+        title: 'Copy failed',
+        description: 'Failed to copy',
+        duration: 3000
       })
     }
   }
@@ -166,19 +127,9 @@ export const MessageActionIcons: React.FC<MessageActionIconsProps> = ({
           />
         )}
 
-        {/* Copy message reference */}
-        <IconButton
-          aria-label="Copy message reference"
-          icon={<LinkIcon />}
-          size="xs"
-          variant="ghost"
-          onClick={handleCopyReference}
-          _hover={{ bg: 'surface.hover' }}
-        />
-
         {/* Copy */}
         <IconButton
-          aria-label="Copy message"
+          aria-label="Copy to clipboard"
           icon={<CopyIcon />}
           size="xs"
           variant="ghost"

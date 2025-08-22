@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue } from '@chakra-ui/react'
 import type { Message } from '../../../../shared/types/message'
 import MessageActionIcons from '../features/chat/MessageActionIcons'
@@ -22,16 +22,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
   const userBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)')
   const userTextColor = useColorModeValue('text.primary', 'text.primary')
 
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered((prev) => (prev ? prev : true))
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered((prev) => (prev ? false : prev))
+  }, [])
+
   return (
-    <HStack
-      align="flex-start"
-      spacing={2}
-      width="100%"
-      justify="flex-end"
-      mb={2}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <HStack align="flex-start" spacing={2} width="100%" justify="flex-end" mb={2}>
       <VStack align="flex-end" spacing={2} maxWidth="70%">
         <Box
           bg={userBg}
@@ -46,12 +46,21 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
           <MessageContentRenderer content={message.content} variant="user" />
         </Box>
 
-        <HStack spacing={2} px={1} minHeight="16px" alignItems="center" alignSelf="flex-end">
-          {isHovered ? (
-            <MessageActionIcons message={message} isVisible={isHovered} />
-          ) : (
-            showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
-          )}
+        <HStack
+          spacing={2}
+          px={1}
+          minHeight="16px"
+          alignItems="center"
+          alignSelf="flex-end"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <Box display={isHovered ? 'flex' : 'none'}>
+            <MessageActionIcons message={message} isVisible={true} />
+          </Box>
+          <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
+            <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+          </Box>
         </HStack>
       </VStack>
     </HStack>

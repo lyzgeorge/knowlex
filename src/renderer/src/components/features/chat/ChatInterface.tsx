@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react'
-import { Box, VStack, Spinner, Text } from '@chakra-ui/react'
+import React, { useMemo } from 'react'
+import { Box, VStack, Spinner, Text, IconButton } from '@chakra-ui/react'
 import { useCurrentConversation, useStreamingMessageId } from '../../../stores/conversation'
 import MessageList from './MessageList'
 import ChatInputBox from './ChatInputBox'
@@ -7,6 +7,7 @@ import { useSendMessage } from '../../../stores/conversation'
 import { useAutoScroll } from '../../../hooks/useAutoScroll'
 import type { ProcessedFile } from '../../../hooks/useFileUpload'
 import type { MessageContent } from '../../../../../shared/types/message'
+import { FiChevronDown } from 'react-icons/fi'
 
 export interface ChatInterfaceProps {
   /** Additional CSS classes */
@@ -26,33 +27,69 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { currentConversation, currentMessages, isLoadingMessages } = useCurrentConversation()
   const streamingMessageId = useStreamingMessageId()
   const sendMessage = useSendMessage()
-  // Access store if needed later (no-op for now)
 
-  // Create a filtered dependency for assistant messages only
-  const assistantMessages = currentMessages.filter((msg: any) => msg.role === 'assistant')
+  // Optimized dependencies - track actual content changes for auto-scroll
+  const scrollDependencies = useMemo(() => {
+    const assistantMessages = currentMessages.filter((msg: any) => msg.role === 'assistant')
+    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
 
-  // Auto-scroll to bottom when assistant messages change or streaming updates
-  const scrollRef = useAutoScroll<HTMLDivElement>([assistantMessages, streamingMessageId])
+    // Calculate total text length for streaming detection
+    const totalTextLength =
+      lastAssistantMessage?.content?.reduce((total: number, part: any) => {
+        if (part.type === 'text' && typeof part.text === 'string') {
+          return total + part.text.length
+        }
+        return total
+      }, 0) || 0
 
-  // Separate ref for immediate user message scrolling
-  const userMessageCountRef = useRef(0)
+    return [
+      currentMessages.length, // Total message count (includes user messages)
+      assistantMessages.length, // Number of assistant messages
+      lastAssistantMessage?.id, // ID of last assistant message
+      lastAssistantMessage?.content?.length, // Number of content parts
+      totalTextLength // Total text length (grows during streaming)
+      // Removed updatedAt to prevent infinite loops
+    ]
+  }, [currentMessages])
 
-  // Track user messages count and scroll immediately when user sends a message
-  useEffect(() => {
-    const userMessages = currentMessages.filter((msg: any) => msg.role === 'user')
-    if (userMessages.length > userMessageCountRef.current) {
-      // User sent a new message, scroll to bottom immediately regardless of current position
-      if (scrollRef.current) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-          }
-        })
-      }
-      userMessageCountRef.current = userMessages.length
+  // We do NOT follow while streaming per requirements
+
+  // Auto-scroll with optimized sticky detection
+  const { scrollRef, anchorRef, forceScrollToBottom, isAtBottom } = useAutoScroll<HTMLDivElement>(
+    scrollDependencies,
+    {
+      threshold: 50, // Tighter threshold for better sticky detection
+      enabled: true,
+      smooth: true, // Smooth scrolling behavior
+      follow: false
     }
-  }, [currentMessages, scrollRef])
+  )
+
+  // Track user message count to force scroll on user messages
+  const userMessageCount = useMemo(
+    () => currentMessages.filter((msg: any) => msg.role === 'user').length,
+    [currentMessages]
+  )
+
+  // Force scroll when user sends a message (runs after user message is added)
+  React.useEffect(() => {
+    if (userMessageCount > 0) {
+      // Scroll to bottom; bottom padding ensures last 6rem of user message remains visible
+      forceScrollToBottom()
+    }
+  }, [userMessageCount, forceScrollToBottom])
+
+  // Entering a conversation: auto scroll to bottom smoothly
+  React.useEffect(() => {
+    // Smooth scroll on conversation change or initial mount with a conversation
+    if (!currentConversation) return
+    // Delay to ensure list is laid out
+    const id = requestAnimationFrame(() => {
+      forceScrollToBottom()
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentConversation?.id])
 
   // Handle sending message from entrance
   const handleSendMessage = async (
@@ -206,9 +243,48 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
       position="relative"
     >
       {/* Messages Area - Full height with floating input */}
-      <Box ref={scrollRef} flex={1} overflowY="auto" minH={0} h="100%" px={4} py={6} pb="6rem">
+      <Box
+        ref={scrollRef}
+        flex={1}
+        overflowY="auto"
+        minH={0}
+        h="100%"
+        px={4}
+        py={6}
+        pb="6rem"
+        sx={{
+          overflowAnchor: 'none', // Disable scroll anchoring to prevent conflicts
+          scrollBehavior: 'auto' // Let our hook control scroll behavior
+        }}
+      >
         <MessageList messages={currentMessages} streamingMessageId={streamingMessageId} />
+        {/* Bottom anchor for robust sticky auto-scroll */}
+        <Box ref={anchorRef} height="1px" visibility="hidden" aria-hidden />
       </Box>
+
+      {/* Scroll-to-bottom chevron when user isn't near bottom */}
+      {!isAtBottom && (
+        <Box
+          position="absolute"
+          left={0}
+          right={0}
+          bottom="6.75rem"
+          display="flex"
+          justifyContent="center"
+          zIndex={20}
+        >
+          <IconButton
+            aria-label="Scroll to bottom"
+            icon={<FiChevronDown />}
+            size="sm"
+            colorScheme="gray"
+            variant="solid"
+            borderRadius="full"
+            boxShadow="md"
+            onClick={() => forceScrollToBottom()}
+          />
+        </Box>
+      )}
 
       {/* Floating Input Area */}
       <Box position="absolute" bottom={0} left={0} right={0} zIndex={10} pointerEvents="none">

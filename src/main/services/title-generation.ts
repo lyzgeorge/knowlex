@@ -1,28 +1,44 @@
 /**
  * Title Generation Service
  *
- * Simple service for generating conversation titles using AI.
- * If anything fails, just return "New Chat".
+ * Automatically generates conversation titles based on the first user-assistant exchange.
+ * Fallback to "New Chat" on any error to ensure reliability.
  */
 
 import type { Message } from '../../shared/types/message'
 
 /**
- * Determines if automatic title generation should be triggered
+ * Checks if automatic title generation should be triggered
+ * @param messages - Array of conversation messages
+ * @returns true if exactly one user message and one assistant message exist
  */
 export function shouldTriggerAutoGeneration(messages: Message[]): boolean {
-  if (!messages || messages.length === 0) return false
+  if (!messages?.length) return false
 
   const userMessages = messages.filter((m) => m.role === 'user')
   const assistantMessages = messages.filter((m) => m.role === 'assistant')
 
-  // Only trigger for first complete exchange
   return userMessages.length === 1 && assistantMessages.length === 1
 }
 
 /**
- * Generates title for a conversation by ID
- * Returns AI-generated title or "New Chat" if anything fails
+ * Extracts text content from a message's content parts
+ * @param message - Message to extract text from
+ * @returns Combined text content, truncated for title generation
+ */
+function extractTextContent(message: Message, maxLength: number): string {
+  return message.content
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join(' ')
+    .trim()
+    .slice(0, maxLength)
+}
+
+/**
+ * Generates a conversation title using AI
+ * @param conversationId - ID of the conversation to generate title for
+ * @returns AI-generated title or "New Chat" on any failure
  */
 export async function generateTitleForConversation(conversationId: string): Promise<string> {
   try {
@@ -33,14 +49,14 @@ export async function generateTitleForConversation(conversationId: string): Prom
       return 'New Chat'
     }
 
-    // Check if AI is configured
-    const { validateAIConfiguration } = await import('./ai-chat-vercel')
-    const validation = validateAIConfiguration()
+    // Validate AI configuration
+    const { validateOpenAIConfig } = await import('./openai-adapter')
+    const validation = validateOpenAIConfig()
     if (!validation.isValid) {
       return 'New Chat'
     }
 
-    // Get first user and assistant messages
+    // Find first exchange
     const firstUserMessage = messages.find((m) => m.role === 'user')
     const firstAssistantMessage = messages.find((m) => m.role === 'assistant')
 
@@ -48,63 +64,57 @@ export async function generateTitleForConversation(conversationId: string): Prom
       return 'New Chat'
     }
 
-    // Extract text content
-    const userContent = firstUserMessage.content
-      .filter((part) => part.type === 'text')
-      .map((part) => part.text)
-      .join(' ')
-      .trim()
-
-    const assistantContent = firstAssistantMessage.content
-      .filter((part) => part.type === 'text')
-      .map((part) => part.text)
-      .join(' ')
-      .trim()
+    // Extract text content with length limits
+    const userContent = extractTextContent(firstUserMessage, 500)
+    const assistantContent = extractTextContent(firstAssistantMessage, 1000)
 
     if (!userContent || !assistantContent) {
       return 'New Chat'
     }
 
-    // Generate title using AI
-    const { generateAIResponse } = await import('./ai-chat-vercel')
-
-    const titlePrompt = [
+    // Create title generation prompt
+    const { generateAIResponseOnce } = await import('./openai-adapter')
+    const titleMessages: Message[] = [
       {
-        role: 'system' as const,
-        content: 'Generate a concise 3-8 word title for this conversation. Return ONLY the title.'
-      },
-      {
-        role: 'user' as const,
-        content: `User: ${userContent.slice(0, 500)}\n\nAssistant: ${assistantContent.slice(0, 1000)}`
-      }
-    ]
-
-    const response = await generateAIResponse(
-      titlePrompt.map((msg, index) => ({
-        id: `title-gen-${Date.now()}-${index}`,
+        id: `title-gen-${Date.now()}-0`,
         conversationId: 'title-generation',
-        role: msg.role === 'system' ? 'user' : msg.role,
+        role: 'system',
         content: [
           {
-            type: 'text' as const,
-            text: msg.role === 'system' ? `System: ${msg.content}` : msg.content
+            type: 'text',
+            text: 'Generate a concise 3-8 word title for this conversation. Return ONLY the title.'
           }
         ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }))
-    )
+      },
+      {
+        id: `title-gen-${Date.now()}-1`,
+        conversationId: 'title-generation',
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `User: ${userContent}\n\nAssistant: ${assistantContent}`
+          }
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
 
+    const response = await generateAIResponseOnce(titleMessages)
+
+    // Clean and validate generated title
     const generatedTitle = response.content
       .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join(' ')
       .trim()
-      .replace(/['"]/g, '')
-      .slice(0, 100)
+      .replace(/['"]/g, '') // Remove quotes
+      .slice(0, 100) // Limit length
 
-    // Return generated title or fallback
-    return generatedTitle && generatedTitle.length > 0 ? generatedTitle : 'New Chat'
+    return generatedTitle || 'New Chat'
   } catch (error) {
     console.error('Title generation failed:', error)
     return 'New Chat'

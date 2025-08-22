@@ -32,6 +32,7 @@ export interface KnowlexAPI {
   conversation: {
     create: (data: ConversationCreateRequest) => Promise<IPCResult>
     list: () => Promise<IPCResult>
+    listPaginated: (data: { limit: number; offset: number }) => Promise<IPCResult>
     get: (id: string) => Promise<IPCResult>
     update: (data: any) => Promise<IPCResult>
     updateTitle: (conversationId: string, title: string) => Promise<IPCResult>
@@ -134,6 +135,7 @@ const knowlexAPI: KnowlexAPI = {
   conversation: {
     create: (data) => ipcRenderer.invoke('conversation:create', data),
     list: () => ipcRenderer.invoke('conversation:list'),
+    listPaginated: (data) => ipcRenderer.invoke('conversation:list-paginated', data),
     get: (id) => ipcRenderer.invoke('conversation:get', id),
     update: (data) => ipcRenderer.invoke('conversation:update', data),
     updateTitle: (conversationId, title) =>

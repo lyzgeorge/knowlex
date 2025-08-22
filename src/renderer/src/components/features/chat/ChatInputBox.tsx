@@ -9,7 +9,9 @@ import {
   useIsStreaming,
   useStreamingMessageId,
   useStopStreaming,
-  useCurrentConversation
+  useCurrentConversation,
+  useIsReasoningStreaming,
+  useReasoningStreamingMessageId
 } from '../../../stores/conversation'
 import TempFileCard from './TempFileCard'
 import { useFileUpload, FileUploadItem, ProcessedFile } from '../../../hooks/useFileUpload'
@@ -66,6 +68,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const isStreaming = useIsStreaming()
   const streamingMessageId = useStreamingMessageId()
   const stopStreaming = useStopStreaming()
+  const isReasoningStreaming = useIsReasoningStreaming()
+  const reasoningStreamingMessageId = useReasoningStreamingMessageId()
   const { currentConversation } = useCurrentConversation()
 
   // Use the file upload hook
@@ -155,16 +159,16 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     [variant]
   )
 
-  // Handle stop streaming
+  // Handle stop streaming (supports reasoning or text streaming)
   const handleStop = useCallback(async () => {
-    if (streamingMessageId) {
-      try {
-        await stopStreaming(streamingMessageId)
-      } catch (error) {
-        console.error('Failed to stop streaming:', error)
-      }
+    const idToStop = streamingMessageId || reasoningStreamingMessageId
+    if (!idToStop) return
+    try {
+      await stopStreaming(idToStop)
+    } catch (error) {
+      console.error('Failed to stop streaming:', error)
     }
-  }, [streamingMessageId, stopStreaming])
+  }, [streamingMessageId, reasoningStreamingMessageId, stopStreaming])
 
   // Handle send message
   const handleSend = useCallback(async () => {
@@ -310,8 +314,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         // Enter key sends message for all variants (Shift+Enter for new line)
-        // Block during streaming
-        if (isStreaming && streamingMessageId) {
+        // Block during any refreshing state
+        const isRefreshing = isSending || isStreaming || isReasoningStreaming
+        if (isRefreshing) {
           e.preventDefault()
           return
         }
@@ -319,14 +324,13 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         handleSend()
       }
     },
-    [handleSend, isStreaming, streamingMessageId]
+    [handleSend, isSending, isStreaming, isReasoningStreaming]
   )
 
-  // Button state logic
+  // Button state logic (simple and single-purpose)
   const hasContent = input.trim().length > 0 || fileUpload.state.files.length > 0
-  const isGenerating = isStreaming && streamingMessageId
-  const canSend =
-    hasContent && !isSending && !disabled && !fileUpload.state.isProcessing && !isGenerating
+  const isRefreshing = isSending || isStreaming || isReasoningStreaming
+  const canSend = hasContent && !disabled && !fileUpload.state.isProcessing && !isRefreshing
 
   // Unified render - single implementation for all variants
   return (
@@ -439,35 +443,29 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             />
           </Box>
 
-          {/* Send/Stop Button */}
-          {isGenerating ? (
-            // State 4: When assistant is generating, show refresh button with spin animation
-            // On hover, show red stop button
+          {/* Send / Refreshing-Stop Button */}
+          {isRefreshing ? (
             <IconButton
-              aria-label={isHoveringStreamButton ? 'Stop streaming' : 'Generating response'}
+              aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
               icon={
                 isHoveringStreamButton ? (
                   <FaStop />
                 ) : (
-                  <RepeatIcon
-                    css={{
-                      animation: `${spinAnimation} 1s linear infinite`
-                    }}
-                  />
+                  <RepeatIcon css={{ animation: `${spinAnimation} 1s linear infinite` }} />
                 )
               }
-              variant={isHoveringStreamButton ? 'solid' : 'solid'}
-              colorScheme={isHoveringStreamButton ? 'red' : 'primary'}
+              variant="solid"
+              {...(isHoveringStreamButton
+                ? { colorScheme: 'red' as const }
+                : { bg: 'gray.300' as const })}
               size="sm"
               borderRadius="md"
-              onClick={isHoveringStreamButton ? handleStop : undefined}
+              onClick={handleStop}
               onMouseEnter={() => setIsHoveringStreamButton(true)}
               onMouseLeave={() => setIsHoveringStreamButton(false)}
-              cursor={isHoveringStreamButton ? 'pointer' : 'default'}
-              {...(isHoveringStreamButton ? {} : { bg: 'gray.300' })}
+              cursor="pointer"
             />
           ) : (
-            // State 1, 2, 5: Send button with proper enabled/disabled states
             <IconButton
               aria-label="Send message"
               icon={<ArrowUpIcon />}
@@ -475,7 +473,6 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               size="sm"
               borderRadius="md"
               isDisabled={!canSend}
-              isLoading={isSending || fileUpload.state.isProcessing}
               onClick={handleSend}
               cursor={canSend ? 'pointer' : 'not-allowed'}
             />

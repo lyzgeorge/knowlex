@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react'
-import { Textarea, VStack, HStack, Text, useToast } from '@chakra-ui/react'
+import { Textarea, VStack, HStack, Text } from '@chakra-ui/react'
 import { Modal } from '../../ui/Modal'
 import { Button } from '../../ui/Button'
+import { useNotifications } from '../../ui'
 import type { Message, MessageContentPart } from '../../../../../shared/types/message'
 import { useEditMessage, useSendMessage } from '../../../stores/conversation'
 
@@ -32,7 +33,7 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
 }) => {
   const [editedContent, setEditedContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const toast = useToast()
+  const notifications = useNotifications()
   const editMessage = useEditMessage()
   const sendMessage = useSendMessage()
 
@@ -63,31 +64,16 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
         await sendMessage([{ type: 'text', text: editedContent.trim() }], [], { conversationId })
       }
 
-      toast({
-        title: 'Message updated',
-        description:
-          message.role === 'user'
-            ? 'Message updated and new response generated'
-            : 'Message updated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      })
+      notifications.messageUpdated(message.role === 'system' ? 'assistant' : message.role)
 
       onClose()
     } catch (error) {
       console.error('Failed to update message:', error)
-      toast({
-        title: 'Update failed',
-        description: 'Failed to update message',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
+      notifications.messageUpdateFailed()
     } finally {
       setIsSubmitting(false)
     }
-  }, [message, editedContent, editMessage, sendMessage, conversationId, toast, onClose])
+  }, [message, editedContent, editMessage, sendMessage, conversationId, notifications, onClose])
 
   // Handle save only
   const handleSaveOnly = useCallback(async () => {
@@ -97,28 +83,16 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
     try {
       await editMessage(message.id, [{ type: 'text', text: editedContent.trim() }])
 
-      toast({
-        title: 'Message updated',
-        description: 'Message updated successfully',
-        status: 'success',
-        duration: 2000,
-        isClosable: true
-      })
+      notifications.messageUpdated(message.role === 'system' ? 'assistant' : message.role)
 
       onClose()
     } catch (error) {
       console.error('Failed to update message:', error)
-      toast({
-        title: 'Update failed',
-        description: 'Failed to update message',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
+      notifications.messageUpdateFailed()
     } finally {
       setIsSubmitting(false)
     }
-  }, [message, editedContent, editMessage, toast, onClose])
+  }, [message, editedContent, editMessage, notifications, onClose])
 
   const canSave =
     editedContent.trim().length > 0 &&

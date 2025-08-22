@@ -100,6 +100,7 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
     orderBy?: string
     direction?: 'ASC' | 'DESC'
     limit?: number
+    offset?: number
     where?: { column: string; value: any }
   }): Promise<T[]> {
     const selectFields = this.schema.fields.map((f) => f.column).join(', ')
@@ -117,10 +118,15 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
     const direction = options?.direction || this.schema.defaultOrder?.direction || 'ASC'
     sql += ` ORDER BY ${orderBy} ${direction}`
 
-    // Add LIMIT if specified
+    // Add LIMIT and OFFSET if specified
     if (options?.limit) {
       sql += ` LIMIT ?`
       values.push(options.limit)
+
+      if (options?.offset) {
+        sql += ` OFFSET ?`
+        values.push(options.offset)
+      }
     }
 
     const result = await executeQuery(sql, values)

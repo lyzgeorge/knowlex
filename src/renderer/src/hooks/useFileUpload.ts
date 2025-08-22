@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useToast } from '@chakra-ui/react'
+import { useNotifications } from '../components/ui'
 import type { TemporaryFileResult } from '../../../shared/types/file'
 
 export interface ProcessedFile extends TemporaryFileResult {
@@ -67,7 +67,7 @@ export const useFileUpload = (): FileUploadHook => {
     isProcessing: false,
     error: null
   })
-  const toast = useToast()
+  const notifications = useNotifications()
 
   // Validate a single file
   const validateFile = useCallback((file: File): string | null => {
@@ -115,13 +115,7 @@ export const useFileUpload = (): FileUploadHook => {
       setState((prevState) => {
         // Check total file count first
         if (prevState.files.length + uniqueFiles.length > MAX_FILES) {
-          toast({
-            title: 'Too many files',
-            description: `Maximum ${MAX_FILES} files allowed`,
-            status: 'error',
-            duration: 3000,
-            isClosable: true
-          })
+          notifications.fileTooMany(MAX_FILES)
           return prevState
         }
 
@@ -186,13 +180,7 @@ export const useFileUpload = (): FileUploadHook => {
           // Use setTimeout to show errors after setState completes
           setTimeout(() => {
             errors.forEach((error) => {
-              toast({
-                title: 'File validation error',
-                description: error,
-                status: 'error',
-                duration: 4000,
-                isClosable: true
-              })
+              notifications.fileValidationError(error)
             })
           }, 0)
         }
@@ -213,7 +201,7 @@ export const useFileUpload = (): FileUploadHook => {
         return prevState
       })
     },
-    [validateFile, toast]
+    [validateFile, notifications]
   )
 
   // Remove a specific file
@@ -324,25 +312,13 @@ export const useFileUpload = (): FileUploadHook => {
       // Show success toast for successfully processed files
       const successfulFiles = processedFiles.filter((f) => !f.error)
       if (successfulFiles.length > 0) {
-        toast({
-          title: 'Files processed',
-          description: `Successfully processed ${successfulFiles.length} file(s)`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true
-        })
+        notifications.filesProcessed(successfulFiles.length)
       }
 
       // Show error toasts for failed files
       const failedFiles = processedFiles.filter((f) => f.error)
       failedFiles.forEach((file) => {
-        toast({
-          title: 'File processing failed',
-          description: `${file.filename}: ${file.error}`,
-          status: 'error',
-          duration: 5000,
-          isClosable: true
-        })
+        notifications.fileProcessingFailed(file.filename, file.error)
       })
 
       // Add isImage property to each file
@@ -361,17 +337,11 @@ export const useFileUpload = (): FileUploadHook => {
         isProcessing: false
       }))
 
-      toast({
-        title: 'File processing error',
-        description: errorMessage,
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      })
+      notifications.fileError(errorMessage)
 
       throw error
     }
-  }, [state.files, toast])
+  }, [state.files, notifications])
 
   // Clear all files
   const clearFiles = useCallback(() => {

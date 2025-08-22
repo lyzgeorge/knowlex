@@ -40,42 +40,8 @@ function validateMessageContent(content: MessageContent): void {
     throw new Error('Message content must be a non-empty array of content parts')
   }
 
-  // Check if there's at least one meaningful content part
-  // Allow files without text, but require at least some meaningful content
-  const hasMeaningfulContent = content.some((part) => {
-    console.log('Backend validating part:', JSON.stringify(part, null, 2))
+  let hasMeaningfulContent = false
 
-    let isValid = false
-    switch (part.type) {
-      case 'text':
-        isValid = Boolean(part.text && part.text.trim().length > 0)
-        break
-      case 'temporary-file':
-        isValid = Boolean(part.temporaryFile && part.temporaryFile.filename)
-        break
-      case 'image':
-        // Image support removed
-        isValid = false
-        break
-      case 'citation':
-        isValid = Boolean(part.citation && part.citation.filename)
-        break
-      case 'tool-call':
-        isValid = Boolean(part.toolCall && part.toolCall.name)
-        break
-      default:
-        isValid = false
-    }
-
-    console.log('Backend validation result:', { type: part.type, isValid })
-    return isValid
-  })
-
-  if (!hasMeaningfulContent) {
-    throw new Error('Message must contain at least one meaningful content part')
-  }
-
-  // Validate each content part
   content.forEach((part, index) => {
     if (!part || typeof part !== 'object') {
       throw new Error(`Invalid content part at index ${index}`)
@@ -85,70 +51,62 @@ function validateMessageContent(content: MessageContent): void {
       throw new Error(`Invalid content type "${part.type}" at index ${index}`)
     }
 
-    switch (part.type) {
-      case 'text':
-        if (!part.text || typeof part.text !== 'string') {
-          throw new Error(`Text content part at index ${index} must have valid text`)
-        }
-        // Allow empty text content if there are other content parts (like files)
-        if (part.text.trim().length === 0 && content.length === 1) {
-          throw new Error(
-            `Text content part at index ${index} cannot be empty when it's the only content`
-          )
-        }
-        break
+    if (part.type === 'image') {
+      throw new Error(`Image content type is not supported (at index ${index})`)
+    }
 
-      case 'image':
-        // Image support removed
-        throw new Error(`Image content type is not supported (at index ${index})`)
-        break
-
-      case 'citation':
-        if (!part.citation || typeof part.citation !== 'object') {
-          throw new Error(`Citation content part at index ${index} must have valid citation data`)
-        }
-        if (!part.citation.filename || typeof part.citation.filename !== 'string') {
-          throw new Error(`Citation content part at index ${index} must have valid filename`)
-        }
-        if (!part.citation.content || typeof part.citation.content !== 'string') {
-          throw new Error(`Citation content part at index ${index} must have valid content`)
-        }
-        break
-
-      case 'tool-call':
-        if (!part.toolCall || typeof part.toolCall !== 'object') {
-          throw new Error(`Tool call content part at index ${index} must have valid tool call data`)
-        }
-        if (!part.toolCall.id || typeof part.toolCall.id !== 'string') {
-          throw new Error(`Tool call content part at index ${index} must have valid ID`)
-        }
-        if (!part.toolCall.name || typeof part.toolCall.name !== 'string') {
-          throw new Error(`Tool call content part at index ${index} must have valid name`)
-        }
-        break
-
-      case 'temporary-file':
-        if (!part.temporaryFile || typeof part.temporaryFile !== 'object') {
-          throw new Error(`Temporary file content part at index ${index} must have valid file data`)
-        }
-        if (!part.temporaryFile.filename || typeof part.temporaryFile.filename !== 'string') {
-          throw new Error(`Temporary file content part at index ${index} must have valid filename`)
-        }
-        if (!part.temporaryFile.content || typeof part.temporaryFile.content !== 'string') {
-          throw new Error(`Temporary file content part at index ${index} must have valid content`)
-        }
-        if (typeof part.temporaryFile.size !== 'number' || part.temporaryFile.size < 0) {
-          throw new Error(`Temporary file content part at index ${index} must have valid size`)
-        }
-        if (!part.temporaryFile.mimeType || typeof part.temporaryFile.mimeType !== 'string') {
-          throw new Error(`Temporary file content part at index ${index} must have valid mime type`)
-        }
-        break
-
-      default:
-        throw new Error(`Unsupported content type "${part.type}" at index ${index}`)
+    // Validate and check if part has meaningful content
+    const isValid = validateContentPart(part, index)
+    if (isValid) {
+      hasMeaningfulContent = true
     }
   })
+
+  if (!hasMeaningfulContent) {
+    throw new Error('Message must contain at least one meaningful content part')
+  }
+}
+
+/**
+ * Validates a single content part and returns if it has meaningful content
+ */
+function validateContentPart(part: MessageContentPart, index: number): boolean {
+  switch (part.type) {
+    case 'text':
+      if (!part.text || typeof part.text !== 'string') {
+        throw new Error(`Text content part at index ${index} must have valid text`)
+      }
+      return part.text.trim().length > 0
+
+    case 'citation':
+      if (!part.citation?.filename || !part.citation?.content) {
+        throw new Error(`Citation content part at index ${index} must have valid citation data`)
+      }
+      return true
+
+    case 'tool-call':
+      if (!part.toolCall?.id || !part.toolCall?.name) {
+        throw new Error(`Tool call content part at index ${index} must have valid tool call data`)
+      }
+      return true
+
+    case 'temporary-file': {
+      const file = part.temporaryFile
+      if (
+        !file?.filename ||
+        !file?.content ||
+        !file?.mimeType ||
+        typeof file.size !== 'number' ||
+        file.size < 0
+      ) {
+        throw new Error(`Temporary file content part at index ${index} must have valid file data`)
+      }
+      return true
+    }
+
+    default:
+      return false
+  }
 }
 
 /**
@@ -178,12 +136,6 @@ export async function addMessage(data: CreateMessageData): Promise<Message> {
 
   // Validate content structure
   validateMessageContent(data.content)
-
-  // TODO: Verify conversation exists
-  // const conversation = await getConversation(data.conversationId)
-  // if (!conversation) {
-  //   throw new Error('Conversation not found')
-  // }
 
   const messageId = generateId()
   const now = new Date().toISOString()

@@ -38,6 +38,10 @@ export interface ConversationState {
   messages: Record<string, Message[]> // conversationId -> messages
   currentConversationId: string | null
 
+  // Pagination state
+  hasMoreConversations: boolean
+  isLoadingMore: boolean
+
   // Streaming state
   isStreaming: boolean
   streamingMessageId: string | null
@@ -81,6 +85,7 @@ export interface ConversationState {
 
   // Loading
   loadMessages: (conversationId: string) => Promise<void>
+  loadMoreConversations: () => Promise<void>
 
   // Selection & navigation
   setCurrentConversation: (conversationId: string | null) => void
@@ -103,6 +108,8 @@ const initialState: Pick<
   | 'conversations'
   | 'messages'
   | 'currentConversationId'
+  | 'hasMoreConversations'
+  | 'isLoadingMore'
   | 'isStreaming'
   | 'streamingMessageId'
   | 'isTextStreaming'
@@ -118,6 +125,8 @@ const initialState: Pick<
   conversations: [],
   messages: {},
   currentConversationId: null,
+  hasMoreConversations: true,
+  isLoadingMore: false,
   isStreaming: false,
   streamingMessageId: null,
   isTextStreaming: false,
@@ -542,6 +551,69 @@ export const useConversationStore = create<ConversationState>()(
       }
     },
 
+    loadMoreConversations: async () => {
+      const currentState = get()
+      if (!currentState.hasMoreConversations || currentState.isLoadingMore) return
+
+      set((s) => {
+        s.isLoadingMore = true
+        s.error = null
+      })
+
+      try {
+        // Use the paginated API endpoint
+        const currentCount = currentState.conversations.length
+        const res = await window.knowlex.conversation.listPaginated({
+          limit: 15,
+          offset: currentCount
+        })
+
+        if (!res?.success) {
+          throw new Error(res?.error || 'Failed to load more conversations')
+        }
+
+        const { conversations: newConversations, hasMore } = res.data as {
+          conversations: Conversation[]
+          hasMore: boolean
+        }
+
+        set((s) => {
+          s.conversations = [...s.conversations, ...newConversations]
+          s.hasMoreConversations = hasMore
+          s.isLoadingMore = false
+        })
+
+        // Preload messages for the newly loaded conversations
+        const loadMessagesPromises = newConversations.map(async (conv) => {
+          try {
+            const messageRes = await window.knowlex.message.list(conv.id)
+            if (messageRes?.success) {
+              const msgs = (messageRes.data as Message[]) || []
+              set((s) => {
+                s.messages[conv.id] = msgs
+                // Update message index
+                msgs.forEach((m, i) => {
+                  s._msgIndex[m.id] = { conversationId: conv.id, idx: i }
+                })
+              })
+            }
+          } catch (e) {
+            console.warn(`Failed to load messages for conversation ${conv.id}:`, e)
+          }
+        })
+
+        // Load messages in parallel but don't wait for completion
+        Promise.all(loadMessagesPromises).catch((e) => {
+          console.warn('Some message loading failed:', e)
+        })
+      } catch (e) {
+        set((s) => {
+          s.error = e instanceof Error ? e.message : 'Failed to load more conversations'
+          s.isLoadingMore = false
+        })
+      }
+    },
+
     // Selection
     setCurrentConversation: (conversationId) => {
       const cur = get().currentConversationId
@@ -611,12 +683,51 @@ export const useConversationStore = create<ConversationState>()(
         s.error = null
       })
       try {
-        const res = await window.knowlex.conversation.list()
-        const convs = (res?.success && (res.data as Conversation[])) || []
+        // Load the first 15 conversations using pagination
+        const res = await window.knowlex.conversation.listPaginated({
+          limit: 15,
+          offset: 0
+        })
+
+        if (!res?.success) {
+          throw new Error(res?.error || 'Failed to load conversations')
+        }
+
+        const { conversations: recentConversations, hasMore } = res.data as {
+          conversations: Conversation[]
+          hasMore: boolean
+        }
+
         set((s) => {
-          s.conversations = convs
+          s.conversations = recentConversations
+          s.hasMoreConversations = hasMore
           s.isLoading = false
         })
+
+        // Preload messages for the 15 most recent conversations
+        const loadMessagesPromises = recentConversations.map(async (conv) => {
+          try {
+            const messageRes = await window.knowlex.message.list(conv.id)
+            if (messageRes?.success) {
+              const msgs = (messageRes.data as Message[]) || []
+              set((s) => {
+                s.messages[conv.id] = msgs
+                // Update message index
+                msgs.forEach((m, i) => {
+                  s._msgIndex[m.id] = { conversationId: conv.id, idx: i }
+                })
+              })
+            }
+          } catch (e) {
+            console.warn(`Failed to preload messages for conversation ${conv.id}:`, e)
+          }
+        })
+
+        // Load messages in parallel but don't wait for completion
+        Promise.all(loadMessagesPromises).catch((e) => {
+          console.warn('Some message preloading failed:', e)
+        })
+
         setupEventListeners()
       } catch (e) {
         set((s) => {

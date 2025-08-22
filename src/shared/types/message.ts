@@ -1,7 +1,7 @@
 export interface Message {
   id: string
   conversationId: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: MessageContent
   reasoning?: string
   createdAt: string

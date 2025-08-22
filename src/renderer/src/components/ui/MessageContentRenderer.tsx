@@ -38,7 +38,7 @@ export const MessageContentRenderer: React.FC<MessageContentRendererProps> = ({
     const displayText = text.replace(/\u200B/g, '')
 
     return (
-      <Box as="span" display="inline" className="markdown-content">
+      <Box as="div" display="inline-block" className="markdown-content">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}

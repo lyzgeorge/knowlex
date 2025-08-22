@@ -5,14 +5,14 @@ import type { Message, MessageContent } from '../../shared/types/message'
 import type { CancellationToken } from '../utils/cancellation'
 
 /**
- * Simplified AI Chat Service using official AI SDK
+ * OpenAI Adapter Service using official AI SDK
  * Supports only OpenAI-compatible models with optional reasoning effort
  */
 
 /**
  * Configuration interface for OpenAI-compatible models
  */
-export interface AIChatConfig {
+export interface OpenAIConfig {
   apiKey: string
   baseURL: string | undefined
   model: string
@@ -25,10 +25,10 @@ export interface AIChatConfig {
 }
 
 /**
- * Gets AI configuration from environment variables
+ * Gets OpenAI configuration from environment variables
  */
-export function getAIConfigFromEnv(): AIChatConfig {
-  const config: AIChatConfig = {
+export function getOpenAIConfigFromEnv(): OpenAIConfig {
+  const config: OpenAIConfig = {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || undefined,
     model: process.env.OPENAI_MODEL || 'gpt-4o',
@@ -53,13 +53,13 @@ export function getAIConfigFromEnv(): AIChatConfig {
 }
 
 /**
- * Validates AI configuration
+ * Validates OpenAI configuration
  */
-export function validateAIConfiguration(config?: AIChatConfig): {
+export function validateOpenAIConfig(config?: OpenAIConfig): {
   isValid: boolean
   error?: string
 } {
-  const chatConfig = config || getAIConfigFromEnv()
+  const chatConfig = config || getOpenAIConfigFromEnv()
 
   if (!chatConfig.apiKey || chatConfig.apiKey.trim().length === 0) {
     return {
@@ -134,7 +134,7 @@ function convertMessagesToAIFormat(messages: Message[]) {
 /**
  * Creates OpenAI model instance from configuration
  */
-function createOpenAIModel(config: AIChatConfig) {
+function createOpenAIModel(config: OpenAIConfig) {
   if (config.baseURL && !config.baseURL.includes('api.openai.com')) {
     // Custom OpenAI-compatible API (like SiliconFlow)
     const provider = createOpenAICompatible({
@@ -156,16 +156,16 @@ function createOpenAIModel(config: AIChatConfig) {
 /**
  * Generates an AI response for a conversation
  */
-export async function generateAIResponse(
+export async function generateAIResponseOnce(
   conversationMessages: Message[]
 ): Promise<{ content: MessageContent; reasoning?: string }> {
   // Validate configuration
-  const validation = validateAIConfiguration()
+  const validation = validateOpenAIConfig()
   if (!validation.isValid) {
     throw new Error(validation.error || 'AI configuration is invalid')
   }
 
-  const config = getAIConfigFromEnv()
+  const config = getOpenAIConfigFromEnv()
   const model = createOpenAIModel(config)
 
   try {
@@ -222,18 +222,18 @@ export interface StreamingCallbacks {
 /**
  * Generates an AI response with streaming support
  */
-export async function generateAIResponseWithStreaming(
+export async function streamAIResponse(
   conversationMessages: Message[],
   callbacks: StreamingCallbacks | ((chunk: string) => void),
   cancellationToken?: CancellationToken
 ): Promise<{ content: MessageContent; reasoning?: string }> {
   // Validate configuration
-  const validation = validateAIConfiguration()
+  const validation = validateOpenAIConfig()
   if (!validation.isValid) {
     throw new Error(validation.error || 'AI configuration is invalid')
   }
 
-  const config = getAIConfigFromEnv()
+  const config = getOpenAIConfigFromEnv()
   const model = createOpenAIModel(config)
 
   let streamedText = ''
@@ -405,14 +405,14 @@ export async function generateAIResponseWithStreaming(
 /**
  * Tests AI configuration by making a simple API call
  */
-export async function testAIConfiguration(config?: AIChatConfig): Promise<{
+export async function testOpenAIConfig(config?: OpenAIConfig): Promise<{
   success: boolean
   error?: string
   model?: string
 }> {
   try {
-    const chatConfig = config || getAIConfigFromEnv()
-    const validation = validateAIConfiguration(chatConfig)
+    const chatConfig = config || getOpenAIConfigFromEnv()
+    const validation = validateOpenAIConfig(chatConfig)
 
     if (!validation.isValid) {
       return {

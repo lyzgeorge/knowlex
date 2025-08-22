@@ -1,100 +1,119 @@
-import { useRef, useEffect, useLayoutEffect } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 
 export interface UseAutoScrollOptions {
-  /** Threshold in pixels from bottom to consider user "at bottom" */
+  /** Distance from bottom to consider "at bottom" */
   threshold?: number
-  /** Whether to enable auto-scrolling */
+  /** Enable/disable behavior */
   enabled?: boolean
+  /** Use smooth behavior for scrolling */
+  smooth?: boolean
+  /** Always follow bottom (e.g., while streaming) */
+  follow?: boolean
+}
+
+export interface UseAutoScrollReturn<T extends HTMLElement> {
+  scrollRef: React.RefObject<T>
+  anchorRef: React.RefObject<HTMLDivElement>
+  forceScrollToBottom: () => void
+  isAtBottom: boolean
 }
 
 /**
- * Hook for managing auto-scroll behavior in scrollable containers
- *
- * Automatically scrolls to bottom when new content is added, but only if:
- * - The user was at the bottom before the content was added
- * - Auto-scrolling is enabled
- *
- * @param dependencies - Array of dependencies that trigger scroll check
- * @param options - Configuration options
- * @returns ref to attach to the scrollable element
+ * Super-simplified auto-scroll: bottom anchor + scroll listener + effect on deps.
+ * - Follows anchor when near bottom or `follow` is true.
+ * - Stops following when user scrolls up beyond threshold; resumes when back to bottom.
  */
 export function useAutoScroll<T extends HTMLElement>(
   dependencies: React.DependencyList,
   options: UseAutoScrollOptions = {}
-) {
-  const { threshold = 100, enabled = true } = options
+): UseAutoScrollReturn<T> {
+  const { threshold = 120, enabled = true, smooth = true, follow = false } = options
+
   const scrollRef = useRef<T>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const isStickyRef = useRef(true)
   const isUserScrollingRef = useRef(false)
   const scrollTimeoutRef = useRef<NodeJS.Timeout>()
-  const wasAtBottomRef = useRef(true) // Track if user was at bottom before update
+  const [isAtBottom, setIsAtBottom] = useState(true)
 
-  // Check if user is near the bottom of the scroll container
-  const isNearBottom = (element: HTMLElement): boolean => {
-    const { scrollTop, scrollHeight, clientHeight } = element
-    return scrollHeight - scrollTop - clientHeight <= threshold
-  }
+  const checkNearBottom = useCallback(
+    (el: HTMLElement) => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      return distance <= threshold
+    },
+    [threshold]
+  )
 
-  // Scroll to bottom of the container
-  const scrollToBottom = (element: HTMLElement): void => {
-    element.scrollTop = element.scrollHeight
-  }
+  // Local helper kept internal to avoid exposing reactive state
+  // (removed from public API to keep hook minimal)
 
-  // Handle scroll events to detect user scrolling
-  useEffect(() => {
-    const element = scrollRef.current
-    if (!element || !enabled) return
-
-    const handleScroll = () => {
-      // Mark that user is actively scrolling
-      isUserScrollingRef.current = true
-
-      // Clear existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
+  const forceScrollToBottom = useCallback(() => {
+    const el = scrollRef.current
+    if (el) {
+      const target = el.scrollHeight - el.clientHeight
+      // Prefer smooth scrolling when available; fallback to direct assignment
+      if ((el as any).scrollTo && smooth) {
+        ;(el as any).scrollTo({ top: target, behavior: 'smooth' })
+        // Update states immediately for smooth scroll
+        setIsAtBottom(true)
+      } else {
+        el.scrollTop = target
+        // Update states immediately for instant scroll
+        setIsAtBottom(true)
       }
+    }
+    isStickyRef.current = true
+  }, [smooth])
 
-      // Reset user scrolling flag after a delay
+  // Track user scroll to toggle sticky state
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !enabled) return
+
+    const onScroll = () => {
+      isUserScrollingRef.current = true
+      const nearBottom = checkNearBottom(el)
+      isStickyRef.current = nearBottom
+      setIsAtBottom(nearBottom)
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false
-      }, 150)
+      }, 120)
     }
 
-    // Set initial bottom state
-    wasAtBottomRef.current = isNearBottom(element)
-
-    element.addEventListener('scroll', handleScroll, { passive: true })
-
+    // Initialize
+    const nearBottom = checkNearBottom(el)
+    isStickyRef.current = nearBottom
+    setIsAtBottom(nearBottom)
+    el.addEventListener('scroll', onScroll, { passive: true })
     return () => {
-      element.removeEventListener('scroll', handleScroll)
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
+      el.removeEventListener('scroll', onScroll)
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
     }
-  }, [enabled, isNearBottom])
+  }, [enabled, checkNearBottom])
 
-  // Capture scroll position BEFORE DOM updates (useLayoutEffect runs before useEffect)
-  useLayoutEffect(() => {
-    const element = scrollRef.current
-    if (!element || !enabled) return
-
-    // Capture whether user was at bottom before the new content renders
-    wasAtBottomRef.current = isNearBottom(element)
-  }, [enabled, isNearBottom, ...dependencies])
-
-  // Auto-scroll effect triggered by dependencies (runs AFTER DOM updates)
+  // Scroll on dependency changes
   useEffect(() => {
-    const element = scrollRef.current
-    if (!element || !enabled) return
-
-    // Only auto-scroll if:
-    // 1. User is not actively scrolling
-    // 2. User was at the bottom before the update
-    if (!isUserScrollingRef.current && wasAtBottomRef.current) {
-      scrollToBottom(element)
+    if (!enabled) return
+    const el = scrollRef.current
+    if (!el) return
+    // Recompute bottom state when content changes (e.g., streaming grows)
+    const nearBottom = checkNearBottom(el)
+    isStickyRef.current = nearBottom
+    setIsAtBottom(nearBottom)
+    // Only follow when explicitly requested (e.g., streaming mode)
+    if (follow && !isUserScrollingRef.current) {
+      forceScrollToBottom()
     }
-  }, [enabled, ...dependencies])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, follow, forceScrollToBottom, checkNearBottom, threshold, ...dependencies])
 
-  return scrollRef
+  return {
+    scrollRef,
+    anchorRef,
+    forceScrollToBottom,
+    isAtBottom
+  }
 }
 
 export default useAutoScroll

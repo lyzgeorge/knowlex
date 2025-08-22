@@ -1,5 +1,5 @@
 /**
- * Assistant Message Generator Service
+ * Assistant Service
  *
  * Atomic module for generating assistant messages with streaming support.
  * Handles the complete lifecycle of AI response generation including:
@@ -13,7 +13,7 @@
  */
 
 import type { Message, MessageContent } from '../../shared/types/message'
-import { generateAIResponseWithStreaming } from './ai-chat-vercel'
+import { streamAIResponse } from './openai-adapter'
 import { updateMessage, getMessages } from './message'
 import { cancellationManager } from '../utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
@@ -21,7 +21,7 @@ import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
 /**
  * Configuration for assistant message generation
  */
-export interface AssistantGenerationConfig {
+export interface AssistantGenConfig {
   /** ID of the message to update with the generated content */
   messageId: string
   /** ID of the conversation for context */
@@ -49,7 +49,7 @@ export interface AssistantGenerationConfig {
  * @param config Generation configuration
  * @returns Promise that resolves when generation starts (not when it completes)
  */
-export async function generateAssistantMessage(config: AssistantGenerationConfig): Promise<void> {
+export async function streamAssistantReply(config: AssistantGenConfig): Promise<void> {
   const { messageId, contextMessages, onSuccess, onError } = config
 
   // Create cancellation token for this streaming operation
@@ -72,7 +72,7 @@ export async function generateAssistantMessage(config: AssistantGenerationConfig
 
     try {
       // Generate AI response with streaming
-      const response = await generateAIResponseWithStreaming(
+      const response = await streamAIResponse(
         contextMessages,
         {
           onTextChunk: (chunk: string) => {
@@ -300,14 +300,14 @@ async function tryTriggerAutoTitleGeneration(conversationId: string): Promise<vo
  * Convenience function for generating assistant messages for new user messages
  * Automatically handles conversation context and title generation
  */
-export async function generateAssistantMessageForNewUserMessage(
+export async function generateReplyForNewMessage(
   messageId: string,
   conversationId: string
 ): Promise<void> {
   // Get all messages in the conversation for AI context
   const allMessages = await getMessages(conversationId)
 
-  await generateAssistantMessage({
+  await streamAssistantReply({
     messageId,
     conversationId,
     contextMessages: allMessages,
@@ -326,7 +326,7 @@ export async function generateAssistantMessageForNewUserMessage(
  * Convenience function for regenerating assistant messages
  * Automatically handles context extraction up to the message being regenerated
  */
-export async function regenerateAssistantMessage(messageId: string): Promise<void> {
+export async function regenerateReply(messageId: string): Promise<void> {
   const { getMessage } = await import('./message')
 
   // Get the message to regenerate
@@ -344,7 +344,7 @@ export async function regenerateAssistantMessage(messageId: string): Promise<voi
   const messageIndex = allMessages.findIndex((m) => m.id === messageId)
   const contextMessages = allMessages.slice(0, messageIndex)
 
-  await generateAssistantMessage({
+  await streamAssistantReply({
     messageId,
     conversationId: message.conversationId,
     contextMessages

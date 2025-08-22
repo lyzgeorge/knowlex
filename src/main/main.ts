@@ -1,4 +1,5 @@
-import 'dotenv/config'
+import { config } from 'dotenv'
+config({ path: 'app.env' })
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'

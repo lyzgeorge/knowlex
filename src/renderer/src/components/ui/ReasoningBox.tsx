@@ -46,38 +46,25 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
 
   // Auto-expand/collapse based on reasoning streaming state changes
   useEffect(() => {
-    console.log('[ReasoningBox] useEffect triggered:', {
-      isReasoningStreaming,
-      prevIsReasoningStreaming: prevIsReasoningStreamingRef.current,
-      isTextStreaming,
-      prevIsTextStreaming: prevIsTextStreamingRef.current,
-      hasReasoning: !!reasoning?.trim(),
-      reasoning: reasoning?.substring(0, 50) + '...',
-      isExpanded,
-      timestamp: new Date().toISOString()
-    })
-
     // If reasoning streaming just started (went from false to true), expand
     if (!prevIsReasoningStreamingRef.current && isReasoningStreaming) {
-      console.log('[ReasoningBox] Expanding reasoning box - reasoning started')
       setIsExpanded(true)
     }
     // Don't auto-collapse on reasoning-end due to out-of-order events
     // The collapse will be triggered by text streaming start instead
     else if (prevIsReasoningStreamingRef.current && !isReasoningStreaming) {
-      console.log('[ReasoningBox] Reasoning ended, but keeping expanded until text starts')
+      // Intentionally empty - no auto-collapse to avoid timing issues
     }
 
     // Collapse when text streaming starts (reasoning is complete at this point)
     if (!prevIsTextStreamingRef.current && isTextStreaming) {
-      console.log('[ReasoningBox] Auto-collapsing reasoning box - text streaming started')
       setIsExpanded(false)
     }
 
     // Update previous state refs
     prevIsReasoningStreamingRef.current = isReasoningStreaming
     prevIsTextStreamingRef.current = isTextStreaming
-  }, [isReasoningStreaming, isTextStreaming, reasoning, isExpanded])
+  }, [isReasoningStreaming, isTextStreaming, reasoning])
 
   // Don't render if no reasoning and not showing for streaming
   if (!reasoning?.trim() && !isReasoningStreaming && !showWhenEmpty) {
@@ -90,7 +77,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
     const displayText = text.replace(/\u200B/g, '')
 
     return (
-      <Box as="span" display="inline" className="markdown-content">
+      <Box as="div" display="inline-block" className="markdown-content">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}

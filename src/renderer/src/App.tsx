@@ -10,8 +10,7 @@ import {
   AlertDescription
 } from '@chakra-ui/react'
 import MainApp from './pages/MainApp'
-import DebugApp from './pages/DebugApp'
-import { initializeStores, useAppStore } from './stores'
+import { initializeStores } from './stores'
 
 /**
  * Loading fallback component
@@ -100,13 +99,6 @@ function useAppInitialization() {
       // Initialize stores
       await initializeStores()
 
-      // Set window mode based on URL params
-      const urlParams = new URLSearchParams(window.location.search)
-      const mode = urlParams.get('mode')
-
-      // Use getState() to avoid subscribing during initialization
-      useAppStore.getState().setWindowMode(mode === 'debug' ? 'debug' : 'main')
-
       setInitState('success')
     } catch (err) {
       console.error('Failed to initialize app:', err)
@@ -123,20 +115,16 @@ function useAppInitialization() {
 }
 
 /**
- * Main App component that routes between MainApp and DebugApp based on URL parameters
- * - Default route (/) renders MainApp - the main user interface
- * - Debug route (/?mode=debug) renders DebugApp - development debugging interface
+ * Main App component that initializes the application
  *
  * Features:
  * - Global state management initialization
  * - Theme system integration
  * - Error boundary integration
  * - Loading states
- * - Dual window architecture support
  */
 function App(): JSX.Element {
   const { initState, error, retry } = useAppInitialization()
-  const windowMode = useAppStore((state) => state.windowMode)
 
   // Show loading state during initialization
   if (initState === 'loading') {
@@ -148,10 +136,10 @@ function App(): JSX.Element {
     return <InitializationError error={error} retry={retry} />
   }
 
-  // Route to appropriate app based on window mode
+  // Render main application
   return (
     <Suspense fallback={<LoadingFallback />}>
-      {windowMode === 'debug' ? <DebugApp /> : <MainApp />}
+      <MainApp />
     </Suspense>
   )
 }

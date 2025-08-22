@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   Box,
   VStack,
@@ -21,8 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
-  useToast,
-  Tooltip
+  Tooltip,
+  Spinner
 } from '@chakra-ui/react'
 import {
   AddIcon,
@@ -35,6 +35,7 @@ import {
 import { Button } from '../ui/Button'
 import { useConversationStore } from '../../stores/conversation'
 import { formatRelativeTime } from '../../../../shared/utils/time'
+import { useNotifications } from '../ui'
 
 export interface SidebarProps {
   className?: string
@@ -72,9 +73,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const updateConversationTitle = useConversationStore((state) => state.updateConversationTitle)
   const currentConversationId = useConversationStore((state) => state.currentConversationId)
   const setCurrentConversation = useConversationStore((state) => state.setCurrentConversation)
+  const loadMoreConversations = useConversationStore((state) => state.loadMoreConversations)
+  const hasMoreConversations = useConversationStore((state) => state.hasMoreConversations)
+  const isLoadingMore = useConversationStore((state) => state.isLoadingMore)
 
-  // Toast for notifications
-  const toast = useToast()
+  // Notifications
+  const notifications = useNotifications()
+
+  // Ref for infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // Infinite scroll logic
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !hasMoreConversations || isLoadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry && entry.isIntersecting) {
+          loadMoreConversations()
+        }
+      },
+      {
+        root: null,
+        rootMargin: '50px',
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      observer.unobserve(sentinel)
+    }
+  }, [hasMoreConversations, isLoadingMore, loadMoreConversations])
 
   // Handle new chat creation (just clear current conversation, don't create new one yet)
   const handleNewChat = useCallback(() => {
@@ -113,25 +146,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     try {
       await updateConversationTitle(editingConversationId, editingTitle.trim())
       console.log('Conversation title updated successfully')
-      toast({
-        title: 'Conversation renamed',
-        status: 'success',
-        duration: 2000,
-        isClosable: true
-      })
+      notifications.conversationRenamed()
       setEditingConversationId(null)
       setEditingTitle('')
     } catch (error) {
       console.error('Failed to update conversation title:', error)
-      toast({
-        title: 'Failed to rename conversation',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
+      notifications.conversationRenameFailed(
+        error instanceof Error ? error.message : 'An error occurred'
+      )
     }
-  }, [editingConversationId, editingTitle, updateConversationTitle, toast])
+  }, [editingConversationId, editingTitle, updateConversationTitle, notifications])
 
   // Handle conversation delete
   const handleDeleteConversation = useCallback(
@@ -148,25 +172,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     setIsDeleting(true)
     try {
       await deleteConversation(deleteConversationId)
-      toast({
-        title: 'Conversation deleted',
-        status: 'success',
-        duration: 2000,
-        isClosable: true
-      })
+      notifications.conversationDeleted()
       onDeleteClose()
     } catch (error) {
-      toast({
-        title: 'Failed to delete conversation',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        status: 'error',
-        duration: 3000,
-        isClosable: true
-      })
+      notifications.conversationDeleteFailed(
+        error instanceof Error ? error.message : 'An error occurred'
+      )
     } finally {
       setIsDeleting(false)
     }
-  }, [deleteConversationId, deleteConversation, toast, onDeleteClose])
+  }, [deleteConversationId, deleteConversation, notifications, onDeleteClose])
 
   // Handle global search
   const handleSearch = (query: string) => {
@@ -351,8 +366,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             fontWeight="medium"
                             variant="unstyled"
                             size="sm"
-                            h="22px"
-                            lineHeight="22px"
+                            h="24px"
+                            lineHeight="24px"
                             px={0}
                             py={0}
                             bg="transparent"
@@ -391,7 +406,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                           textAlign="left"
                           whiteSpace="normal"
                         >
-                          <Text fontSize="sm" fontWeight="medium" noOfLines={1} flex={1} minW={0}>
+                          <Text
+                            fontSize="sm"
+                            fontWeight="medium"
+                            noOfLines={1}
+                            flex={1}
+                            py={0.5}
+                            minW={0}
+                          >
                             {conversation.title}
                           </Text>
                         </Tooltip>
@@ -436,9 +458,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                               icon={<HamburgerIcon />}
                               size="xs"
                               variant="ghost"
-                              p={1}
-                              w="21px"
-                              h="21px"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <MenuList>
@@ -467,6 +486,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                   )
                 })
               )}
+
+              {/* Loading indicator */}
+              {isLoadingMore && (
+                <HStack justify="center" py={4}>
+                  <Spinner size="sm" color="primary.500" />
+                  <Text fontSize="sm" color="text.secondary">
+                    Loading more conversations...
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Sentinel element for infinite scroll */}
+              {hasMoreConversations && !isLoadingMore && <Box ref={sentinelRef} h="1px" />}
             </VStack>
           </Box>
         </VStack>

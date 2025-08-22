@@ -1,5 +1,13 @@
 /* Markdown content styling for Knowlex */
 
+/* Contain markdown within available width and prevent overflow */
+.markdown-content {
+  max-width: 100%;
+  /* Allow breaking of long, unspaced strings (e.g., hashes, URLs) */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Override highlight.js styles for better theme integration */
 .markdown-content .hljs {
   background: transparent !important;
@@ -123,6 +131,9 @@
 .markdown-content table {
   border-collapse: collapse;
   width: 100%;
+  /* Ensure very wide tables don't overflow the container */
+  display: block;
+  overflow-x: auto;
 }
 
 .markdown-content th,
@@ -135,6 +146,9 @@
 .markdown-content pre {
   line-height: 1.5;
   tab-size: 2;
+  /* Scroll horizontally instead of overflowing container */
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown-content pre code {
@@ -145,7 +159,10 @@
 
 /* Inline code consistency */
 .markdown-content :not(pre) > code {
-  white-space: nowrap;
+  /* Allow inline code to wrap to avoid overflow */
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Blockquote improvements */
@@ -161,4 +178,16 @@
 .chakra-ui-dark .markdown-content blockquote {
   background-color: #1f2937;
   border-left-color: #4b5563;
+}
+
+/* Images scale down to fit container */
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Links with long URLs should wrap instead of overflowing */
+.markdown-content a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

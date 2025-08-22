@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon } from '@chakra-ui/react'
 import { FaForumbee } from 'react-icons/fa'
 import { formatTime } from '../../../../shared/utils/time'
@@ -52,16 +52,16 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const iconColor = useColorModeValue('gray.600', 'gray.300')
   const assistantTextColor = useColorModeValue('text.primary', 'text.primary')
 
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered((prev) => (prev ? prev : true))
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered((prev) => (prev ? false : prev))
+  }, [])
+
   return (
-    <HStack
-      align="flex-start"
-      spacing={3}
-      width="100%"
-      justify="flex-start"
-      mb={4}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <HStack align="flex-start" spacing={3} width="100%" justify="flex-start" mb={4}>
       {/* Avatar */}
       {showAvatar && (
         <Box
@@ -111,12 +111,21 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           />
         </Box>
 
-        <HStack spacing={2} px={1} minHeight="16px" alignItems="center" alignSelf="flex-start">
-          {isHovered ? (
-            <MessageActionIcons message={message} isVisible={isHovered} />
-          ) : (
-            showTimestamp && <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
-          )}
+        <HStack
+          spacing={2}
+          px={1}
+          minHeight="16px"
+          alignItems="center"
+          alignSelf="flex-start"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <Box display={isHovered ? 'flex' : 'none'}>
+            <MessageActionIcons message={message} isVisible={true} />
+          </Box>
+          <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
+            <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+          </Box>
         </HStack>
       </VStack>
     </HStack>

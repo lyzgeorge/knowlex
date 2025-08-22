@@ -359,28 +359,58 @@ export const components = {
     }
   },
 
-  // Alert component
+  // Alert component - controls Toast appearance since Toast uses Alert internally
   Alert: {
-    parts: ['container'],
+    parts: ['container', 'title', 'description', 'icon'],
     baseStyle: {
       container: {
-        bg: 'gray.50',
         px: 4,
         py: 3,
         borderRadius: 'md'
       }
     },
     variants: {
-      subtle: (props: any) => ({
-        container: {
-          bg: `${props.colorScheme}.50`,
-          color: `${props.colorScheme}.800`,
-          _dark: {
-            bg: `${props.colorScheme}.900`,
-            color: `${props.colorScheme}.200`
+      solid: (props: any) => {
+        // Map Chakra's default status->colorScheme mappings to our custom colors
+        const statusColorMap: Record<string, string> = {
+          success: 'success', // Maps to our custom success colors
+          error: 'error', // Maps to our custom error colors
+          warning: 'warning', // Maps to our custom warning colors
+          info: 'info' // Maps to our custom info colors
+        }
+
+        const colorScheme =
+          (props.status && statusColorMap[props.status]) || props.colorScheme || 'info'
+
+        return {
+          container: {
+            bg: `${colorScheme}.500`,
+            color: 'white'
           }
         }
-      })
+      },
+      subtle: (props: any) => {
+        const statusColorMap: Record<string, string> = {
+          success: 'success',
+          error: 'error',
+          warning: 'warning',
+          info: 'info'
+        }
+
+        const colorScheme =
+          (props.status && statusColorMap[props.status]) || props.colorScheme || 'info'
+
+        return {
+          container: {
+            bg: `${colorScheme}.50`,
+            color: `${colorScheme}.800`,
+            _dark: {
+              bg: `${colorScheme}.900`,
+              color: `${colorScheme}.200`
+            }
+          }
+        }
+      }
     }
   },
 

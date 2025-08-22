@@ -5,7 +5,6 @@ import {
   listConversations,
   updateConversation,
   deleteConversation,
-  updateConversationSettings,
   generateConversationTitle,
   type CreateConversationData,
   type UpdateConversationData
@@ -26,8 +25,8 @@ import type {
 } from '../../shared/types/ipc'
 import type { Conversation, SessionSettings } from '../../shared/types/conversation'
 import type { Message, MessageContent } from '../../shared/types/message'
-import { testAIConfiguration } from '../services/ai-chat-vercel'
-import { regenerateAssistantMessage } from '../services/assistant-message-generator'
+import { testOpenAIConfig } from '../services/openai-adapter'
+import { regenerateReply } from '../services/assistant-service'
 import { cancellationManager } from '../utils/cancellation'
 
 /**
@@ -127,6 +126,36 @@ export function registerConversationIPCHandlers(): void {
     })
   })
 
+  // List conversations with pagination
+  ipcMain.handle(
+    'conversation:list-paginated',
+    async (
+      _,
+      data: unknown
+    ): Promise<IPCResult<{ conversations: Conversation[]; hasMore: boolean }>> => {
+      return handleIPCCall(async () => {
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid pagination data')
+        }
+
+        const request = data as any
+        const limit = typeof request.limit === 'number' && request.limit > 0 ? request.limit : 15
+        const offset =
+          typeof request.offset === 'number' && request.offset >= 0 ? request.offset : 0
+
+        if (limit > 50) {
+          throw new Error('Limit cannot exceed 50 conversations')
+        }
+
+        // Import the service function
+        const { listConversationsPaginated } = await import('../services/conversation')
+        const result = await listConversationsPaginated(limit, offset)
+
+        return result
+      })
+    }
+  )
+
   // Get single conversation
   ipcMain.handle(
     'conversation:get',
@@ -202,7 +231,7 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Invalid settings object')
         }
 
-        return await updateConversationSettings(request.conversationId, request.settings)
+        return await updateConversation(request.conversationId, { settings: request.settings })
       })
     }
   )
@@ -438,9 +467,9 @@ export function registerConversationIPCHandlers(): void {
       const token = cancellationManager.createToken(`temp-${Date.now()}`)
 
       // Start streaming using AI service, relying only on fullStream
-      const { generateAIResponseWithStreaming } = await import('../services/ai-chat-vercel')
+      const { streamAIResponse } = await import('../services/openai-adapter')
 
-      const response = await generateAIResponseWithStreaming(
+      const response = await streamAIResponse(
         contextMessages,
         {
           onStreamStart: async () => {
@@ -653,7 +682,7 @@ export function registerConversationIPCHandlers(): void {
         })
 
         // Generate new response using the atomic module
-        await regenerateAssistantMessage(messageId)
+        await regenerateReply(messageId)
 
         return clearedMessage
       })
@@ -688,7 +717,7 @@ export function registerConversationIPCHandlers(): void {
     'ai:test-configuration',
     async (): Promise<IPCResult<{ success: boolean; error?: string; model?: string }>> => {
       return handleIPCCall(async () => {
-        return await testAIConfiguration()
+        return await testOpenAIConfig()
       })
     }
   )
@@ -707,6 +736,7 @@ export function unregisterConversationIPCHandlers(): void {
     // Conversation channels
     'conversation:create',
     'conversation:list',
+    'conversation:list-paginated',
     'conversation:get',
     'conversation:update',
     'conversation:update-title',

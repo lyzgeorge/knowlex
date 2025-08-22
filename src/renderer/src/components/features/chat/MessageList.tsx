@@ -1,7 +1,8 @@
 import React from 'react'
 import { Box, VStack, Text } from '@chakra-ui/react'
 import type { Message } from '../../../../../shared/types/message'
-import MessageBubble from '../../ui/MessageBubble'
+import UserMessage from '../../ui/UserMessage'
+import AssistantMessage from '../../ui/AssistantMessage'
 
 export interface MessageListProps {
   /** Array of messages to display */
@@ -17,7 +18,7 @@ export interface MessageListProps {
  *
  * 实现要求:
  * - 虚拟滚动，消息渲染
- * - 使用MessageBubble组件渲染消息
+ * - 直接按角色渲染消息（User/Assistant）
  * - 支持流式消息更新
  * - 空状态处理，无消息时显示提示
  */
@@ -50,12 +51,16 @@ export const MessageList: React.FC<MessageListProps> = ({
         const isStreaming = streamingMessageId === message.id
         return (
           <Box key={message.id} role="listitem">
-            <MessageBubble
-              message={message}
-              isStreaming={isStreaming}
-              showAvatar={true}
-              showTimestamp={true}
-            />
+            {message.role === 'user' ? (
+              <UserMessage message={message} showTimestamp={true} />
+            ) : (
+              <AssistantMessage
+                message={message}
+                isStreaming={isStreaming}
+                showAvatar={true}
+                showTimestamp={true}
+              />
+            )}
           </Box>
         )
       })}

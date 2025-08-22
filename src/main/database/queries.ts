@@ -39,11 +39,26 @@ export async function getConversation(id: string): Promise<Conversation | null> 
   return await conversationEntity.get(id)
 }
 
-export async function listConversations(): Promise<Conversation[]> {
-  return await conversationEntity.list({
+export async function listConversations(limit?: number, offset?: number): Promise<Conversation[]> {
+  const options: {
+    orderBy: string
+    direction: 'DESC'
+    limit?: number
+    offset?: number
+  } = {
     orderBy: 'updated_at',
     direction: 'DESC'
-  })
+  }
+
+  if (limit !== undefined) {
+    options.limit = limit
+  }
+
+  if (offset !== undefined) {
+    options.offset = offset
+  }
+
+  return await conversationEntity.list(options)
 }
 
 export async function updateConversation(

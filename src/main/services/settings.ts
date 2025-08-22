@@ -6,7 +6,7 @@ import * as fs from 'fs'
  * Settings service for managing application configuration
  *
  * Features:
- * - Load environment variables from .env file
+ * - Load environment variables from app.env file
  * - Provide API configuration for AI models
  * - Manage application settings
  * - Support for different model providers
@@ -40,15 +40,15 @@ class SettingsService {
   }
 
   /**
-   * Load environment variables from .env file
+   * Load environment variables from app.env file
    */
   private loadEnvironment() {
     if (this.envLoaded) return
 
     try {
-      // Find .env file in app root
+      // Find app.env file in app root
       const appPath = app.getAppPath()
-      const envPath = path.join(appPath, '.env')
+      const envPath = path.join(appPath, 'app.env')
 
       if (fs.existsSync(envPath)) {
         const envContent = fs.readFileSync(envPath, 'utf8')
@@ -65,9 +65,9 @@ class SettingsService {
           }
         })
 
-        console.log('Environment variables loaded from .env file')
+        console.log('Environment variables loaded from app.env file')
       } else {
-        console.log('No .env file found, using system environment variables')
+        console.log('No app.env file found, using system environment variables')
       }
 
       this.envLoaded = true

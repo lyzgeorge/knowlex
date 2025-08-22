@@ -25,9 +25,6 @@ export interface AppState {
   isOnline: boolean
   lastSyncTime: Date | null
 
-  // Window State (for dual window architecture)
-  windowMode: 'main' | 'debug'
-
   // Actions
   setTheme: (theme: ColorMode) => void
   setLanguage: (language: Language) => void
@@ -37,7 +34,6 @@ export interface AppState {
   setInitialized: (initialized: boolean) => void
   setOnlineStatus: (online: boolean) => void
   setLastSyncTime: (time: Date) => void
-  setWindowMode: (mode: 'main' | 'debug') => void
 
   // Computed getters
   isSidebarCollapsed: () => boolean
@@ -55,8 +51,7 @@ const initialState = {
   isFullscreen: false,
   isInitialized: false,
   isOnline: navigator.onLine,
-  lastSyncTime: null,
-  windowMode: 'main' as const
+  lastSyncTime: null
 }
 
 export const useAppStore = create<AppState>()(
@@ -118,13 +113,6 @@ export const useAppStore = create<AppState>()(
       setLastSyncTime: (time: Date) => {
         set((state) => {
           state.lastSyncTime = time
-        })
-      },
-
-      // Window mode for dual window architecture
-      setWindowMode: (mode: 'main' | 'debug') => {
-        set((state) => {
-          state.windowMode = mode
         })
       },
 
@@ -218,8 +206,7 @@ export const useAppStatus = () =>
   useAppStore((state) => ({
     isInitialized: state.isInitialized,
     isOnline: state.isOnline,
-    lastSyncTime: state.lastSyncTime,
-    windowMode: state.windowMode
+    lastSyncTime: state.lastSyncTime
   }))
 
 export default useAppStore

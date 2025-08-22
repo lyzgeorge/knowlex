@@ -5,7 +5,8 @@ import { TemporaryFileResult } from '../../shared/types/file'
 import {
   getFileExtension,
   isValidTemporaryFileType,
-  getMimeTypeFromExtension
+  getMimeTypeFromExtension,
+  formatBytes
 } from '../../shared/utils/validation'
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../../shared/constants/file'
 import { parseFile, FileParserFactory } from './file-parser'
@@ -31,30 +32,17 @@ import { parseFile, FileParserFactory } from './file-parser'
 export async function processTemporaryFileContents(
   files: Array<{ name: string; content: string; size: number }>
 ): Promise<TemporaryFileResult[]> {
-  console.log(
-    '[MAIN] processTemporaryFileContents called with files:',
-    files.map((f) => ({ name: f.name, size: f.size, contentLength: f.content.length }))
-  )
+  console.log('[MAIN] processTemporaryFileContents called with', files.length, 'files')
   const results: TemporaryFileResult[] = []
 
   try {
     // Validate file constraints first
-    console.log('[MAIN] Validating file constraints...')
-    if (!validateTemporaryFileContentConstraints(files)) {
-      throw new Error('File constraints validation failed')
-    }
-    console.log('[MAIN] File constraints validation passed')
+    validateTemporaryFileContentConstraints(files)
 
     // Process each file individually
     for (const file of files) {
       try {
-        console.log('[MAIN] Processing file:', file.name)
         const result = await processSingleTemporaryFileContent(file.name, file.content, file.size)
-        console.log('[MAIN] File processing result:', {
-          filename: result.filename,
-          error: result.error,
-          contentLength: result.content?.length
-        })
         results.push(result)
       } catch (error) {
         console.error('[MAIN] File processing error for', file.name, ':', error)
@@ -68,14 +56,7 @@ export async function processTemporaryFileContents(
       }
     }
 
-    console.log(
-      '[MAIN] All files processed, returning results:',
-      results.map((r) => ({
-        filename: r.filename,
-        error: r.error,
-        contentLength: r.content?.length
-      }))
-    )
+    console.log('[MAIN] Successfully processed', results.length, 'files')
     return results
   } catch (error) {
     console.error('[MAIN] Critical error in processTemporaryFileContents:', error)
@@ -208,7 +189,7 @@ async function processSingleTemporaryFile(
       content: '',
       size,
       mimeType: '',
-      error: `File too large. Maximum size is ${FILE_CONSTRAINTS.TEMPORARY.maxFileSize / (1024 * 1024)}MB.`
+      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.TEMPORARY.maxFileSize)}.`
     }
   }
 
@@ -253,52 +234,76 @@ export async function extractTextContent(filePath: string, filename: string): Pr
 /**
  * Validate file constraints specifically for temporary files
  * @param files Array of files to validate
- * @returns Validation result with errors if any
+ * @param throwOnError If true, throws error instead of returning result
+ * @returns Validation result with errors if any (only when throwOnError is false)
  */
-export function validateTemporaryFileConstraints(files: { name: string; size: number }[]): {
-  valid: boolean
-  errors: string[]
-} {
+function validateTemporaryFileConstraintsInternal(
+  files: { name: string; size: number }[],
+  throwOnError: boolean = false
+): { valid: boolean; errors: string[] } | void {
   const errors: string[] = []
   const constraints = FILE_CONSTRAINTS.TEMPORARY
 
   // Check file count
   if (files.length > constraints.maxFileCount) {
-    errors.push(`Too many files. Maximum ${constraints.maxFileCount} files allowed.`)
+    const error = `Too many files. Maximum ${constraints.maxFileCount} files allowed.`
+    if (throwOnError) throw new Error(error)
+    errors.push(error)
   }
 
   // Check total size
   const totalSize = files.reduce((sum, file) => sum + file.size, 0)
   if (totalSize > constraints.maxTotalSize) {
-    errors.push(
-      `Total file size too large. Maximum ${Math.round(constraints.maxTotalSize / (1024 * 1024))}MB allowed.`
-    )
+    const error = `Total file size too large. Maximum ${formatBytes(constraints.maxTotalSize)} allowed.`
+    if (throwOnError) throw new Error(error)
+    errors.push(error)
   }
 
   // Check individual files
   files.forEach((file, index) => {
     if (!isValidTemporaryFileType(file.name)) {
       const extension = getFileExtension(file.name)
-      errors.push(
-        `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
-      )
+      const error = `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
+      if (throwOnError) throw new Error(error)
+      errors.push(error)
     }
 
     if (file.size > constraints.maxFileSize) {
-      errors.push(
-        `File ${index + 1} (${file.name}): File too large. Maximum ${Math.round(constraints.maxFileSize / (1024 * 1024))}MB allowed.`
-      )
+      const error = `File ${index + 1} (${file.name}): File too large. Maximum ${formatBytes(constraints.maxFileSize)} allowed.`
+      if (throwOnError) throw new Error(error)
+      errors.push(error)
     }
 
     // Note: Empty files are allowed in processing, but flagged in validation
     if (file.size === 0) {
-      errors.push(`File ${index + 1} (${file.name}): File is empty.`)
+      const error = `File ${index + 1} (${file.name}): File is empty.`
+      if (throwOnError) throw new Error(error)
+      errors.push(error)
     }
   })
 
-  return {
-    valid: errors.length === 0,
-    errors
+  if (!throwOnError) {
+    return {
+      valid: errors.length === 0,
+      errors
+    }
+  }
+
+  return
+}
+
+/**
+ * Validate file constraints specifically for temporary files
+ * @param files Array of files to validate
+ * @returns Validation result with errors if any
+ */
+export function validateTemporaryFileConstraints(files: { name: string; size: number }[]): {
+  valid: boolean
+  errors: string[]
+} {
+  return validateTemporaryFileConstraintsInternal(files, false) as {
+    valid: boolean
+    errors: string[]
   }
 }
 
@@ -310,41 +315,8 @@ export function validateTemporaryFileConstraints(files: { name: string; size: nu
 function validateTemporaryFileContentConstraints(
   files: Array<{ name: string; content: string; size: number }>
 ): boolean {
-  const constraints = FILE_CONSTRAINTS.TEMPORARY
-
-  // Check file count
-  if (files.length > constraints.maxFileCount) {
-    throw new Error(`Too many files. Maximum ${constraints.maxFileCount} files allowed.`)
-  }
-
-  // Check total size
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-  if (totalSize > constraints.maxTotalSize) {
-    throw new Error(
-      `Total file size too large. Maximum ${Math.round(constraints.maxTotalSize / (1024 * 1024))}MB allowed.`
-    )
-  }
-
-  // Check individual files
-  files.forEach((file, index) => {
-    if (!isValidTemporaryFileType(file.name)) {
-      const extension = getFileExtension(file.name)
-      throw new Error(
-        `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
-      )
-    }
-
-    if (file.size > constraints.maxFileSize) {
-      throw new Error(
-        `File ${index + 1} (${file.name}): File too large. Maximum ${Math.round(constraints.maxFileSize / (1024 * 1024))}MB allowed.`
-      )
-    }
-
-    if (file.size === 0) {
-      throw new Error(`File ${index + 1} (${file.name}): File is empty.`)
-    }
-  })
-
+  // Use the unified validation with throwOnError = true
+  validateTemporaryFileConstraintsInternal(files, true)
   return true
 }
 
@@ -378,7 +350,7 @@ async function processSingleTemporaryFileContent(
       content: '',
       size,
       mimeType: '',
-      error: `File too large. Maximum size is ${FILE_CONSTRAINTS.TEMPORARY.maxFileSize / (1024 * 1024)}MB.`
+      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.TEMPORARY.maxFileSize)}.`
     }
   }
 
@@ -389,8 +361,6 @@ async function processSingleTemporaryFileContent(
     const needsParsing = FileParserFactory.isBinary(filename)
 
     if (needsParsing) {
-      console.log(`[MAIN] File ${filename} needs parsing, creating temporary file...`)
-
       // Create a temporary file to use with the file parser
       const tempDir = os.tmpdir()
       const tempFilePath = path.join(tempDir, `knowlex_temp_${Date.now()}_${filename}`)
@@ -398,27 +368,19 @@ async function processSingleTemporaryFileContent(
       try {
         // Write binary content to temporary file
         // Content is base64 encoded binary data for binary files
-        console.log(`[MAIN] Decoding base64 content for ${filename} (${content.length} chars)...`)
-
         let buffer: Buffer
         try {
           buffer = Buffer.from(content, 'base64')
-          console.log(`[MAIN] Successfully decoded base64 to buffer of ${buffer.length} bytes`)
         } catch (bufferError) {
-          console.error(`[MAIN] Failed to decode base64 content for ${filename}:`, bufferError)
           throw new Error(
             `Failed to decode file content: ${bufferError instanceof Error ? bufferError.message : 'Unknown buffer error'}`
           )
         }
 
-        console.log(`[MAIN] Writing buffer to temporary file ${tempFilePath}...`)
         await fs.writeFile(tempFilePath, buffer)
-        console.log(`[MAIN] Successfully wrote temporary file for ${filename}`)
 
         // Parse the temporary file
-        console.log(`[MAIN] Parsing temporary file ${tempFilePath} for ${filename}...`)
         const parseResult = await parseFile(tempFilePath, filename)
-        console.log(`[MAIN] Parse completed for ${filename}`)
 
         // Clean up temporary file
         await fs
@@ -426,7 +388,9 @@ async function processSingleTemporaryFileContent(
           .catch((err) => console.warn(`[MAIN] Failed to cleanup temp file ${tempFilePath}:`, err))
 
         console.log(
-          `[MAIN] Successfully parsed ${filename}, extracted ${parseResult.content.length} characters`
+          `[MAIN] Successfully parsed ${filename}:`,
+          parseResult.content.length,
+          'characters'
         )
 
         return {
@@ -437,7 +401,6 @@ async function processSingleTemporaryFileContent(
           error: undefined
         }
       } catch (parseError) {
-        console.error(`[MAIN] Parse error occurred for ${filename}:`, parseError)
         // Clean up temporary file on error
         await fs.unlink(tempFilePath).catch(() => {}) // Ignore cleanup errors
 
@@ -460,7 +423,6 @@ async function processSingleTemporaryFileContent(
       }
     } else {
       // For plain text files, content is already text - just clean up
-      console.log(`[MAIN] File ${filename} is plain text, using content directly`)
       return {
         filename,
         content: content.trim(),
@@ -470,7 +432,7 @@ async function processSingleTemporaryFileContent(
       }
     }
   } catch (error) {
-    console.log(`[MAIN] Error processing ${filename}:`, error)
+    console.error(`[MAIN] Error processing ${filename}:`, error)
     return {
       filename,
       content: '',

@@ -97,6 +97,33 @@ export async function listConversations(): Promise<Conversation[]> {
 }
 
 /**
+ * Lists conversations with pagination support
+ * Returns conversations ordered by last updated date with hasMore flag
+ */
+export async function listConversationsPaginated(
+  limit: number,
+  offset: number
+): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
+  try {
+    // Get one extra conversation to determine if there are more
+    const conversations = await dbListConversations(limit + 1, offset)
+
+    const hasMore = conversations.length > limit
+    const resultConversations = hasMore ? conversations.slice(0, limit) : conversations
+
+    return {
+      conversations: resultConversations,
+      hasMore
+    }
+  } catch (error) {
+    console.error('Failed to list conversations with pagination:', error)
+    throw new Error(
+      `Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
+  }
+}
+
+/**
  * Updates an existing conversation
  * Validates input and ensures conversation exists
  */
@@ -182,34 +209,6 @@ export async function deleteConversation(id: string): Promise<void> {
     console.error(`Failed to delete conversation ${id}:`, error)
     throw new Error(
       `Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Updates conversation settings
- * Specialized method for updating session-specific settings
- */
-export async function updateConversationSettings(
-  id: string,
-  settings: SessionSettings
-): Promise<Conversation> {
-  if (!id || id.trim().length === 0) {
-    throw new Error('Conversation ID is required')
-  }
-
-  if (!settings || typeof settings !== 'object') {
-    throw new Error('Valid settings object is required')
-  }
-
-  try {
-    const updatedConversation = await updateConversation(id, { settings })
-    console.log(`Conversation settings updated: ${id}`)
-    return updatedConversation
-  } catch (error) {
-    console.error(`Failed to update conversation settings ${id}:`, error)
-    throw new Error(
-      `Failed to update conversation settings: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }
