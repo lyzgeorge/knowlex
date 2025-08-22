@@ -75,6 +75,13 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
       const response = await streamAIResponse(
         contextMessages,
         {
+          onTextStart: () => {
+            console.log('[ASSISTANT_GEN] Sending text start event for message:', messageId)
+            // Send text start event
+            sendMessageEvent(MESSAGE_EVENTS.TEXT_START, {
+              messageId
+            })
+          },
           onTextChunk: (chunk: string) => {
             // Accumulate text content
             accumulatedText += chunk
@@ -83,6 +90,13 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
             sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
               messageId,
               chunk
+            })
+          },
+          onTextEnd: () => {
+            console.log('[ASSISTANT_GEN] Sending text end event for message:', messageId)
+            // Send text end event
+            sendMessageEvent(MESSAGE_EVENTS.TEXT_END, {
+              messageId
             })
           },
           onReasoningStart: () => {

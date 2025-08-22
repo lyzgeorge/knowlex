@@ -59,12 +59,15 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
       if (field.required !== false) {
         insertFields.push(field.column)
         placeholders.push('?')
-
-        const value = (data as any)[field.property]
+        // Auto-fill timestamps with ISO 8601 (UTC) when not provided
+        let value = (data as any)[field.property]
+        if ((field.property === 'createdAt' || field.property === 'updatedAt') && !value) {
+          value = new Date().toISOString()
+        }
         if (field.isJson && value !== null && value !== undefined) {
           values.push(JSON.stringify(value))
         } else {
-          values.push(value || null)
+          values.push(value ?? null)
         }
       }
     }
@@ -161,8 +164,9 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
 
     if (setParts.length === 0) return
 
-    // Always update the updated_at timestamp
-    setParts.push("updated_at = datetime('now')")
+    // Always update the updated_at timestamp as ISO 8601 (UTC)
+    setParts.push('updated_at = ?')
+    values.push(new Date().toISOString())
     values.push(id)
 
     const sql = `

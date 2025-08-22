@@ -526,6 +526,11 @@ export function registerConversationIPCHandlers(): void {
               throw err
             }
           },
+          onTextStart: () => {
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.TEXT_START, { messageId: assistantMessageId })
+            }
+          },
           onTextChunk: (chunk: string) => {
             accumulatedText += chunk
             if (assistantMessageId) {
@@ -533,6 +538,11 @@ export function registerConversationIPCHandlers(): void {
                 messageId: assistantMessageId,
                 chunk
               })
+            }
+          },
+          onTextEnd: () => {
+            if (assistantMessageId) {
+              sendMessageEvent(MESSAGE_EVENTS.TEXT_END, { messageId: assistantMessageId })
             }
           },
           onReasoningStart: () => {
@@ -676,9 +686,10 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Can only regenerate assistant messages')
         }
 
-        // Clear the current message content and set placeholder
+        // Clear the current message content and reasoning, then set placeholder
         const clearedMessage = await updateMessage(messageId, {
-          content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
+          content: [{ type: 'text' as const, text: '\u200B' }], // Zero-width space placeholder
+          reasoning: '' // Clear any existing reasoning
         })
 
         // Generate new response using the atomic module
@@ -791,17 +802,9 @@ export function sendMessageEvent(eventType: string, data: unknown): void {
   // Get all windows and send the event
   const windows = BrowserWindow.getAllWindows()
 
-  console.log(
-    `[IPC] Sending message event: message:${eventType} to ${windows.length} windows`,
-    data
-  )
-
-  windows.forEach((window, index) => {
+  windows.forEach((window) => {
     if (window.webContents && !window.webContents.isDestroyed()) {
-      console.log(`[IPC] Sending to window ${index}: message:${eventType}`)
       window.webContents.send(`message:${eventType}`, data)
-    } else {
-      console.log(`[IPC] Skipping destroyed window ${index}`)
     }
   })
 }
@@ -829,6 +832,8 @@ export const MESSAGE_EVENTS = {
   STREAMING_END: 'streaming_end',
   STREAMING_ERROR: 'streaming_error',
   STREAMING_CANCELLED: 'streaming_cancelled',
+  TEXT_START: 'text_start',
+  TEXT_END: 'text_end',
   REASONING_START: 'reasoning_start',
   REASONING_CHUNK: 'reasoning_chunk',
   REASONING_END: 'reasoning_end'

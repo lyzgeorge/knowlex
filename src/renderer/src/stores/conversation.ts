@@ -16,6 +16,31 @@ const EMPTY_MESSAGES: Message[] = []
 const nowISO = () => new Date().toISOString()
 const DEBUG = false
 
+// Keep messages sorted by createdAt (ascending) for chronological order
+function sortByCreatedAtAsc(a: { createdAt?: string }, b: { createdAt?: string }) {
+  const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+  const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+  return ta - tb
+}
+
+function rebuildIndex(s: ConversationState, conversationId: string): void {
+  const arr = s.messages[conversationId]
+  if (!arr) return
+  for (let i = 0; i < arr.length; i++) {
+    const m = arr[i]
+    if (m) {
+      s._msgIndex[m.id] = { conversationId, idx: i }
+    }
+  }
+}
+
+function sortConversationMessages(s: ConversationState, conversationId: string): void {
+  const arr = s.messages[conversationId]
+  if (!arr) return
+  arr.sort(sortByCreatedAtAsc)
+  rebuildIndex(s, conversationId)
+}
+
 // ----------------------------------------
 // Internal helpers
 // ----------------------------------------
@@ -185,6 +210,8 @@ function setupEventListeners() {
       if (!list.some((m) => m.id === d.id)) {
         s._msgIndex[d.id] = { conversationId: d.conversationId, idx: list.length }
         list.push(d as Message)
+        // keep list sorted by updatedAt
+        sortConversationMessages(s, d.conversationId)
       }
       if (!s.currentConversationId) s.currentConversationId = d.conversationId
     })
@@ -220,10 +247,6 @@ function setupEventListeners() {
   on('message:streaming_chunk', (_, d: any) => {
     if (!d?.messageId || !d?.chunk) return
     setState((s) => {
-      if (!s.isTextStreaming || s.textStreamingMessageId !== d.messageId) {
-        s.isTextStreaming = true
-        s.textStreamingMessageId = d.messageId
-      }
       const idx = s._msgIndex[d.messageId]
       if (!idx) return
       const msg = s.messages[idx.conversationId]?.[idx.idx]
@@ -244,8 +267,6 @@ function setupEventListeners() {
     setState((s) => {
       s.isStreaming = false
       s.streamingMessageId = null
-      s.isTextStreaming = false
-      s.textStreamingMessageId = null
 
       const idx = s._msgIndex[d.messageId]
       if (!idx) return
@@ -255,6 +276,8 @@ function setupEventListeners() {
       const finalMsg = d.message as Message
       if (current?.reasoning && !finalMsg.reasoning) finalMsg.reasoning = current.reasoning
       arr[idx.idx] = finalMsg
+      // Resort by updatedAt after final content arrives
+      sortConversationMessages(s, idx.conversationId)
     })
   })
 
@@ -268,6 +291,7 @@ function setupEventListeners() {
       const arr = s.messages[idx.conversationId]
       if (!arr) return
       arr[idx.idx] = d.message
+      sortConversationMessages(s, idx.conversationId)
       s.error = d.error || 'Streaming failed'
     })
   })
@@ -277,6 +301,9 @@ function setupEventListeners() {
     setState((s) => {
       s.isStreaming = false
       s.streamingMessageId = null
+      // Also reset reasoning streaming state when streaming is cancelled
+      s.isReasoningStreaming = false
+      s.reasoningStreamingMessageId = null
       const idx = s._msgIndex[d.messageId]
       if (!idx || !d.message) return
       const arr = s.messages[idx.conversationId]
@@ -285,14 +312,17 @@ function setupEventListeners() {
       const partial = d.message as Message
       if (current?.reasoning && !partial.reasoning) partial.reasoning = current.reasoning
       arr[idx.idx] = partial
+      sortConversationMessages(s, idx.conversationId)
     })
   })
 
   on('message:reasoning_start', (_, d: any) => {
     if (!d?.messageId) return
+    console.log('🧠 [ConversationStore] REASONING_START EVENT RECEIVED for message:', d.messageId)
     setState((s) => {
       s.isReasoningStreaming = true
       s.reasoningStreamingMessageId = d.messageId
+      console.log('🧠 Set isReasoningStreaming = true for:', d.messageId)
       const idx = s._msgIndex[d.messageId]
       if (!idx) return
       const msg = s.messages[idx.conversationId]?.[idx.idx]
@@ -314,13 +344,37 @@ function setupEventListeners() {
 
   on('message:reasoning_end', (_, d: any) => {
     if (!d?.messageId) return
+    console.log('🧠 [ConversationStore] REASONING_END EVENT RECEIVED for message:', d.messageId)
     setState((s) => {
       s.isReasoningStreaming = false
       s.reasoningStreamingMessageId = null
+      console.log('🧠 Set isReasoningStreaming = false for:', d.messageId)
       const idx = s._msgIndex[d.messageId]
       if (!idx) return
       const msg = s.messages[idx.conversationId]?.[idx.idx]
-      if (msg) msg.updatedAt = nowISO()
+      if (msg) {
+        msg.updatedAt = nowISO()
+        sortConversationMessages(s, idx.conversationId)
+      }
+    })
+  })
+
+  on('message:text_start', (_, d: any) => {
+    if (!d?.messageId) return
+    console.log('🔥 [ConversationStore] TEXT_START EVENT RECEIVED for message:', d.messageId)
+    setState((s) => {
+      s.isTextStreaming = true
+      s.textStreamingMessageId = d.messageId
+      console.log('🔥 Set isTextStreaming = true for:', d.messageId)
+    })
+  })
+
+  on('message:text_end', (_, d: any) => {
+    if (!d?.messageId) return
+    console.log('[ConversationStore] text_end for message:', d.messageId)
+    setState((s) => {
+      s.isTextStreaming = false
+      s.textStreamingMessageId = null
     })
   })
 }
@@ -536,6 +590,7 @@ export const useConversationStore = create<ConversationState>()(
         if (!res?.success) throw new Error(res?.error || 'Failed to load messages')
         const msgs = (res.data as Message[]) || []
         set((s) => {
+          msgs.sort(sortByCreatedAtAsc)
           s.messages[conversationId] = msgs
           // rebuild index for this conversation
           msgs.forEach((m, i) => {
@@ -590,6 +645,7 @@ export const useConversationStore = create<ConversationState>()(
             if (messageRes?.success) {
               const msgs = (messageRes.data as Message[]) || []
               set((s) => {
+                msgs.sort(sortByCreatedAtAsc)
                 s.messages[conv.id] = msgs
                 // Update message index
                 msgs.forEach((m, i) => {
@@ -661,6 +717,17 @@ export const useConversationStore = create<ConversationState>()(
     stopStreaming: async (messageId) => {
       try {
         await window.knowlex.message.stop(messageId)
+        // Immediately reset local streaming state for better UX
+        set((s) => {
+          if (s.streamingMessageId === messageId) {
+            s.isStreaming = false
+            s.streamingMessageId = null
+          }
+          if (s.reasoningStreamingMessageId === messageId) {
+            s.isReasoningStreaming = false
+            s.reasoningStreamingMessageId = null
+          }
+        })
       } catch (e) {
         /* swallow to keep UI responsive */
       }
@@ -711,6 +778,7 @@ export const useConversationStore = create<ConversationState>()(
             if (messageRes?.success) {
               const msgs = (messageRes.data as Message[]) || []
               set((s) => {
+                msgs.sort(sortByCreatedAtAsc)
                 s.messages[conv.id] = msgs
                 // Update message index
                 msgs.forEach((m, i) => {

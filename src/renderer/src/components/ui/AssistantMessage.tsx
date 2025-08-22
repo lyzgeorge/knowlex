@@ -46,6 +46,13 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const textStreamingMessageId = useTextStreamingMessageId()
   const isTextStreamingForMessage = isTextStreaming && textStreamingMessageId === message.id
 
+  // Debug logging for streaming states
+  if (message.id && (isTextStreamingForMessage || isReasoningStreamingForMessage)) {
+    console.log(
+      `[AssistantMessage] ${message.id}: text=${isTextStreamingForMessage}, reasoning=${isReasoningStreamingForMessage}, showIcon=${isTextStreamingForMessage && !isReasoningStreamingForMessage}`
+    )
+  }
+
   // Color mode values
   const avatarBg = useColorModeValue('gray.100', 'gray.700')
   const avatarBorder = useColorModeValue('gray.200', 'gray.600')
@@ -106,10 +113,29 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             content={message.content}
             variant="assistant"
             isStreaming={isStreaming}
-            showCursor={true}
+            // External streaming indicator is shown below; hide inline cursor
+            showCursor={false}
             isReasoningStreaming={isReasoningStreamingForMessage}
           />
         </Box>
+
+        {/* Text streaming indicator (blinking FaForumbee) when text is streaming */}
+        {isTextStreamingForMessage && (
+          <HStack spacing={2} px={2} align="center" alignSelf="flex-start">
+            <Icon
+              as={FaForumbee}
+              boxSize={3}
+              color={iconColor}
+              animation="flash 1.5s ease-in-out infinite"
+              sx={{
+                '@keyframes flash': {
+                  '0%, 50%': { opacity: 1 },
+                  '51%, 100%': { opacity: 0.3 }
+                }
+              }}
+            />
+          </HStack>
+        )}
 
         <HStack
           spacing={2}
@@ -124,7 +150,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             <MessageActionIcons message={message} isVisible={true} />
           </Box>
           <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-            <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+            <Text variant="timestamp">{formatTime(message.updatedAt)}</Text>
           </Box>
         </HStack>
       </VStack>

@@ -1,4 +1,4 @@
-import { streamText, generateText } from 'ai'
+import { streamText, generateText, smoothStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '../../shared/types/message'
@@ -22,6 +22,11 @@ export interface OpenAIConfig {
   frequencyPenalty?: number
   presencePenalty?: number
   reasoningEffort?: 'low' | 'medium' | 'high'
+  smooth?: {
+    enabled: boolean
+    delayInMs?: number
+    chunking?: RegExp | 'word' | 'line'
+  }
 }
 
 /**
@@ -47,6 +52,13 @@ export function getOpenAIConfigFromEnv(): OpenAIConfig {
     | undefined
   if (reasoningEffort) {
     config.reasoningEffort = reasoningEffort
+  }
+
+  // Set default smooth streaming configuration
+  config.smooth = {
+    enabled: true,
+    delayInMs: 20,
+    chunking: /[\u4E00-\u9FFF]|\S+\s+/
   }
 
   return config
@@ -209,8 +221,11 @@ export async function generateAIResponseOnce(
 export interface StreamingCallbacks {
   // Fired when fullStream emits 'start'. Useful to lazily create resources (e.g., conversations/messages).
   onStreamStart?: () => void
+  // Text lifecycle
+  onTextStart?: () => void
   // Fired for each assistant text delta
   onTextChunk: (chunk: string) => void
+  onTextEnd?: () => void
   // Reasoning lifecycle
   onReasoningChunk?: (chunk: string) => void
   onReasoningStart?: () => void
@@ -254,7 +269,14 @@ export async function streamAIResponse(
       ...(config.topP !== undefined && { topP: config.topP }),
       ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
       ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort })
+      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort }),
+      // Add smooth streaming transform if enabled
+      ...(config.smooth?.enabled && {
+        experimental_transform: smoothStream({
+          delayInMs: config.smooth.delayInMs || 20,
+          chunking: config.smooth.chunking || 'word'
+        })
+      })
     }
 
     // Stream response
@@ -307,7 +329,7 @@ export async function streamAIResponse(
 
           case 'text-start':
             console.log('[AI] Text start')
-            // Text streaming is about to begin
+            streamCallbacks.onTextStart?.()
             break
 
           case 'text-delta':
@@ -321,7 +343,7 @@ export async function streamAIResponse(
 
           case 'text-end':
             console.log('[AI] Text end')
-            // Text streaming has completed
+            streamCallbacks.onTextEnd?.()
             break
 
           case 'reasoning-start':

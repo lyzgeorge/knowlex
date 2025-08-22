@@ -59,7 +59,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
             <MessageActionIcons message={message} isVisible={true} />
           </Box>
           <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-            <Text variant="timestamp">{formatTime(message.createdAt)}</Text>
+            <Text variant="timestamp">{formatTime(message.updatedAt)}</Text>
           </Box>
         </HStack>
       </VStack>

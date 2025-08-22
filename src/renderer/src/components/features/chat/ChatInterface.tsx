@@ -58,7 +58,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const { scrollRef, anchorRef, forceScrollToBottom, isAtBottom } = useAutoScroll<HTMLDivElement>(
     scrollDependencies,
     {
-      threshold: 50, // Tighter threshold for better sticky detection
+      threshold: 128, // 8rem range for hiding scroll button (8 * 16px = 128px)
       enabled: true,
       smooth: true, // Smooth scrolling behavior
       follow: false
@@ -262,32 +262,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
         <Box ref={anchorRef} height="1px" visibility="hidden" aria-hidden />
       </Box>
 
-      {/* Scroll-to-bottom chevron when user isn't near bottom */}
-      {!isAtBottom && (
-        <Box
-          position="absolute"
-          left={0}
-          right={0}
-          bottom="6.75rem"
-          display="flex"
-          justifyContent="center"
-          zIndex={20}
-        >
-          <IconButton
-            aria-label="Scroll to bottom"
-            icon={<FiChevronDown />}
-            size="sm"
-            colorScheme="gray"
-            variant="solid"
-            borderRadius="full"
-            boxShadow="md"
-            onClick={() => forceScrollToBottom()}
-          />
-        </Box>
-      )}
-
       {/* Floating Input Area */}
       <Box position="absolute" bottom={0} left={0} right={0} zIndex={10} pointerEvents="none">
+        {/* Scroll-to-bottom chevron positioned relative to input area */}
+        {!isAtBottom && (
+          <Box
+            position="absolute"
+            left={0}
+            right={0}
+            bottom="100%"
+            display="flex"
+            justifyContent="center"
+            zIndex={1}
+            pointerEvents="auto"
+          >
+            <IconButton
+              aria-label="Scroll to bottom"
+              icon={<FiChevronDown />}
+              size="sm"
+              colorScheme="gray"
+              variant="solid"
+              borderRadius="full"
+              boxShadow="md"
+              onClick={() => forceScrollToBottom()}
+            />
+          </Box>
+        )}
+
         <Box pointerEvents="auto">
           <ChatInputBox variant="conversation" />
         </Box>

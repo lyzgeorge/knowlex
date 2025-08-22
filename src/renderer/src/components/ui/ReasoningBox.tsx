@@ -27,6 +27,8 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   isTextStreaming = false,
   showWhenEmpty = false
 }) => {
+  // Consider we're "thinking" only while reasoning is streaming and text hasn't started
+  const isThinking = isReasoningStreaming && !isTextStreaming
   // Start expanded if reasoning is streaming or has content, otherwise collapsed
   const [isExpanded, setIsExpanded] = useState(isReasoningStreaming || showWhenEmpty)
 
@@ -166,7 +168,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
       >
         <Icon as={FaBrain} boxSize={3} color={iconColor} />
         <Text fontSize="sx" fontWeight="medium" color={headerTextColor} flex={1}>
-          {isReasoningStreaming ? 'Thinking...' : 'Reasoning'}
+          {isThinking ? 'Thinking ...' : 'Reasoning'}
         </Text>
         <IconButton
           aria-label={isExpanded ? 'Collapse reasoning' : 'Expand reasoning'}
@@ -190,7 +192,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
       >
         <Box px={3} pt={2} pb={2} color={textColor}>
           {reasoning?.trim() ? (
-            renderReasoningContent(reasoning, isReasoningStreaming)
+            renderReasoningContent(reasoning, false)
           ) : isReasoningStreaming ? (
             <Text fontSize="sm" color="gray.500" fontStyle="italic">
               Processing thoughts...
@@ -202,6 +204,23 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
           )}
         </Box>
       </Collapse>
+      {/* Footer indicator under the box while thinking */}
+      {isThinking && (
+        <HStack px={3} pb={2} pt={0} spacing={2} align="center">
+          <Icon
+            as={FaBrain}
+            boxSize={3}
+            color={iconColor}
+            animation="pulse 1.5s ease-in-out infinite"
+            sx={{
+              '@keyframes pulse': {
+                '0%, 50%': { opacity: 1 },
+                '51%, 100%': { opacity: 0.4 }
+              }
+            }}
+          />
+        </HStack>
+      )}
     </Box>
   )
 }
