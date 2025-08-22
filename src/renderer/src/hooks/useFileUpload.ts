@@ -1,9 +1,12 @@
 /**
  * Custom hook for handling temporary file uploads in chat interface
- * Integrates with the main process file processing service
+ * Focuses on simple, clear, atomic responsibilities:
+ * - Validate files
+ * - Add/remove files from local state
+ * - Process files via main process and update state
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '../components/ui'
 import type { TemporaryFileResult } from '../../../shared/types/file'
 
@@ -22,6 +25,7 @@ export interface FileUploadState {
   processedFiles: ProcessedFile[]
   isProcessing: boolean
   error: string | null
+  successfulFilesCount: number
 }
 
 export interface FileUploadHook {
@@ -60,288 +64,178 @@ const ALLOWED_TYPES = [
   '.svg'
 ]
 
+// Helpers: atomic utilities
+const buildFileKey = (f: File): string => `${f.name}-${f.size}-${f.lastModified}`
+const getExtension = (name: string): string => `.${name.split('.').pop()?.toLowerCase()}`
+const isBinaryExt = (ext: string): boolean =>
+  ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods'].includes(ext)
+const isImageMime = (mime?: string): boolean => Boolean(mime && mime.startsWith('image/'))
+
+const validateSingleFile = (file: File): string | null => {
+  if (file.size > MAX_FILE_SIZE) return `File "${file.name}" is too large. Maximum size is 1MB.`
+  const ext = getExtension(file.name)
+  if (!ALLOWED_TYPES.includes(ext)) {
+    return (
+      'File "' + file.name + '" is not supported. Supported formats: ' + ALLOWED_TYPES.join(', ')
+    )
+  }
+  return null
+}
+
+const uniqueBatch = (files: File[]): File[] => {
+  const seen = new Set<string>()
+  const res: File[] = []
+  for (const f of files) {
+    const k = buildFileKey(f)
+    if (!seen.has(k)) {
+      seen.add(k)
+      res.push(f)
+    }
+  }
+  return res
+}
+
+const readFileAsContent = async (
+  file: File
+): Promise<{ name: string; size: number; content: string }> => {
+  const buffer = await file.arrayBuffer()
+  const ext = getExtension(file.name)
+  if (isBinaryExt(ext)) {
+    const uint8Array = new Uint8Array(buffer)
+    const CHUNK = 8192
+    let binary = ''
+    for (let i = 0; i < uint8Array.length; i += CHUNK) {
+      const chunk = uint8Array.subarray(i, i + CHUNK)
+      binary += String.fromCharCode(...Array.from(chunk))
+    }
+    return { name: file.name, size: file.size, content: btoa(binary) }
+  }
+  return { name: file.name, size: file.size, content: new TextDecoder().decode(buffer) }
+}
+
 export const useFileUpload = (): FileUploadHook => {
   const [state, setState] = useState<FileUploadState>({
     files: [],
     processedFiles: [],
     isProcessing: false,
-    error: null
+    error: null,
+    successfulFilesCount: 0
   })
   const notifications = useNotifications()
+  const processingRef = useRef(false)
 
-  // Validate a single file
-  const validateFile = useCallback((file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) {
-      return `File "${file.name}" is too large. Maximum size is 1MB.`
-    }
+  // Process a batch of FileUploadItem immediately
+  const processNewFiles = useCallback(
+    async (items: FileUploadItem[]) => {
+      if (!items.length || processingRef.current) return
+      processingRef.current = true
+      setState((s) => ({ ...s, isProcessing: true, error: null }))
+      try {
+        const payload = await Promise.all(items.map((it) => readFileAsContent(it.file)))
+        const result = await window.knowlex.file.processTempContent({
+          files: payload.map((p) => ({ name: p.name, content: p.content, size: p.size }))
+        })
+        if (!result.success) throw new Error(result.error || 'Failed to process files')
+        const processed = (Array.isArray(result.data) ? result.data : []) as TemporaryFileResult[]
+        const success = processed.filter((f) => !f.error)
+        const failed = processed.filter((f) => f.error)
 
-    const extension = '.' + file.name.split('.').pop()?.toLowerCase()
-    if (!ALLOWED_TYPES.includes(extension)) {
-      return `File "${file.name}" is not supported. Supported formats: .txt, .md, .csv, .json, .xml, .html, .pdf, .docx, .pptx, .xlsx, .odt, .odp, .ods, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg`
-    }
+        // Notify
+        if (success.length) notifications.filesProcessed(success.length)
+        failed.forEach((f) => notifications.fileProcessingFailed(f.filename, f.error))
 
-    return null
-  }, [])
-
-  // Add files with validation
-  const addFiles = useCallback(
-    (newFiles: FileList | File[]) => {
-      const fileArray = Array.from(newFiles)
-      console.log(
-        'addFiles called with:',
-        fileArray.map((f) => ({ name: f.name, size: f.size, lastModified: f.lastModified }))
-      )
-
-      // Deduplicate within the current batch first
-      const uniqueFiles: File[] = []
-      const seenFiles = new Set<string>()
-
-      fileArray.forEach((file) => {
-        const fileKey = `${file.name}-${file.size}-${file.lastModified}`
-        if (!seenFiles.has(fileKey)) {
-          seenFiles.add(fileKey)
-          uniqueFiles.push(file)
-        } else {
-          console.log('Removing duplicate within batch:', file.name)
-        }
-      })
-
-      console.log(
-        'After dedup - unique files:',
-        uniqueFiles.map((f) => f.name)
-      )
-
-      // Move validation logic outside setState to prevent duplicate execution
-      setState((prevState) => {
-        // Check total file count first
-        if (prevState.files.length + uniqueFiles.length > MAX_FILES) {
-          notifications.fileTooMany(MAX_FILES)
-          return prevState
-        }
-
-        // Calculate total size including existing files
-        const existingSize = prevState.files.reduce((sum, item) => sum + item.file.size, 0)
-        let newTotalSize = existingSize
-
-        const validFiles: FileUploadItem[] = []
-        const errors: string[] = []
-
-        // Validate each file and check for duplicates (by name, size, and lastModified)
-        for (const file of uniqueFiles) {
-          console.log('Checking file:', {
-            name: file.name,
-            size: file.size,
-            lastModified: file.lastModified
-          })
-          console.log(
-            'Existing files:',
-            prevState.files.map((item) => ({
-              name: item.file.name,
-              size: item.file.size,
-              lastModified: item.file.lastModified
-            }))
-          )
-
-          const isDuplicate = prevState.files.some(
-            (existingItem) =>
-              existingItem.file.name === file.name &&
-              existingItem.file.size === file.size &&
-              existingItem.file.lastModified === file.lastModified
-          )
-
-          console.log('Is duplicate:', isDuplicate)
-
-          if (isDuplicate) {
-            errors.push(`File "${file.name}" is already added.`)
-            continue
-          }
-
-          const error = validateFile(file)
-          if (error) {
-            errors.push(error)
-            continue
-          }
-
-          newTotalSize += file.size
-          if (newTotalSize > MAX_TOTAL_SIZE) {
-            errors.push(`Adding "${file.name}" would exceed the 10MB total size limit.`)
-            newTotalSize -= file.size // Revert for next calculation
-          } else {
-            // Assign a unique ID to the file wrapper
-            validFiles.push({
-              id: `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-              file
-            })
-          }
-        }
-
-        // Show validation errors outside the setState callback
-        if (errors.length > 0) {
-          // Use setTimeout to show errors after setState completes
-          setTimeout(() => {
-            errors.forEach((error) => {
-              notifications.fileValidationError(error)
-            })
-          }, 0)
-        }
-
-        // Add valid files to state
-        if (validFiles.length > 0) {
-          console.log(
-            'Adding valid files to state:',
-            validFiles.map((f) => f.file.name)
-          )
+        // Update state: remove failed from files list; append successful to processedFiles
+        setState((prev) => {
+          const remainingFiles = failed.length
+            ? prev.files.filter((fi) => !failed.some((ff) => ff.filename === fi.file.name))
+            : prev.files
+          const mapped: ProcessedFile[] = success.map((f) => ({
+            ...f,
+            isImage: isImageMime(f.mimeType)
+          }))
           return {
-            ...prevState,
-            files: [...prevState.files, ...validFiles],
-            error: null
+            ...prev,
+            files: remainingFiles,
+            processedFiles: [...prev.processedFiles, ...mapped],
+            successfulFilesCount: prev.successfulFilesCount + success.length,
+            isProcessing: false
           }
-        }
-
-        return prevState
-      })
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to process files'
+        setState((s) => ({ ...s, error: msg, isProcessing: false }))
+        notifications.fileError(msg)
+      } finally {
+        processingRef.current = false
+      }
     },
-    [validateFile, notifications]
+    [notifications]
+  )
+
+  // Add files with validation and immediate processing
+  const addFiles = useCallback(
+    (incoming: FileList | File[]) => {
+      const batch = uniqueBatch(Array.from(incoming))
+
+      // Snapshot current state for validation
+      const existing = state.files
+      if (existing.length + batch.length > MAX_FILES) {
+        notifications.fileTooMany(MAX_FILES)
+        return
+      }
+
+      const existingTotal = existing.reduce((sum, it) => sum + it.file.size, 0)
+      let total = existingTotal
+      const validItems: FileUploadItem[] = []
+      const errors: string[] = []
+
+      for (const file of batch) {
+        // duplicate against existing list
+        const dup = existing.some((it) => buildFileKey(it.file) === buildFileKey(file))
+        if (dup) {
+          errors.push(`File "${file.name}" is already added.`)
+          continue
+        }
+        const err = validateSingleFile(file)
+        if (err) {
+          errors.push(err)
+          continue
+        }
+        if (total + file.size > MAX_TOTAL_SIZE) {
+          errors.push(`Adding "${file.name}" would exceed the 10MB total size limit.`)
+          continue
+        }
+        total += file.size
+        validItems.push({
+          id: `${buildFileKey(file)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file
+        })
+      }
+
+      if (errors.length) errors.forEach((m) => notifications.fileValidationError(m))
+      if (!validItems.length) return
+
+      setState((s) => ({ ...s, files: [...s.files, ...validItems], error: null }))
+      // fire and forget processing
+      void processNewFiles(validItems)
+    },
+    [notifications, state.files, processNewFiles]
   )
 
   // Remove a specific file
   const removeFile = useCallback((fileToRemove: File) => {
-    setState((prevState) => ({
-      ...prevState,
-      files: prevState.files.filter((item) => item.file !== fileToRemove),
-      processedFiles: prevState.processedFiles.filter(
-        (processed) => processed.filename !== fileToRemove.name
-      )
+    setState((prev) => ({
+      ...prev,
+      files: prev.files.filter((it) => it.file !== fileToRemove),
+      processedFiles: prev.processedFiles.filter((pf) => pf.filename !== fileToRemove.name)
     }))
   }, [])
 
-  // Process files using the main process service
-  const processFiles = useCallback(async (): Promise<ProcessedFile[]> => {
-    console.log('processFiles called with files:', state.files.length)
-    if (state.files.length === 0) {
-      console.log('No files to process, returning empty array')
-      return []
-    }
-
-    console.log('Setting isProcessing to true, starting file processing...')
-    setState((prevState) => ({
-      ...prevState,
-      isProcessing: true,
-      error: null
-    }))
-
-    try {
-      // Create temporary files and get their paths
-      const fileInfos = await Promise.all(
-        state.files.map(async (item) => {
-          const file = item.file
-          // Read file content
-          const buffer = await file.arrayBuffer()
-
-          // Determine if file is binary based on extension
-          const extension = '.' + file.name.split('.').pop()?.toLowerCase()
-          const isBinaryFile = ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods'].includes(
-            extension
-          )
-
-          let content: string
-          if (isBinaryFile) {
-            // For binary files, encode as base64
-            const uint8Array = new Uint8Array(buffer)
-            // To avoid "Maximum call stack size exceeded" error, process in chunks
-            const CHUNK_SIZE = 8192
-            let binary = ''
-            for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
-              const chunk = uint8Array.subarray(i, i + CHUNK_SIZE)
-              binary += String.fromCharCode(...Array.from(chunk))
-            }
-            content = btoa(binary)
-          } else {
-            // For text files, decode as UTF-8
-            content = new TextDecoder().decode(buffer)
-          }
-
-          // For temporary files, we'll pass the content directly to the main process
-          // The main process will handle creating temporary files as needed
-          return {
-            name: file.name,
-            path: file.name, // Use filename as path for temporary processing
-            size: file.size,
-            content // Pass content directly (text or base64 for binary)
-          }
-        })
-      )
-
-      // Call the main process file processing service with content
-      console.log(
-        'Calling main process file processing with files:',
-        fileInfos.map((f) => ({ name: f.name, size: f.size }))
-      )
-      const result = await window.knowlex.file.processTempContent({
-        files: fileInfos.map((info) => ({
-          name: info.name,
-          content: info.content,
-          size: info.size
-        }))
-      })
-
-      console.log('File processing result:', result)
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to process files')
-      }
-
-      const processedFiles: TemporaryFileResult[] = Array.isArray(result.data) ? result.data : []
-      console.log(
-        'Processed files:',
-        processedFiles.map((f) => ({
-          filename: f.filename,
-          error: f.error,
-          contentLength: f.content?.length
-        }))
-      )
-
-      setState((prevState) => ({
-        ...prevState,
-        processedFiles: processedFiles.map((file) => ({
-          ...file,
-          isImage: file.mimeType.startsWith('image/')
-        })),
-        isProcessing: false
-      }))
-
-      // Show success toast for successfully processed files
-      const successfulFiles = processedFiles.filter((f) => !f.error)
-      if (successfulFiles.length > 0) {
-        notifications.filesProcessed(successfulFiles.length)
-      }
-
-      // Show error toasts for failed files
-      const failedFiles = processedFiles.filter((f) => f.error)
-      failedFiles.forEach((file) => {
-        notifications.fileProcessingFailed(file.filename, file.error)
-      })
-
-      // Add isImage property to each file
-      const processedFilesWithImage: ProcessedFile[] = processedFiles.map((file) => ({
-        ...file,
-        isImage: file.mimeType.startsWith('image/')
-      }))
-
-      return processedFilesWithImage
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process files'
-
-      setState((prevState) => ({
-        ...prevState,
-        error: errorMessage,
-        isProcessing: false
-      }))
-
-      notifications.fileError(errorMessage)
-
-      throw error
-    }
-  }, [state.files, notifications])
+  // Since processing happens on add, just return current processed files
+  const processFiles = useCallback(
+    async (): Promise<ProcessedFile[]> => state.processedFiles,
+    [state.processedFiles]
+  )
 
   // Clear all files
   const clearFiles = useCallback(() => {
@@ -349,26 +243,17 @@ export const useFileUpload = (): FileUploadHook => {
       files: [],
       processedFiles: [],
       isProcessing: false,
-      error: null
+      error: null,
+      successfulFilesCount: 0
     })
   }, [])
 
   // Clear error state
   const clearError = useCallback(() => {
-    setState((prevState) => ({
-      ...prevState,
-      error: null
-    }))
+    setState((prev) => ({ ...prev, error: null }))
   }, [])
 
-  return {
-    state,
-    addFiles,
-    removeFile,
-    processFiles,
-    clearFiles,
-    clearError
-  }
+  return { state, addFiles, removeFile, processFiles, clearFiles, clearError }
 }
 
 export default useFileUpload

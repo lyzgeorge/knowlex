@@ -174,8 +174,16 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const handleSend = useCallback(async () => {
     const trimmedInput = input.trim()
     const hasFiles = fileUpload.state.files.length > 0
+    const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
 
-    if ((!trimmedInput && !hasFiles) || isSending || disabled) return
+    // Can only send if we have text content OR successful files
+    if (
+      (!trimmedInput && !hasSuccessfulFiles) ||
+      isSending ||
+      disabled ||
+      fileUpload.state.isProcessing
+    )
+      return
 
     // Store original values for potential error recovery
     const originalInput = trimmedInput
@@ -328,9 +336,20 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   )
 
   // Button state logic (simple and single-purpose)
-  const hasContent = input.trim().length > 0 || fileUpload.state.files.length > 0
+  const hasTextContent = input.trim().length > 0
+  const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
   const isRefreshing = isSending || isStreaming || isReasoningStreaming
-  const canSend = hasContent && !disabled && !fileUpload.state.isProcessing && !isRefreshing
+
+  // Can send if:
+  // 1. Has text content (always allowed)
+  // 2. Or has successful processed files
+  // 3. Not currently processing files
+  // 4. Not currently refreshing/sending
+  const canSend =
+    (hasTextContent || hasSuccessfulFiles) &&
+    !disabled &&
+    !fileUpload.state.isProcessing &&
+    !isRefreshing
 
   // Unified render - single implementation for all variants
   return (
@@ -400,7 +419,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 size="sm"
                 variant="ghost"
                 borderRadius="full"
-                isDisabled={disabled || fileUpload.state.files.length >= 10}
+                isDisabled={
+                  disabled || fileUpload.state.files.length >= 10 || fileUpload.state.isProcessing
+                }
                 onClick={() => fileInputRef.current?.click()}
               />
 

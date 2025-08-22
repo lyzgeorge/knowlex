@@ -393,6 +393,17 @@ async function processSingleTemporaryFileContent(
           'characters'
         )
 
+        // Check if parsed content is empty or invalid
+        if (!parseResult.content || parseResult.content.trim().length === 0) {
+          return {
+            filename,
+            content: '',
+            size,
+            mimeType: parseResult.mimeType,
+            error: `File appears to be empty or corrupted. No readable content could be extracted.`
+          }
+        }
+
         return {
           filename,
           content: parseResult.content,
@@ -423,9 +434,22 @@ async function processSingleTemporaryFileContent(
       }
     } else {
       // For plain text files, content is already text - just clean up
+      const trimmedContent = content.trim()
+
+      // Check if text content is empty
+      if (!trimmedContent || trimmedContent.length === 0) {
+        return {
+          filename,
+          content: '',
+          size,
+          mimeType,
+          error: `File appears to be empty. No readable content found.`
+        }
+      }
+
       return {
         filename,
-        content: content.trim(),
+        content: trimmedContent,
         size,
         mimeType,
         error: undefined
