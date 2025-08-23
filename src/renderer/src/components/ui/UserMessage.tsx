@@ -12,7 +12,7 @@ import { EditIcon, CopyIcon } from '@chakra-ui/icons'
 import type { Message, MessageContentPart } from '../../../../shared/types/message'
 import { formatTime } from '../../../../shared/utils/time'
 import MarkdownContent from './MarkdownContent'
-import TempFileCard from '../features/chat/TempFileCard'
+import TempFileCard from './TempFileCard'
 import MessageEditModal from '../features/chat/MessageEditModal'
 import { useNotifications } from './index'
 

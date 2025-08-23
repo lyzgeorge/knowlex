@@ -99,11 +99,7 @@ export interface ConversationState {
   ) => Promise<void>
 
   // Message ops
-  sendMessage: (
-    content: MessageContent,
-    files?: File[],
-    options?: { conversationId?: string }
-  ) => Promise<void>
+  sendMessage: (content: MessageContent, options?: { conversationId?: string }) => Promise<void>
   regenerateMessage: (messageId: string) => Promise<void>
   editMessage: (messageId: string, content: MessageContent) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
@@ -489,7 +485,7 @@ export const useConversationStore = create<ConversationState>()(
     },
 
     // Messages
-    sendMessage: async (content, files, options) => {
+    sendMessage: async (content, options) => {
       if (content.length === 0 || !hasMeaningfulContent(content)) {
         const msg = 'Message must contain at least one meaningful content part'
         set((s) => {
@@ -504,8 +500,7 @@ export const useConversationStore = create<ConversationState>()(
       try {
         const res = await window.knowlex.message.send({
           ...(options?.conversationId ? { conversationId: options.conversationId } : {}),
-          content,
-          files
+          content
         })
         set((s) => {
           s.isSending = false

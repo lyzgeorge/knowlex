@@ -259,58 +259,6 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
 }
 
 /**
- * Triggers automatic title generation if conditions are met
- * Called after assistant message completion/cancellation/error
- */
-async function tryTriggerAutoTitleGeneration(conversationId: string): Promise<void> {
-  try {
-    // Check if automatic title generation should be triggered
-    const totalMessages = await getMessages(conversationId)
-    const { shouldTriggerAutoGeneration } = await import('./title-generation')
-
-    if (shouldTriggerAutoGeneration(totalMessages)) {
-      console.log(
-        `Triggering automatic title generation for conversation ${conversationId} after first exchange`
-      )
-
-      const { generateTitleForConversation } = await import('./title-generation')
-      const { updateConversation } = await import('./conversation')
-      const { sendConversationEvent, CONVERSATION_EVENTS } = await import('../ipc/conversation')
-
-      const title = await generateTitleForConversation(conversationId)
-
-      // Only update if we got a meaningful title (not "New Chat")
-      if (title && title !== 'New Chat') {
-        await updateConversation(conversationId, { title })
-
-        // Send title update event to renderer
-        sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-          conversationId,
-          title
-        })
-
-        console.log(
-          `Successfully auto-generated title for conversation ${conversationId}: "${title}"`
-        )
-      } else {
-        console.log(
-          `Skipping title update for conversation ${conversationId}: got fallback title "${title}"`
-        )
-      }
-    } else {
-      const userMessages = totalMessages.filter((m) => m.role === 'user')
-      const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-      console.log(
-        `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
-      )
-    }
-  } catch (titleError) {
-    console.error('Failed to automatically generate title:', titleError)
-    // Don't fail the entire operation if title generation fails
-  }
-}
-
-/**
  * Convenience function for generating assistant messages for new user messages
  * Automatically handles conversation context and title generation
  */
@@ -327,10 +275,12 @@ export async function generateReplyForNewMessage(
     contextMessages: allMessages,
     onSuccess: async (_updatedMessage) => {
       // Trigger title generation after successful completion
+      const { tryTriggerAutoTitleGeneration } = await import('./title-generation')
       await tryTriggerAutoTitleGeneration(conversationId)
     },
     onError: async (_error, _errorMessage) => {
       // Trigger title generation even after error/cancellation
+      const { tryTriggerAutoTitleGeneration } = await import('./title-generation')
       await tryTriggerAutoTitleGeneration(conversationId)
     }
   })

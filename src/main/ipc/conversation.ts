@@ -2,7 +2,6 @@ import { ipcMain, BrowserWindow } from 'electron'
 import {
   createConversation,
   getConversation,
-  listConversations,
   updateConversation,
   deleteConversation,
   generateConversationTitle,
@@ -14,15 +13,9 @@ import {
   getMessage,
   getMessages,
   updateMessage,
-  deleteMessage,
-  addTextMessage,
-  addMultiPartMessage
+  deleteMessage
 } from '../services/message'
-import type {
-  IPCResult,
-  ConversationCreateRequest,
-  MessageAddRequest
-} from '../../shared/types/ipc'
+import type { IPCResult, ConversationCreateRequest } from '../../shared/types/ipc'
 import type { Conversation, SessionSettings } from '../../shared/types/conversation'
 import type { Message, MessageContent } from '../../shared/types/message'
 import { testOpenAIConfig } from '../services/openai-adapter'
@@ -51,19 +44,6 @@ function validateConversationCreateRequest(data: unknown): data is ConversationC
   if (!validateObject(data)) return false
   const request = data as ConversationCreateRequest
   return request.title === undefined || typeof request.title === 'string'
-}
-
-/**
- * Validates message add request data
- */
-function validateMessageAddRequest(data: unknown): data is MessageAddRequest {
-  if (!validateObject(data)) return false
-  const request = data as MessageAddRequest
-  return (
-    ValidationPatterns.conversationId(request.conversationId) &&
-    ValidationPatterns.messageRole(request.role) &&
-    ValidationPatterns.messageContent(request.content)
-  )
 }
 
 /**
@@ -119,12 +99,7 @@ export function registerConversationIPCHandlers(): void {
     }
   )
 
-  // List conversations
-  ipcMain.handle('conversation:list', async (): Promise<IPCResult<Conversation[]>> => {
-    return handleIPCCall(async () => {
-      return await listConversations()
-    })
-  })
+  // Note: conversation:list removed - use conversation:list-paginated instead
 
   // List conversations with pagination
   ipcMain.handle(
@@ -254,78 +229,11 @@ export function registerConversationIPCHandlers(): void {
   // Message Handlers
   // ============================================================================
 
-  // Add message
-  ipcMain.handle('message:add', async (_, data: unknown): Promise<IPCResult<Message>> => {
-    return handleIPCCall(async () => {
-      if (!validateMessageAddRequest(data)) {
-        throw new Error('Invalid message add data')
-      }
+  // Note: message:add removed - use message:send instead
 
-      return await addMessage({
-        conversationId: data.conversationId,
-        role: data.role,
-        content: data.content
-      })
-    })
-  })
+  // Note: message:add-text removed - use message:send instead
 
-  // Add text message (convenience method)
-  ipcMain.handle('message:add-text', async (_, data: unknown): Promise<IPCResult<Message>> => {
-    return handleIPCCall(async () => {
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid text message data')
-      }
-
-      const request = data as any
-      if (!validateConversationId(request.conversationId)) {
-        throw new Error('Invalid conversation ID')
-      }
-
-      if (!request.role || !['user', 'assistant'].includes(request.role)) {
-        throw new Error('Invalid message role')
-      }
-
-      if (!request.text || typeof request.text !== 'string') {
-        throw new Error('Invalid text content')
-      }
-
-      return await addTextMessage(
-        request.conversationId,
-        request.role,
-        request.text,
-        request.parentMessageId
-      )
-    })
-  })
-
-  // Add multi-part message
-  ipcMain.handle('message:add-multipart', async (_, data: unknown): Promise<IPCResult<Message>> => {
-    return handleIPCCall(async () => {
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid multi-part message data')
-      }
-
-      const request = data as any
-      if (!validateConversationId(request.conversationId)) {
-        throw new Error('Invalid conversation ID')
-      }
-
-      if (!request.role || !['user', 'assistant'].includes(request.role)) {
-        throw new Error('Invalid message role')
-      }
-
-      if (!Array.isArray(request.parts) || request.parts.length === 0) {
-        throw new Error('Invalid content parts')
-      }
-
-      return await addMultiPartMessage(
-        request.conversationId,
-        request.role,
-        request.parts,
-        request.parentMessageId
-      )
-    })
-  })
+  // Note: message:add-multipart removed - use message:send instead
 
   // Get message
   ipcMain.handle('message:get', async (_, id: unknown): Promise<IPCResult<Message | null>> => {
@@ -426,232 +334,39 @@ export function registerConversationIPCHandlers(): void {
           ? request.conversationId.trim()
           : undefined
 
-      // Prepare context messages for AI: use existing conversation if provided, else just current user message
-      let contextMessages: Message[]
-      if (providedConversationId) {
-        contextMessages = await getMessages(providedConversationId)
-        // Append a virtual user message for context
-        contextMessages = [
-          ...contextMessages,
-          {
-            id: 'virtual-user',
-            conversationId: providedConversationId,
-            role: 'user',
-            content: request.content,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          } as Message
-        ]
-      } else {
-        contextMessages = [
-          {
-            id: 'virtual-user',
-            conversationId: 'virtual',
-            role: 'user',
-            content: request.content,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          } as Message
-        ]
-      }
-
-      // Accumulators for partial writes
-      let accumulatedText = ''
-      let accumulatedReasoning = ''
-
-      // We'll assign these on stream start
-      let actualConversationId: string | undefined = providedConversationId
-      let assistantMessageId: string | undefined
-
-      // Create a cancellation token (to be registered later when we have assistantMessageId)
-      const token = cancellationManager.createToken(`temp-${Date.now()}`)
-
-      // Start streaming using AI service, relying only on fullStream
-      const { streamAIResponse } = await import('../services/openai-adapter')
-
-      const response = await streamAIResponse(
-        contextMessages,
-        {
-          onStreamStart: async () => {
-            try {
-              // Ensure conversation exists (create only when not provided)
-              if (!actualConversationId) {
-                const newConv = await createConversation({
-                  title: 'New Chat'
-                })
-                actualConversationId = newConv.id
-
-                // Notify renderer about new conversation
-                sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConv)
-              }
-
-              // Write user message
-              const userMessage = await addMessage({
-                conversationId: actualConversationId!,
-                role: 'user',
-                content: request.content as any
-              })
-              sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
-
-              // Small delay to ensure different timestamp ordering
-              await new Promise((r) => setTimeout(r, 1))
-
-              // Create assistant placeholder
-              const assistantMessage = await addMessage({
-                conversationId: actualConversationId!,
-                role: 'assistant',
-                content: [{ type: 'text' as const, text: '\u200B' }]
-              })
-              assistantMessageId = assistantMessage.id
-
-              // Register token with real message id for cancellation
-              cancellationManager.registerToken(assistantMessageId, token)
-
-              // Emit streaming start
-              sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
-                messageId: assistantMessageId,
-                message: assistantMessage
-              })
-            } catch (err) {
-              console.error('Failed during onStreamStart:', err)
-              throw err
-            }
-          },
-          onTextStart: () => {
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.TEXT_START, { messageId: assistantMessageId })
-            }
-          },
-          onTextChunk: (chunk: string) => {
-            accumulatedText += chunk
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
-                messageId: assistantMessageId,
-                chunk
-              })
-            }
-          },
-          onTextEnd: () => {
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.TEXT_END, { messageId: assistantMessageId })
-            }
-          },
-          onReasoningStart: () => {
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.REASONING_START, { messageId: assistantMessageId })
-            }
-          },
-          onReasoningChunk: (chunk: string) => {
-            accumulatedReasoning += chunk
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
-                messageId: assistantMessageId,
-                chunk
-              })
-            }
-          },
-          onReasoningEnd: () => {
-            if (assistantMessageId) {
-              sendMessageEvent(MESSAGE_EVENTS.REASONING_END, { messageId: assistantMessageId })
-            }
-          },
-          onStreamFinish: () => {
-            // no-op; final write handled after await
-          }
-        },
-        token
-      )
-
-      // Determine if cancelled
-      const wasCancelled = token.isCancelled
-
-      if (!assistantMessageId || !actualConversationId) {
-        // This shouldn't happen if onStreamStart executed
-        throw new Error('Streaming did not initialize properly')
-      }
-
-      if (wasCancelled) {
-        // Persist partial content
-        const partialUpdateData: any = {
-          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
-        }
-        if (accumulatedReasoning) partialUpdateData.reasoning = accumulatedReasoning
-
-        const { updateMessage } = await import('../services/message')
-        const updated = await updateMessage(assistantMessageId, partialUpdateData)
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
-          messageId: assistantMessageId,
-          message: updated
+      // Determine conversation - create if needed
+      let actualConversationId = providedConversationId
+      if (!actualConversationId) {
+        const newConv = await createConversation({
+          title: 'New Chat'
         })
-      } else {
-        // Persist final content
-        const finalUpdateData: any = {
-          content: response.content
-        }
-        if (response.reasoning !== undefined) finalUpdateData.reasoning = response.reasoning
+        actualConversationId = newConv.id
 
-        const { updateMessage } = await import('../services/message')
-        const updated = await updateMessage(assistantMessageId, finalUpdateData)
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
-          messageId: assistantMessageId,
-          message: updated
-        })
+        // Notify renderer about new conversation
+        sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConv)
       }
 
-      // Clean up token mapping
-      cancellationManager.complete(assistantMessageId)
+      // Create user message
+      const userMessage = await addMessage({
+        conversationId: actualConversationId,
+        role: 'user',
+        content: request.content as any
+      })
+      sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
 
-      // Check if automatic title generation should be triggered
-      try {
-        const { getMessages } = await import('../services/message')
-        const totalMessages = await getMessages(actualConversationId)
-        const { shouldTriggerAutoGeneration } = await import('../services/title-generation')
+      // Small delay to ensure different timestamp ordering
+      await new Promise((r) => setTimeout(r, 1))
 
-        if (shouldTriggerAutoGeneration(totalMessages)) {
-          console.log(
-            `Triggering automatic title generation for conversation ${actualConversationId} after first exchange`
-          )
+      // Create assistant placeholder
+      const assistantMessage = await addMessage({
+        conversationId: actualConversationId,
+        role: 'assistant',
+        content: [{ type: 'text' as const, text: '\u200B' }]
+      })
 
-          // Use setImmediate to trigger title generation asynchronously
-          setImmediate(async () => {
-            try {
-              const { generateTitleForConversation } = await import('../services/title-generation')
-              const { updateConversation } = await import('../services/conversation')
-
-              const title = await generateTitleForConversation(actualConversationId!)
-
-              // Only update if we got a meaningful title (not "New Chat")
-              if (title && title !== 'New Chat') {
-                await updateConversation(actualConversationId!, { title })
-
-                // Send title update event to renderer
-                sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-                  conversationId: actualConversationId,
-                  title
-                })
-
-                console.log(
-                  `Successfully auto-generated title for conversation ${actualConversationId}: "${title}"`
-                )
-              } else {
-                console.log(
-                  `Skipping title update for conversation ${actualConversationId}: got fallback title "${title}"`
-                )
-              }
-            } catch (titleError) {
-              console.error('Failed to automatically generate title:', titleError)
-            }
-          })
-        } else {
-          const userMessages = totalMessages.filter((m) => m.role === 'user')
-          const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-          console.log(
-            `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
-          )
-        }
-      } catch (titleError) {
-        console.error('Failed to check title generation conditions:', titleError)
-      }
+      // Use assistant service for unified streaming logic
+      const { generateReplyForNewMessage } = await import('../services/assistant-service')
+      await generateReplyForNewMessage(assistantMessage.id, actualConversationId)
 
       // Return empty list (UI updates via events)
       return []
@@ -716,7 +431,7 @@ export function registerConversationIPCHandlers(): void {
 
   // Test AI configuration
   ipcMain.handle(
-    'ai:test-configuration',
+    'ai:test-connection',
     async (): Promise<IPCResult<{ success: boolean; error?: string; model?: string }>> => {
       return handleIPCCall(async () => {
         return await testOpenAIConfig()
@@ -737,7 +452,6 @@ export function unregisterConversationIPCHandlers(): void {
   const channels = [
     // Conversation channels
     'conversation:create',
-    'conversation:list',
     'conversation:list-paginated',
     'conversation:get',
     'conversation:update',
@@ -746,9 +460,6 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:update-settings',
     'conversation:generate-title',
     // Message channels
-    'message:add',
-    'message:add-text',
-    'message:add-multipart',
     'message:get',
     'message:list',
     'message:update',
@@ -759,7 +470,7 @@ export function unregisterConversationIPCHandlers(): void {
     'message:edit',
 
     // AI channels
-    'ai:test-configuration'
+    'ai:test-connection'
   ]
 
   channels.forEach((channel) => {

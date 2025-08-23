@@ -3,7 +3,6 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   IPCResult,
   ConversationCreateRequest,
-  MessageAddRequest,
   TemporaryFileRequest,
   SearchRequest,
   SettingsUpdateRequest
@@ -31,7 +30,6 @@ export interface KnowlexAPI {
   // Conversation IPC
   conversation: {
     create: (data: ConversationCreateRequest) => Promise<IPCResult>
-    list: () => Promise<IPCResult>
     listPaginated: (data: { limit: number; offset: number }) => Promise<IPCResult>
     get: (id: string) => Promise<IPCResult>
     update: (data: any) => Promise<IPCResult>
@@ -43,7 +41,6 @@ export interface KnowlexAPI {
 
   // Message IPC
   message: {
-    add: (data: MessageAddRequest) => Promise<IPCResult>
     send: (data: any) => Promise<IPCResult>
     stop: (messageId: string) => Promise<IPCResult>
     list: (conversationId: string) => Promise<IPCResult>
@@ -76,9 +73,6 @@ export interface KnowlexAPI {
 
   // AI Model IPC
   ai: {
-    chat: (messages: any[], options: any) => Promise<IPCResult>
-    stream: (messages: any[], options: any) => Promise<ReadableStream>
-    listModels: () => Promise<IPCResult>
     testConnection: (config: any) => Promise<IPCResult>
   }
 
@@ -134,7 +128,6 @@ const knowlexAPI: KnowlexAPI = {
   // Conversation IPC
   conversation: {
     create: (data) => ipcRenderer.invoke('conversation:create', data),
-    list: () => ipcRenderer.invoke('conversation:list'),
     listPaginated: (data) => ipcRenderer.invoke('conversation:list-paginated', data),
     get: (id) => ipcRenderer.invoke('conversation:get', id),
     update: (data) => ipcRenderer.invoke('conversation:update', data),
@@ -149,7 +142,6 @@ const knowlexAPI: KnowlexAPI = {
 
   // Message IPC
   message: {
-    add: (data) => ipcRenderer.invoke('message:add', data),
     send: (data) => ipcRenderer.invoke('message:send', data),
     stop: (messageId) => ipcRenderer.invoke('message:stop', messageId),
     list: (conversationId) => ipcRenderer.invoke('message:list', conversationId),
@@ -180,10 +172,7 @@ const knowlexAPI: KnowlexAPI = {
 
   // AI Model IPC
   ai: {
-    chat: (messages, options) => ipcRenderer.invoke('ai:chat', messages, options),
-    stream: (messages, options) => ipcRenderer.invoke('ai:stream', messages, options),
-    listModels: () => ipcRenderer.invoke('ai:listModels'),
-    testConnection: (config) => ipcRenderer.invoke('ai:testConnection', config)
+    testConnection: (config) => ipcRenderer.invoke('ai:test-connection', config)
   },
 
   // Event listeners

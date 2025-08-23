@@ -35,6 +35,12 @@ export interface FileUploadHook {
   processFiles: () => Promise<ProcessedFile[]>
   clearFiles: () => void
   clearError: () => void
+  // Drag and drop handlers
+  dragHandlers: {
+    onDragOver: (e: React.DragEvent) => void
+    onDragLeave: (e: React.DragEvent) => void
+    onDrop: (e: React.DragEvent) => void
+  }
 }
 
 // File constraints matching backend
@@ -63,6 +69,17 @@ const ALLOWED_TYPES = [
   '.webp',
   '.svg'
 ]
+
+// Export for use in file input accept attribute
+export const getFileAcceptString = (): string => ALLOWED_TYPES.join(',')
+
+// Export file constraints for use in components
+export const getFileConstraints = () => ({
+  MAX_FILES,
+  MAX_FILE_SIZE,
+  MAX_TOTAL_SIZE,
+  ALLOWED_TYPES
+})
 
 // Helpers: atomic utilities
 const buildFileKey = (f: File): string => `${f.name}-${f.size}-${f.lastModified}`
@@ -268,7 +285,29 @@ export const useFileUpload = (): FileUploadHook => {
     setState((prev) => ({ ...prev, error: null }))
   }, [])
 
-  return { state, addFiles, removeFile, processFiles, clearFiles, clearError }
+  // Drag and drop handlers
+  const dragHandlers = {
+    onDragOver: useCallback((e: React.DragEvent) => {
+      e.preventDefault()
+    }, []),
+
+    onDragLeave: useCallback((e: React.DragEvent) => {
+      e.preventDefault()
+    }, []),
+
+    onDrop: useCallback(
+      (e: React.DragEvent) => {
+        e.preventDefault()
+        const droppedFiles = e.dataTransfer.files
+        if (droppedFiles.length > 0) {
+          addFiles(droppedFiles)
+        }
+      },
+      [addFiles]
+    )
+  }
+
+  return { state, addFiles, removeFile, processFiles, clearFiles, clearError, dragHandlers }
 }
 
 export default useFileUpload

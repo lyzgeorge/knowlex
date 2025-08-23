@@ -61,7 +61,7 @@ export const MessageEditModal: React.FC<MessageEditModalProps> = ({
       if (message.role === 'user') {
         // For now, we'll just edit the message. In the future, we can implement
         // a regenerate functionality that replaces from a specific message
-        await sendMessage([{ type: 'text', text: editedContent.trim() }], [], { conversationId })
+        await sendMessage([{ type: 'text', text: editedContent.trim() }], { conversationId })
       }
 
       notifications.messageUpdated(message.role === 'system' ? 'assistant' : message.role)

@@ -1,7 +1,9 @@
 /**
  * Title Generation Service
  *
- * Automatically generates conversation titles based on the first user-assistant exchange.
+ * Centralized service for automatic and manual conversation title generation.
+ * Handles the complete lifecycle of title generation including trigger logic,
+ * generation, updating conversation, and event emission.
  * Fallback to "New Chat" on any error to ensure reliability.
  */
 
@@ -118,5 +120,57 @@ export async function generateTitleForConversation(conversationId: string): Prom
   } catch (error) {
     console.error('Title generation failed:', error)
     return 'New Chat'
+  }
+}
+
+/**
+ * Triggers automatic title generation if conditions are met
+ * Handles the complete process: check conditions, generate title, update conversation, emit events
+ * @param conversationId - ID of the conversation to potentially generate title for
+ */
+export async function tryTriggerAutoTitleGeneration(conversationId: string): Promise<void> {
+  try {
+    // Check if automatic title generation should be triggered
+    const { getMessages } = await import('./message')
+    const totalMessages = await getMessages(conversationId)
+
+    if (shouldTriggerAutoGeneration(totalMessages)) {
+      console.log(
+        `Triggering automatic title generation for conversation ${conversationId} after first exchange`
+      )
+
+      const title = await generateTitleForConversation(conversationId)
+
+      // Only update if we got a meaningful title (not "New Chat")
+      if (title && title !== 'New Chat') {
+        const { updateConversation } = await import('./conversation')
+        const { sendConversationEvent, CONVERSATION_EVENTS } = await import('../ipc/conversation')
+
+        await updateConversation(conversationId, { title })
+
+        // Send title update event to renderer
+        sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
+          conversationId,
+          title
+        })
+
+        console.log(
+          `Successfully auto-generated title for conversation ${conversationId}: "${title}"`
+        )
+      } else {
+        console.log(
+          `Skipping title update for conversation ${conversationId}: got fallback title "${title}"`
+        )
+      }
+    } else {
+      const userMessages = totalMessages.filter((m) => m.role === 'user')
+      const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
+      console.log(
+        `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
+      )
+    }
+  } catch (titleError) {
+    console.error('Failed to automatically generate title:', titleError)
+    // Don't fail the entire operation if title generation fails
   }
 }

@@ -9,12 +9,6 @@ export interface ConversationCreateRequest {
   title?: string
 }
 
-export interface MessageAddRequest {
-  conversationId: string
-  role: 'user' | 'assistant'
-  content: MessageContent
-}
-
 // File IPC (for temp files only)
 export interface TemporaryFileRequest {
   files: Array<{
@@ -35,6 +29,3 @@ export interface SettingsUpdateRequest {
   key: string
   value: unknown
 }
-
-// Import MessageContent type
-import type { MessageContent } from './message'
