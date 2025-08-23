@@ -23,6 +23,19 @@ function sortByCreatedAtAsc(a: { createdAt?: string }, b: { createdAt?: string }
   return ta - tb
 }
 
+// Ensure conversation arrays remain unique by id while preserving order
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  const result: T[] = []
+  for (const item of items) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id)
+      result.push(item)
+    }
+  }
+  return result
+}
+
 function rebuildIndex(s: ConversationState, conversationId: string): void {
   const arr = s.messages[conversationId]
   if (!arr) return
@@ -99,7 +112,10 @@ export interface ConversationState {
   ) => Promise<void>
 
   // Message ops
-  sendMessage: (content: MessageContent, options?: { conversationId?: string }) => Promise<void>
+  sendMessage: (
+    content: MessageContent,
+    options?: { conversationId?: string; parentMessageId?: string }
+  ) => Promise<void>
   regenerateMessage: (messageId: string) => Promise<void>
   editMessage: (messageId: string, content: MessageContent) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
@@ -210,6 +226,19 @@ function setupEventListeners() {
         sortConversationMessages(s, d.conversationId)
       }
       if (!s.currentConversationId) s.currentConversationId = d.conversationId
+    })
+  })
+
+  on('message:updated', (_, d: any) => {
+    if (!d?.id || !d?.conversationId) return
+    setState((s) => {
+      const arr = s.messages[d.conversationId]
+      if (!arr) return
+      const idx = arr.findIndex((m) => m.id === d.id)
+      if (idx === -1) return
+      arr[idx] = d as Message
+      s._msgIndex[d.id] = { conversationId: d.conversationId, idx }
+      sortConversationMessages(s, d.conversationId)
     })
   })
 
@@ -391,7 +420,9 @@ export const useConversationStore = create<ConversationState>()(
           throw new Error(res?.error || 'Failed to create conversation')
         const conv = res.data as Conversation
         set((s) => {
-          s.conversations.push(conv)
+          if (!s.conversations.find((c) => c.id === conv.id)) {
+            s.conversations.push(conv)
+          }
           s.currentConversationId = conv.id
           s.messages[conv.id] = []
           s.isLoading = false
@@ -500,6 +531,7 @@ export const useConversationStore = create<ConversationState>()(
       try {
         const res = await window.knowlex.message.send({
           ...(options?.conversationId ? { conversationId: options.conversationId } : {}),
+          ...(options?.parentMessageId ? { parentMessageId: options.parentMessageId } : {}),
           content
         })
         set((s) => {
@@ -628,7 +660,7 @@ export const useConversationStore = create<ConversationState>()(
         }
 
         set((s) => {
-          s.conversations = [...s.conversations, ...newConversations]
+          s.conversations = dedupeById([...s.conversations, ...newConversations])
           s.hasMoreConversations = hasMore
           s.isLoadingMore = false
         })
@@ -761,7 +793,7 @@ export const useConversationStore = create<ConversationState>()(
         }
 
         set((s) => {
-          s.conversations = recentConversations
+          s.conversations = dedupeById(recentConversations)
           s.hasMoreConversations = hasMore
           s.isLoading = false
         })

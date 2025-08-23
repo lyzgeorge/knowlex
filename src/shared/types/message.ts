@@ -56,4 +56,8 @@ export interface ImageContent {
    * We recommend leaving this out as it will be detected automatically.
    */
   mediaType?: string
+  /**
+   * Optional filename for the image
+   */
+  filename?: string
 }

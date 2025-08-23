@@ -7,6 +7,7 @@ import type {
   SearchRequest,
   SettingsUpdateRequest
 } from '../shared/types/ipc'
+import type { MessageContent } from '../shared/types/message'
 
 // Define the API interface that will be exposed to the renderer
 export interface KnowlexAPI {
@@ -41,7 +42,11 @@ export interface KnowlexAPI {
 
   // Message IPC
   message: {
-    send: (data: any) => Promise<IPCResult>
+    send: (data: {
+      conversationId?: string
+      parentMessageId?: string
+      content: MessageContent
+    }) => Promise<IPCResult>
     stop: (messageId: string) => Promise<IPCResult>
     list: (conversationId: string) => Promise<IPCResult>
     update: (id: string, content: any) => Promise<IPCResult>

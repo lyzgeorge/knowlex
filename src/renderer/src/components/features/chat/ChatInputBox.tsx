@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Box, HStack, Textarea, IconButton, useColorModeValue } from '@chakra-ui/react'
+import { Box, HStack, IconButton, useColorModeValue } from '@chakra-ui/react'
 import { ArrowUpIcon, AttachmentIcon, RepeatIcon } from '@chakra-ui/icons'
 import { FaStop } from 'react-icons/fa'
 import { keyframes } from '@emotion/react'
@@ -13,7 +13,8 @@ import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId
 } from '../../../stores/conversation'
-import { TempFileCard } from '../../ui'
+import { useMessageBranching } from '../../../hooks/useMessageBranching'
+import { TempFileCard, AutoResizeTextarea } from '../../ui'
 import {
   useFileUpload,
   FileUploadItem,
@@ -21,7 +22,7 @@ import {
   getFileAcceptString,
   getFileConstraints
 } from '../../../hooks/useFileUpload'
-import type { MessageContent } from '../../../../../shared/types/message'
+import type { Message, MessageContent } from '../../../../../shared/types/message'
 
 // Animation for refresh icon
 const spinAnimation = keyframes`
@@ -42,6 +43,10 @@ export interface ChatInputBoxProps {
   showFileAttachment?: boolean
   /** Additional CSS classes */
   className?: string
+  /** Optional externally managed branching context (to avoid duplicate hook state) */
+  branching?: {
+    filteredMessages: Message[]
+  }
 }
 
 /**
@@ -56,11 +61,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   disabled = false,
   placeholder,
   showFileAttachment = true,
-  className
+  className,
+  branching
 }) => {
   const [input, setInput] = useState('')
   const [isHoveringStreamButton, setIsHoveringStreamButton] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
@@ -69,7 +74,13 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const stopStreaming = useStopStreaming()
   const isReasoningStreaming = useIsReasoningStreaming()
   const reasoningStreamingMessageId = useReasoningStreamingMessageId()
-  const { currentConversation } = useCurrentConversation()
+  const { currentConversation, currentMessages } = useCurrentConversation()
+  // Resolve branching: always call the hook (hooks must be unconditional)
+  const internalBranch = !branching
+  const branchingResult = useMessageBranching(currentMessages)
+  const filteredMessages = internalBranch
+    ? branchingResult.filteredMessages
+    : branching!.filteredMessages
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
@@ -115,7 +126,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             type: 'image' as const,
             image: {
               image: file.content, // DataContent: base64 data URL
-              mediaType: file.mimeType
+              mediaType: file.mimeType,
+              filename: file.filename
             }
           })
         } else {
@@ -141,9 +153,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const getDefaultPlaceholder = (): string => {
     switch (variant) {
       case 'main-entrance':
-        return 'Ask a question about ...'
+        return 'Type your message...'
       case 'conversation':
-        return 'Enter to send a message, Shift+Enter to add a new line'
+        return 'Type your message...'
       default:
         return 'Type your message...'
     }
@@ -165,15 +177,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   // Auto-resize textarea
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value
-    setInput(value)
-
-    // Auto-resize textarea
-    const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${textarea.scrollHeight}px`
-    }
+    setInput(e.target.value)
   }, [])
 
   // Handle stop streaming (supports reasoning or text streaming)
@@ -230,35 +234,48 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       // Clear input and files immediately for better UX
       setInput('')
       fileUpload.clearFiles()
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-      }
+      // height will auto-reset by the AutoResizeTextarea effect when value clears
 
       // Build message content using internal utility
       const content = buildMessageContent(trimmedInput, processedFiles)
 
       console.log(
         'handleSend: Final message content structure:',
-        content.map((c: any) => ({
-          type: c.type,
-          ...(c.type === 'text'
-            ? { textLength: c.text?.length }
-            : c.type === 'image'
-              ? {
-                  imageType: typeof c.image,
-                  mediaType: c.image?.mediaType,
-                  isDataUrl:
-                    typeof c.image?.image === 'string' && c.image?.image?.startsWith?.('data:')
-                }
-              : { filename: c.temporaryFile?.filename || 'file' })
-        }))
+        content.map((c) => {
+          if (c.type === 'text') {
+            return { type: c.type, textLength: c.text?.length }
+          }
+          if (c.type === 'image') {
+            return {
+              type: c.type,
+              imageType: typeof c.image,
+              mediaType: c.image?.mediaType,
+              isDataUrl: typeof c.image?.image === 'string' && c.image.image.startsWith('data:')
+            }
+          }
+          // temporary-file
+          return { type: c.type, filename: c.temporaryFile?.filename || 'file' }
+        })
       )
 
+      // Find parent message ID for new message in current conversation chain
+      const lastAssistantMessage = filteredMessages
+        .slice()
+        .reverse()
+        .find((msg) => msg.role === 'assistant')
+
+      const sendOptions: { conversationId?: string; parentMessageId?: string } = {}
+      if (currentConversation?.id) {
+        sendOptions.conversationId = currentConversation.id
+      }
+      if (lastAssistantMessage?.id) {
+        sendOptions.parentMessageId = lastAssistantMessage.id
+      }
+
+      console.log('handleSend: Sending with options:', sendOptions)
+
       // Send message through store - works for both variants
-      await sendMessage(
-        content,
-        currentConversation?.id ? { conversationId: currentConversation.id } : {}
-      )
+      await sendMessage(content, sendOptions)
     } catch (error) {
       // If error, restore the input and files
       setInput(originalInput)
@@ -279,6 +296,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     sendMessage,
     buildMessageContent,
     currentConversation,
+    filteredMessages,
     variant
   ])
 
@@ -379,25 +397,13 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         <Box display="flex" flexDirection="column">
           {/* First row: Text Input */}
           <Box px="0.5rem" py="0.25rem">
-            <Textarea
-              ref={textareaRef}
+            <AutoResizeTextarea
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={effectivePlaceholder}
-              resize="none"
-              minH="1.5rem"
-              // Ensure compact default line height
-              lineHeight="1.5rem"
-              // Render as a single-row textarea by default
-              rows={1}
-              maxH="4.5rem"
-              border="none"
-              py={0}
-              px={0}
-              _focus={{ boxShadow: 'none' }}
+              maxRows={3}
               _placeholder={{ color: placeholderColor }}
-              bg="transparent"
               isDisabled={disabled}
             />
           </Box>

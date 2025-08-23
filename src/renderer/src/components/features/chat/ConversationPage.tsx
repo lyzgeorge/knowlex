@@ -5,6 +5,7 @@ import ChatInputBox from './ChatInputBox'
 import UserMessage from '../../ui/UserMessage'
 import AssistantMessage from '../../ui/AssistantMessage'
 import { useAutoScroll } from '../../../hooks/useAutoScroll'
+import { useMessageBranching } from '../../../hooks/useMessageBranching'
 import { FiChevronDown } from 'react-icons/fi'
 
 export interface ConversationPageProps {
@@ -24,9 +25,12 @@ export interface ConversationPageProps {
 export const ConversationPage: React.FC<ConversationPageProps> = ({ className }) => {
   const { currentMessages } = useCurrentConversation()
 
+  // Use message branching hook to filter messages based on active branches
+  const { filteredMessages, setBranchIndex, getBranchInfo } = useMessageBranching(currentMessages)
+
   // Optimized dependencies - track actual content changes for auto-scroll
   const scrollDependencies = useMemo(() => {
-    const assistantMessages = currentMessages.filter((msg: any) => msg.role === 'assistant')
+    const assistantMessages = filteredMessages.filter((msg: any) => msg.role === 'assistant')
     const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
 
     // Calculate total text length for streaming detection
@@ -39,13 +43,13 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
       }, 0) || 0
 
     return [
-      currentMessages.length, // Total message count (includes user messages)
+      filteredMessages.length, // Total message count (includes user messages)
       assistantMessages.length, // Number of assistant messages
       lastAssistantMessage?.id, // ID of last assistant message
       lastAssistantMessage?.content?.length, // Number of content parts
       totalTextLength // Total text length (grows during streaming)
     ]
-  }, [currentMessages])
+  }, [filteredMessages])
 
   // Auto-scroll with optimized sticky detection
   const { scrollRef, anchorRef, forceScrollToBottom, isAtBottom } = useAutoScroll<HTMLDivElement>(
@@ -60,8 +64,8 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
 
   // Track user message count to force scroll on user messages
   const userMessageCount = useMemo(
-    () => currentMessages.filter((msg: any) => msg.role === 'user').length,
-    [currentMessages]
+    () => filteredMessages.filter((msg: any) => msg.role === 'user').length,
+    [filteredMessages]
   )
 
   // Force scroll when user sends a message (runs after user message is added)
@@ -96,12 +100,20 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
           scrollBehavior: 'auto' // Let our hook control scroll behavior
         }}
       >
-        {/* Message List - Inline rendering */}
+        {/* Message List - Inline rendering with branching */}
         <VStack spacing={4} align="stretch">
-          {currentMessages.map((message) => (
+          {filteredMessages.map((message) => (
             <Box key={message.id} role="listitem">
               {message.role === 'user' ? (
-                <UserMessage message={message} showTimestamp={true} />
+                <UserMessage
+                  message={message}
+                  showTimestamp={true}
+                  branchInfo={getBranchInfo(message)}
+                  onBranchChange={(index) => {
+                    const parentKey = message.parentMessageId ?? '__ROOT__'
+                    setBranchIndex(parentKey, index)
+                  }}
+                />
               ) : (
                 <AssistantMessage message={message} showAvatar={true} showTimestamp={true} />
               )}
@@ -140,7 +152,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
         )}
 
         <Box pointerEvents="auto">
-          <ChatInputBox variant="conversation" />
+          <ChatInputBox variant="conversation" branching={{ filteredMessages }} />
         </Box>
       </Box>
     </Box>

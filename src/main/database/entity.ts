@@ -54,16 +54,21 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
     const placeholders: string[] = []
     const values: any[] = []
 
-    // Add required fields
+    // Add all fields that have values or are required
     for (const field of this.schema.fields) {
-      if (field.required !== false) {
+      let value = (data as any)[field.property]
+
+      // Auto-fill timestamps with ISO 8601 (UTC) when not provided
+      if ((field.property === 'createdAt' || field.property === 'updatedAt') && !value) {
+        value = new Date().toISOString()
+      }
+
+      // Include field if it's required OR has a value
+      const shouldInclude = field.required !== false || (value !== null && value !== undefined)
+
+      if (shouldInclude) {
         insertFields.push(field.column)
         placeholders.push('?')
-        // Auto-fill timestamps with ISO 8601 (UTC) when not provided
-        let value = (data as any)[field.property]
-        if ((field.property === 'createdAt' || field.property === 'updatedAt') && !value) {
-          value = new Date().toISOString()
-        }
         if (field.isJson && value !== null && value !== undefined) {
           values.push(JSON.stringify(value))
         } else {

@@ -14,7 +14,7 @@
 
 import type { Message, MessageContent } from '../../shared/types/message'
 import { streamAIResponse } from './openai-adapter'
-import { updateMessage, getMessages } from './message'
+import { updateMessage, getMessage } from './message'
 import { cancellationManager } from '../utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
 
@@ -266,13 +266,16 @@ export async function generateReplyForNewMessage(
   messageId: string,
   conversationId: string
 ): Promise<void> {
-  // Get all messages in the conversation for AI context
-  const allMessages = await getMessages(conversationId)
+  // Build branch-scoped context (up to 5 messages) following parent chain
+  const branchContext = await buildBranchContext(messageId, {
+    includeCurrentAssistant: false,
+    maxDepth: 5
+  })
 
   await streamAssistantReply({
     messageId,
     conversationId,
-    contextMessages: allMessages,
+    contextMessages: branchContext,
     onSuccess: async (_updatedMessage) => {
       // Trigger title generation after successful completion
       const { tryTriggerAutoTitleGeneration } = await import('./title-generation')
@@ -303,14 +306,50 @@ export async function regenerateReply(messageId: string): Promise<void> {
     throw new Error('Can only regenerate assistant messages')
   }
 
-  // Get conversation messages up to the point before this assistant message
-  const allMessages = await getMessages(message.conversationId)
-  const messageIndex = allMessages.findIndex((m) => m.id === messageId)
-  const contextMessages = allMessages.slice(0, messageIndex)
+  // Build branch-scoped context up to parent chain (exclude the assistant itself)
+  const contextMessages = await buildBranchContext(messageId, {
+    includeCurrentAssistant: false,
+    maxDepth: 5
+  })
 
   await streamAssistantReply({
     messageId,
     conversationId: message.conversationId,
     contextMessages
   })
+}
+
+// ----------------------------------------
+// Branch context helper
+// ----------------------------------------
+interface BranchContextOptions {
+  includeCurrentAssistant: boolean
+  maxDepth: number
+}
+
+async function buildBranchContext(
+  assistantMessageId: string,
+  options: BranchContextOptions
+): Promise<Message[]> {
+  const { includeCurrentAssistant, maxDepth } = options
+  const chain: Message[] = []
+
+  let current = await getMessage(assistantMessageId)
+  if (!current) return []
+
+  // Optionally include the (placeholder) assistant; usually skipped because it has no content yet
+  if (includeCurrentAssistant) chain.push(current)
+
+  // Climb parent chain
+  while (chain.length < maxDepth) {
+    const parentId = current.parentMessageId
+    if (!parentId) break
+    const parent = await getMessage(parentId)
+    if (!parent) break
+    chain.push(parent)
+    current = parent
+  }
+
+  // We collected from leaf upwards; reverse to chronological order (oldest -> newest)
+  return chain.reverse()
 }

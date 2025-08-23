@@ -334,6 +334,11 @@ export function registerConversationIPCHandlers(): void {
           ? request.conversationId.trim()
           : undefined
 
+      const parentMessageId: string | undefined =
+        typeof request.parentMessageId === 'string' && request.parentMessageId.trim().length > 0
+          ? request.parentMessageId.trim()
+          : undefined
+
       // Determine conversation - create if needed
       let actualConversationId = providedConversationId
       if (!actualConversationId) {
@@ -350,7 +355,8 @@ export function registerConversationIPCHandlers(): void {
       const userMessage = await addMessage({
         conversationId: actualConversationId,
         role: 'user',
-        content: request.content as any
+        content: request.content as any,
+        ...(parentMessageId && { parentMessageId })
       })
       sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
 
@@ -361,7 +367,8 @@ export function registerConversationIPCHandlers(): void {
       const assistantMessage = await addMessage({
         conversationId: actualConversationId,
         role: 'assistant',
-        content: [{ type: 'text' as const, text: '\u200B' }]
+        content: [{ type: 'text' as const, text: '\u200B' }],
+        parentMessageId: userMessage.id
       })
 
       // Use assistant service for unified streaming logic

@@ -6,3 +6,6 @@ export { useNotifications } from '../../hooks/useNotifications'
 
 // File components
 export { default as TempFileCard } from './TempFileCard'
+
+// Inputs
+export { default as AutoResizeTextarea } from './AutoResizeTextarea'
