@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react'
-import { Box, VStack, HStack, Text, useColorModeValue, Icon } from '@chakra-ui/react'
+import { Box, VStack, HStack, Text, useColorModeValue, Icon, IconButton } from '@chakra-ui/react'
 import { FaForumbee } from 'react-icons/fa'
+import { CopyIcon } from '@chakra-ui/icons'
 import { formatTime } from '../../../../shared/utils/time'
-import type { Message } from '../../../../shared/types/message'
-import MessageActionIcons from '../features/chat/MessageActionIcons'
+import type { Message, MessageContentPart } from '../../../../shared/types/message'
 import ReasoningBox from './ReasoningBox'
-import MessageContentRenderer from './MessageContentRenderer'
+import MarkdownContent from './MarkdownContent'
+import { useNotifications } from './index'
 import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId,
@@ -16,8 +17,6 @@ import {
 export interface AssistantMessageProps {
   /** Message data */
   message: Message
-  /** Whether this message is currently being streamed */
-  isStreaming?: boolean
   /** Whether to show the avatar */
   showAvatar?: boolean
   /** Whether to show the timestamp */
@@ -29,11 +28,11 @@ export interface AssistantMessageProps {
  */
 export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   message,
-  isStreaming = false,
   showAvatar = true,
   showTimestamp = true
 }) => {
   const [isHovered, setIsHovered] = useState(false)
+  const notifications = useNotifications()
 
   // Reasoning streaming state
   const isReasoningStreaming = useIsReasoningStreaming()
@@ -66,6 +65,37 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const handleMouseLeave = useCallback(() => {
     setIsHovered((prev) => (prev ? false : prev))
   }, [])
+
+  // Get text content only
+  const getTextContent = () => {
+    return message.content
+      .filter((part: MessageContentPart) => part.type === 'text')
+      .map((part: MessageContentPart) => part.text || '')
+      .join('\n')
+  }
+
+  // Get text content for rendering
+  const textContent = getTextContent()
+
+  // Handle copy
+  const handleCopy = async () => {
+    try {
+      const content = getTextContent()
+      await navigator.clipboard.writeText(content)
+      notifications.success({
+        title: 'Copied',
+        description: 'Text content copied to clipboard',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      notifications.error({
+        title: 'Copy failed',
+        description: 'Failed to copy',
+        duration: 3000
+      })
+    }
+  }
 
   return (
     <HStack align="flex-start" spacing={3} width="100%" justify="flex-start" mb={4}>
@@ -101,23 +131,24 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           </Box>
         )}
 
-        <Box
-          bg="transparent"
-          color={assistantTextColor}
-          px={2}
-          py={0}
-          borderRadius="lg"
-          alignSelf="flex-start"
-        >
-          <MessageContentRenderer
-            content={message.content}
-            variant="assistant"
-            isStreaming={isStreaming}
-            // External streaming indicator is shown below; hide inline cursor
-            showCursor={false}
-            isReasoningStreaming={isReasoningStreamingForMessage}
-          />
-        </Box>
+        {/* Text content */}
+        {(textContent.trim() || isTextStreamingForMessage) && (
+          <Box
+            bg="transparent"
+            color={assistantTextColor}
+            px={2}
+            py={0}
+            borderRadius="lg"
+            alignSelf="flex-start"
+          >
+            <MarkdownContent
+              text={textContent}
+              isStreaming={isTextStreamingForMessage}
+              // External streaming indicator is shown below; hide inline cursor
+              showCursor={false}
+            />
+          </Box>
+        )}
 
         {/* Text streaming indicator (blinking FaForumbee) when text is streaming */}
         {isTextStreamingForMessage && (
@@ -147,7 +178,14 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           onMouseLeave={handleMouseLeave}
         >
           <Box display={isHovered ? 'flex' : 'none'}>
-            <MessageActionIcons message={message} isVisible={true} />
+            <IconButton
+              aria-label="Copy to clipboard"
+              icon={<CopyIcon />}
+              size="xs"
+              variant="ghost"
+              onClick={handleCopy}
+              _hover={{ bg: 'surface.hover' }}
+            />
           </Box>
           <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
             <Text variant="timestamp">{formatTime(message.updatedAt)}</Text>

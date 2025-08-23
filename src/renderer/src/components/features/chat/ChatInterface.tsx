@@ -119,14 +119,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
         })
 
         if (file.isImage) {
-          // Add as image content part
+          // Add as image content part (AI SDK compatible format)
           content.push({
             type: 'image' as const,
             image: {
-              url: file.content, // This is a data URL
-              alt: file.filename,
-              mimeType: file.mimeType,
-              size: file.size
+              image: file.content, // DataContent: base64 data URL
+              mediaType: file.mimeType
             }
           })
         } else {

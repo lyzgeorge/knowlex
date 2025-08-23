@@ -135,29 +135,17 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   )
 
   // Auto-resize textarea
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = e.target.value
-      setInput(value)
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    setInput(value)
 
-      // Auto-resize with different limits based on variant
-      const textarea = textareaRef.current
-      if (textarea) {
-        const minHeight = 32 // 2rem = 32px
-        const maxHeight = variant === 'main-entrance' ? 120 : 200
-
-        // Only resize if there are line breaks, otherwise keep minimum height
-        if (value.includes('\n')) {
-          textarea.style.height = 'auto'
-          const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight))
-          textarea.style.height = `${newHeight}px`
-        } else {
-          textarea.style.height = '2rem'
-        }
-      }
-    },
-    [variant]
-  )
+    // Auto-resize textarea
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [])
 
   // Handle stop streaming (supports reasoning or text streaming)
   const handleStop = useCallback(async () => {
@@ -215,7 +203,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       setInput('')
       fileUpload.clearFiles()
       if (textareaRef.current) {
-        textareaRef.current.style.height = '2rem'
+        textareaRef.current.style.height = 'auto'
       }
 
       // Use custom handler for main-entrance variant
@@ -247,14 +235,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             })
 
             if (file.isImage) {
-              // Add as image content part
+              // Add as image content part (AI SDK compatible format)
               content.push({
                 type: 'image' as const,
                 image: {
-                  url: file.content, // This is a data URL
-                  alt: file.filename,
-                  mimeType: file.mimeType,
-                  size: file.size
+                  image: file.content, // base64 data URL
+                  mediaType: file.mimeType
                 }
               })
             } else {
@@ -285,8 +271,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               ? { textLength: c.text?.length }
               : c.type === 'image'
                 ? {
-                    filename: (c as any).image?.alt || 'image',
-                    url: (c as any).image?.url?.substring(0, 50) + '...' || undefined
+                    imageType: typeof (c as any).image,
+                    mediaType: (c as any).mediaType,
+                    isDataUrl:
+                      typeof (c as any).image === 'string' &&
+                      (c as any).image?.startsWith?.('data:')
                   }
                 : { filename: (c as any).temporaryFile?.filename || 'file' })
           }))
@@ -375,6 +364,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        minH="3rem"
       >
         {/* File Previews - Inside chatbox, above input controls */}
         {fileUpload.state.files.length > 0 && (
@@ -409,41 +399,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           </Box>
         )}
 
-        <HStack spacing={3} align="end">
-          {/* File Upload Button */}
-          {showFileAttachment && (
-            <>
-              <IconButton
-                aria-label="Attach file"
-                icon={<AttachmentIcon />}
-                size="sm"
-                variant="ghost"
-                borderRadius="full"
-                isDisabled={
-                  disabled || fileUpload.state.files.length >= 10 || fileUpload.state.isProcessing
-                }
-                onClick={() => fileInputRef.current?.click()}
-              />
-
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.csv,.json,.xml,.html,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    handleFileUpload(e.target.files)
-                  }
-                  e.target.value = ''
-                }}
-              />
-            </>
-          )}
-
-          {/* Text Input */}
-          <Box flex={1}>
+        {/* Two-row layout */}
+        <Box display="flex" flexDirection="column">
+          {/* First row: Text Input */}
+          <Box px="0.5rem" py="0.25rem">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -451,11 +410,14 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               onKeyDown={handleKeyDown}
               placeholder={effectivePlaceholder}
               resize="none"
-              minH="2rem"
-              h="2rem"
-              maxH={variant === 'main-entrance' ? '120px' : '200px'}
+              minH="1.5rem"
+              // Ensure compact default line height
+              lineHeight="1.5rem"
+              // Render as a single-row textarea by default
+              rows={1}
+              maxH="4.5rem"
               border="none"
-              py={1}
+              py={0}
               px={0}
               _focus={{ boxShadow: 'none' }}
               _placeholder={{ color: placeholderColor }}
@@ -464,41 +426,79 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             />
           </Box>
 
-          {/* Send / Refreshing-Stop Button */}
-          {isRefreshing ? (
-            <IconButton
-              aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
-              icon={
-                isHoveringStreamButton ? (
-                  <FaStop />
-                ) : (
-                  <RepeatIcon css={{ animation: `${spinAnimation} 1s linear infinite` }} />
-                )
-              }
-              variant="solid"
-              {...(isHoveringStreamButton
-                ? { colorScheme: 'red' as const }
-                : { bg: 'gray.300' as const })}
-              size="sm"
-              borderRadius="md"
-              onClick={handleStop}
-              onMouseEnter={() => setIsHoveringStreamButton(true)}
-              onMouseLeave={() => setIsHoveringStreamButton(false)}
-              cursor="pointer"
-            />
-          ) : (
-            <IconButton
-              aria-label="Send message"
-              icon={<ArrowUpIcon />}
-              {...(canSend ? { colorScheme: 'primary' } : {})}
-              size="sm"
-              borderRadius="md"
-              isDisabled={!canSend}
-              onClick={handleSend}
-              cursor={canSend ? 'pointer' : 'not-allowed'}
-            />
-          )}
-        </HStack>
+          {/* Second row: File Upload (left) and Send Button (right) */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" h="2rem">
+            {/* File Upload Button - Bottom Left */}
+            {showFileAttachment && (
+              <>
+                <IconButton
+                  aria-label="Attach file"
+                  icon={<AttachmentIcon />}
+                  size="sm"
+                  variant="ghost"
+                  borderRadius="full"
+                  isDisabled={
+                    disabled || fileUpload.state.files.length >= 10 || fileUpload.state.isProcessing
+                  }
+                  onClick={() => fileInputRef.current?.click()}
+                />
+
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.csv,.json,.xml,.html,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleFileUpload(e.target.files)
+                    }
+                    e.target.value = ''
+                  }}
+                />
+              </>
+            )}
+
+            {/* Spacer for when file attachment is hidden */}
+            {!showFileAttachment && <Box />}
+
+            {/* Send / Refreshing-Stop Button - Bottom Right */}
+            {isRefreshing ? (
+              <IconButton
+                aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
+                icon={
+                  isHoveringStreamButton ? (
+                    <FaStop />
+                  ) : (
+                    <RepeatIcon css={{ animation: `${spinAnimation} 1s linear infinite` }} />
+                  )
+                }
+                variant="solid"
+                {...(isHoveringStreamButton
+                  ? { colorScheme: 'red' as const }
+                  : { bg: 'gray.300' as const })}
+                size="sm"
+                borderRadius="md"
+                onClick={handleStop}
+                onMouseEnter={() => setIsHoveringStreamButton(true)}
+                onMouseLeave={() => setIsHoveringStreamButton(false)}
+                cursor="pointer"
+              />
+            ) : (
+              <IconButton
+                aria-label="Send message"
+                icon={<ArrowUpIcon />}
+                {...(canSend ? { colorScheme: 'primary' } : {})}
+                size="sm"
+                borderRadius="md"
+                isDisabled={!canSend}
+                onClick={handleSend}
+                cursor={canSend ? 'pointer' : 'not-allowed'}
+              />
+            )}
+          </Box>
+        </Box>
       </Box>
     </Box>
   )

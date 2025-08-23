@@ -95,51 +95,70 @@ export function validateOpenAIConfig(config?: OpenAIConfig): {
  */
 function convertMessagesToAIFormat(messages: Message[]) {
   return messages.map((message) => {
-    // Handle multimodal content
+    // Fast-path: single plain text message
     if (
       message.content.length === 1 &&
       message.content[0]?.type === 'text' &&
       message.content[0]?.text
     ) {
-      // Simple text message
-      return {
-        role: message.role,
-        content: message.content[0].text
-      }
+      return { role: message.role, content: message.content[0].text }
     }
 
-    // Complex multimodal content - convert all to text
-    const textParts = message.content
-      .map((part) => {
-        switch (part.type) {
-          case 'text':
-            return part.text || ''
+    // If any part is non-text, build parts array for AI SDK
+    const hasNonText = message.content.some((p) => p.type !== 'text')
 
-          case 'temporary-file':
-            if (part.temporaryFile) {
-              return `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
-            }
-            break
+    if (hasNonText) {
+      const parts = message.content
+        .map((part) => {
+          switch (part.type) {
+            case 'text':
+              return part.text ? { type: 'text' as const, text: part.text } : null
+            case 'temporary-file':
+              if (part.temporaryFile) {
+                const text = `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
+                return { type: 'text' as const, text }
+              }
+              return null
+            case 'citation':
+              if (part.citation) {
+                const text = `[Citation: ${part.citation.filename}]\n${part.citation.content}`
+                return { type: 'text' as const, text }
+              }
+              return null
+            case 'image':
+              if (part.image && typeof part.image.image === 'string') {
+                // Pass base64 (optionally data URL) directly to AI SDK
+                return {
+                  type: 'image' as const,
+                  image: part.image.image,
+                  ...(part.image.mediaType ? { mediaType: part.image.mediaType } : {})
+                }
+              }
+              return null
+            default:
+              return null
+          }
+        })
+        .filter(Boolean) as Array<
+        { type: 'text'; text: string } | { type: 'image'; image: any; mediaType?: string }
+      >
 
-          case 'citation':
-            if (part.citation) {
-              return `[Citation: ${part.citation.filename}]\n${part.citation.content}`
-            }
-            break
-
-          case 'image':
-            console.warn('[AI] Image content type is not supported')
-            break
+      // If parts collapse to a single text, return as string for efficiency
+      if (parts.length === 1) {
+        const first: any = parts[0]
+        if (first && first.type === 'text') {
+          return { role: message.role, content: first.text }
         }
-
-        return part.text || ''
-      })
-      .filter(Boolean)
-
-    return {
-      role: message.role,
-      content: textParts.join('\n\n')
+      }
+      return { role: message.role, content: parts }
     }
+
+    // Fallback: join multiple text parts
+    const text = message.content
+      .map((p) => (p.type === 'text' ? p.text || '' : ''))
+      .filter(Boolean)
+      .join('\n\n')
+    return { role: message.role, content: text }
   })
 }
 

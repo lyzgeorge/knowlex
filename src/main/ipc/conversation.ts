@@ -485,20 +485,11 @@ export function registerConversationIPCHandlers(): void {
                 sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConv)
               }
 
-              // Prepare user content for DB: map unsupported parts (image) to text marker
-              const userContentForDB = (request.content as any[]).map((part) => {
-                if (part.type === 'image') {
-                  const alt = part.image?.alt || 'image'
-                  return { type: 'text', text: `[Image: ${alt}]` }
-                }
-                return part
-              })
-
               // Write user message
               const userMessage = await addMessage({
                 conversationId: actualConversationId!,
                 role: 'user',
-                content: userContentForDB
+                content: request.content as any
               })
               sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
 
@@ -752,7 +743,6 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:update',
     'conversation:update-title',
     'conversation:delete',
-    'conversation:move',
     'conversation:update-settings',
     'conversation:generate-title',
     // Message channels

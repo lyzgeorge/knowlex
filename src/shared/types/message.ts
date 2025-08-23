@@ -45,8 +45,15 @@ export interface TemporaryFileContent {
 }
 
 export interface ImageContent {
-  url: string
-  alt?: string
-  mimeType?: string
-  size?: number
+  /**
+   * Image data as string (base64 data URL, URL, or base64 content)
+   * Compatible with AI SDK ImagePart.image format
+   * For binary data (ArrayBuffer, Uint8Array, Buffer), convert to base64 string first
+   */
+  image: string
+  /**
+   * Optional IANA media type of the image.
+   * We recommend leaving this out as it will be detected automatically.
+   */
+  mediaType?: string
 }

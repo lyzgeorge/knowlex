@@ -6,7 +6,8 @@ import {
   getFileExtension,
   isValidTemporaryFileType,
   getMimeTypeFromExtension,
-  formatBytes
+  formatBytes,
+  isImageFile
 } from '../../shared/utils/validation'
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../../shared/constants/file'
 import { parseFile, FileParserFactory } from './file-parser'
@@ -194,6 +195,22 @@ async function processSingleTemporaryFile(
   }
 
   try {
+    // Handle image files - read as base64 without text parsing
+    if (isImageFile(filename)) {
+      console.log(`[MAIN] Processing image file from path: ${filename}`)
+      const imageBuffer = await fs.readFile(filePath)
+      const base64Content = imageBuffer.toString('base64')
+      const dataUrl = `data:${getMimeTypeFromExtension(filename)};base64,${base64Content}`
+
+      return {
+        filename,
+        content: dataUrl, // Return as data URL for frontend compatibility
+        size,
+        mimeType: getMimeTypeFromExtension(filename),
+        error: undefined
+      }
+    }
+
     const result = await parseFile(filePath, filename)
 
     return {
@@ -356,6 +373,19 @@ async function processSingleTemporaryFileContent(
 
   try {
     const mimeType = getMimeTypeFromExtension(filename)
+
+    // Handle image files - ensure content is a base64 data URL for consistency
+    if (isImageFile(filename)) {
+      console.log(`[MAIN] Processing image file: ${filename}`)
+      const dataUrl = content.startsWith('data:') ? content : `data:${mimeType};base64,${content}`
+      return {
+        filename,
+        content: dataUrl,
+        size,
+        mimeType,
+        error: undefined
+      }
+    }
 
     // Check if this file type needs parsing (binary files like DOCX, PDF, etc.)
     const needsParsing = FileParserFactory.isBinary(filename)

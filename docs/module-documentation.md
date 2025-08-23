@@ -9,15 +9,16 @@
 
 一句话：临时文件处理服务，验证、解析上传的临时文件并返回可用于会话的文本结果。
 
+
 | 函数 / 导出 | 参数 | 返回 / 说明 |
 |---|---:|---|
-| processTemporaryFileContents (32) | files: Array<{name, content, size}> | TemporaryFileResult[]；验证并处理基于内容的文件（浏览器File API） |
-| processTemporaryFiles (74) | filePaths: string[] | TemporaryFileResult[]；基于文件路径处理临时文件 |
-| extractTextContent (223) | filePath: string, filename: string | Promise<string>；从文件中提取文本内容 |
-| validateTemporaryFileConstraints (300) | files: {name:string,size:number}[] | {valid:boolean, errors:string[]}；校验临时文件约束 |
-| cleanupTemporaryFiles (450) | filePaths: string[] | Promise<void>；尝试删除临时文件 |
+| processTemporaryFileContents | files: Array<{name, content, size}> | TemporaryFileResult[]；验证并处理基于内容的文件（浏览器 File API），支持 base64 二进制与文本数据 |
+| processTemporaryFiles | filePaths: string[] | TemporaryFileResult[]；基于文件路径处理临时文件，包含图片直接转 data URL 的快速路径 |
+| extractTextContent | filePath: string, filename: string | Promise<string>；从文件中提取文本内容，使用 file-parser 工厂 |
+| validateTemporaryFileConstraints | files: {name:string,size:number}[] | {valid:boolean, errors:string[]}；校验临时文件约束（数量/单文件/总大小/扩展名） |
+| cleanupTemporaryFiles | filePaths: string[] | Promise<void>；尝试删除临时文件 |
 
-模块逻辑：先校验（数量/大小/类型），对二进制文件用 parser 写入临时文件并解析，文本文件直接清理后返回内容；错误以结果结构返回。
+模块逻辑：先做统一校验（数量/总大小/每文件大小/扩展名），对图片返回 base64 data URL（无需文本解析），对二进制文档（PDF/Office）将上传的 base64 写入临时文件并用 parser 提取文本；文本文件直接返回清理后的文本；错误会以 result.error 字段逐文件返回，整体验证失败（如超出总大小）会为全部文件返回错误。
 
 ---
 
@@ -66,23 +67,24 @@
 
 一句话：消息管理服务，支持多部分内容、临时文件转消息、引用添加与工具型内容校验。
 
+
 | 函数 / 导出 | 参数 | 返回 / 说明 |
 |---|---:|---|
-| addMessage (123) | data: CreateMessageData | Promise<Message>；校验并写入消息（多部分） |
-| getMessage (174) | id:string | Promise<Message|null>；按 id 获取 |
-| getMessages (194) | conversationId:string | Promise<Message[]>；获取会话所有消息 |
-| updateMessage (214) | id:string, data:UpdateMessageData | Promise<Message>；校验并更新消息 |
-| deleteMessage (255) | id:string | Promise<void>；删除消息 |
-| addTextMessage (281) | conversationId, role, text, parentMessageId? | Promise<Message>；便捷创建文本消息 |
-| addMultiPartMessage (315) | conversationId, role, parts[], parentMessageId? | Promise<Message>；便捷创建多段消息 |
-| addCitationToMessage (342) | messageId, filename, fileId, content, similarity, pageNumber? | Promise<Message>；在消息尾追加引用部分 |
-| extractTextContent (381) | message:Message | string；合并所有文本段落 |
-| extractCitations (393) | message:Message | any[]；提取所有引用部分 |
-| getContentStats (404) | message:Message | object；统计各类型段落数量 |
-| convertTemporaryFilesToMessageParts (437) | TemporaryFileResult[] | MessageContentPart[]；把临时文件结果转换为消息段 |
-| addMessageWithTemporaryFiles (471) | conversationId, role, textContent, temporaryFileResults[], parentMessageId? | Promise<Message>；合成文本+临时文件创建消息 |
+| addMessage | data: CreateMessageData | Promise<Message>；校验并写入消息（支持多种 content part 类型，包括 text/image/temporary-file/citation/tool-call） |
+| getMessage | id:string | Promise<Message|null>；按 id 获取 |
+| getMessages | conversationId:string | Promise<Message[]>；获取会话所有消息 |
+| updateMessage | id:string, data:UpdateMessageData | Promise<Message>；校验并更新消息（content 与 reasoning） |
+| deleteMessage | id:string | Promise<void>；删除消息 |
+| addTextMessage | conversationId, role, text, parentMessageId? | Promise<Message>；便捷创建文本消息 |
+| addMultiPartMessage | conversationId, role, parts[], parentMessageId? | Promise<Message>；便捷创建多段消息 |
+| addCitationToMessage | messageId, filename, fileId, content, similarity, pageNumber? | Promise<Message>；在消息尾追加引用部分 |
+| extractTextContent | message:Message | string；合并所有文本段落 |
+| extractCitations | message:Message | any[]；提取所有引用部分 |
+| getContentStats | message:Message | object；统计各类型段落数量 |
+| convertTemporaryFilesToMessageParts | TemporaryFileResult[] | MessageContentPart[]；把临时文件结果转换为消息段（错误文件会转换为 text 部分） |
+| addMessageWithTemporaryFiles | conversationId, role, textContent, temporaryFileResults[], parentMessageId? | Promise<Message>；合成文本+临时文件创建消息，支持将图片作为 image part 插入 |
 
-模块逻辑：严格校验消息内容结构与各类型字段（text/citation/tool-call/temporary-file），提供 CRUD 与若干便捷构造函数，保证写入 DB 的消息合法。
+模块逻辑：严格校验消息内容结构与各类型字段（text/citation/tool-call/temporary-file/image），要求至少有一个有意义的 content part；提供 CRUD 与便捷构造函数，并把临时文件结果统一转换为 message content（有错误的文件会作为文本错误片段插入）。
 
 ---
 
@@ -112,6 +114,8 @@
 | regenerateReply (343) | messageId:string | Promise<void>；重生某条 assistant 消息的回复（仅 assistant 类型） |
 
 模块逻辑：为流式 AI 响应建立取消 token，实时发送 TEXT/REASONING chunk 事件，按取消或完成写入 DB 并触发相应 IPC 事件，出错时保证安全回退并调用回调。
+
+（注意：IPC 层已添加对 message:send / message:stop / message:regenerate 的支持，assistant-service 协作以在流开始时创建用户/assistant 占位消息并使用 CancellationManager 注册 token。）
 
 ---
 
@@ -443,9 +447,9 @@
 
 | 组件 / 导出 | 说明 |
 |---|---|
-| ChatInterface | 主聊天 UI 组件，处理自动滚动、流式显示与发送消息构建逻辑 |
+| ChatInterface | 主聊天 UI 组件，处理自动滚动、流式显示与发送消息构建逻辑；支持无会话时的入口界面（main-entrance） |
 
-模块逻辑：使用 useConversationStore 提供的钩子渲染消息、处理用户输入与文件附件，优化自动滚动策略并在发送时构建 MessageContent。
+模块逻辑：从 store 读取会话与消息，使用 `useAutoScroll`（带 threshold/smooth/follow 配置）控制滚动行为：在用户主动发送消息时强制滚动到底部，但在流式生成期间不自动跟随流（follow:false），并提供一个显式的“回到底部”按钮。空会话与首次进入时使用 `ChatInputBox` 的 `main-entrance` 变体，消息存在时显示消息列表并用浮动输入窗。
 
 ---
 
@@ -490,9 +494,9 @@
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| MessageContentRenderer | props: {content:MessageContent, variant:'user'|'assistant', isStreaming?:boolean, showCursor?:boolean, isReasoningStreaming?:boolean} | 渲染各类型内容，用户端将文件显示为 TempFileCard，助理端则内联展示文件内容摘录 |
+| MessageContentRenderer | props: {content:MessageContent, variant:'user'|'assistant', isStreaming?:boolean, showCursor?:boolean, isReasoningStreaming?:boolean} | 渲染各类型内容：text/image/temporary-file/citation 等。对于 `user` variant，文件/图片优先渲染为 `TempFileCard`（compact）；对于 `assistant` variant，文件内容以内联摘录方式展示；支持在流式文本末尾显示光标并在推理流时隐藏该光标。 |
 
-模块逻辑：按 variant 优化渲染顺序（user 文件优先），对 text 使用 Markdown 渲染并在流式场景显示光标图标。
+模块逻辑：根据 content part 的类型渲染不同 UI：文本使用 `ReactMarkdown`（含语法高亮），图片在用户消息显示为 `TempFileCard`（估算大小），临时文件在用户端显示为卡片，在助理端以内联块展示文件摘录（只显示前 N 字符）。流式场景下最后一个文本片段会显示闪烁光标，若 `isReasoningStreaming` 为 true 则隐藏文本光标以突出推理流。
 
 ---
 
@@ -503,9 +507,9 @@
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| ChatInputBox | props: ChatInputBoxProps (variant, disabled, placeholder, showFileAttachment, onSendMessage) | 处理本地输入/文件，调用 fileUpload hook 处理临时文件并调用 sendMessage 或自定义 handler |
+| ChatInputBox | props: ChatInputBoxProps (variant, disabled, placeholder, showFileAttachment, onSendMessage) | 处理本地输入/文件，支持两种变体（main-entrance / conversation），使用 `useFileUpload` 自动处理临时文件并调用 store 的 sendMessage 或自定义 handler |
 
-模块逻辑：管理输入状态与文件上传队列，处理快捷键（Enter 发送）、防抖文件上传、处理发送流程（处理文件、清空输入、调用 sendMessage）并在失败时恢复输入与文件。
+模块逻辑：管理输入状态、自动高度、节流/去重的文件上传（防止 100ms 重复触发）、文件预览与批量处理。发送流程时先把文件交给 `useFileUpload` 处理（二进制文件会被 base64 编码并由主进程解析），将处理结果映射为 message content parts：图片作为 `image` part，其他文件作为 `temporary-file` part；支持在发送中通过 Stop 按钮取消流式生成（调用 `message:stop`），并在失败时恢复原始输入与文件队列以便重试。
 
 ---
 
@@ -531,15 +535,18 @@
 ## src/shared/utils/validation.ts
 路径：src/shared/utils/validation.ts
 
-一句话：通用输入/数据校验工具（类型守卫、模式校验）。
+一句话：通用输入/数据校验与文件相关工具（类型守卫、文件扩展名与大小校验）。
 
 | 函数 / 导出 | 参数 | 返回 / 说明 |
 |---|---:|---|
 | isNonEmptyString | v: unknown | boolean；判断非空字符串 |
 | isArrayOf | (v: unknown, predicate: (x:any)=>boolean) | boolean；判断数组且元素满足 predicate |
 | validateEmail | v: string | boolean；简单 email 模式校验 |
+| getFileExtension | filename:string | string；提取扩展名 |
+| isImageFile | filenameOrMime:string | boolean；基于扩展名或 mime 判断是否为图片 |
+| formatBytes | bytes:number | string；友好字节单位格式化 |
 
-模块逻辑：提供小而可组合的守卫函数，被 IPC/common 与前端表单复用以减少重复校验代码。
+模块逻辑：除了通用的守卫与校验函数外，新增文件工具用于客户端/服务端一致的文件类型判断与大小显示（被 useFileUpload、file-temp 与文件解析流程复用）。
 
 ---
 
@@ -561,15 +568,16 @@
 ## src/shared/constants/file.ts
 路径：src/shared/constants/file.ts
 
-一句话：文件处理相关常量（最大大小、允许扩展名、临时目录名）。
+一句话：文件处理相关常量（客户端/服务端约束、支持的扩展与 MIME 映射、分片常量）。
 
 | 导出 | 说明 |
 |---|---|
-| MAX_TEMP_FILE_BYTES | number；单文件最大字节数 |
-| ALLOWED_EXTENSIONS | string[]；允许上传的扩展名列表 |
-| TEMP_DIR_NAME | string；临时文件目录名 |
+| FILE_CONSTRAINTS | object；包含 maxFiles, maxFileBytes, maxTotalBytes 等约束 |
+| SUPPORTED_FILE_TYPES | Record<string,string[]>；按类别列出允许的扩展名 |
+| MIME_TYPES | Record<string,string>；扩展名到 mime-type 的映射 |
+| CHUNK_SIZE / CHUNK_OVERLAP | number；用于向量化时的分片大小/重叠设置 |
 
-模块逻辑：为 file-temp、file-parser 等模块提供集中约束与策略常量，便于调整与测试。
+模块逻辑：集中定义客户端与主进程共享的文件策略（例如大小限制、允许的扩展名与 MIME 推断），并为解析/向量化流程提供分片常量。
 
 ---
 
@@ -596,10 +604,10 @@
 | 导出 / 类型 | 说明 |
 |---|---|
 | Message | 核心消息实体类型（id, conversationId, role, content[], createdAt） |
-| MessageContentPart | 单条内容段落类型（text / temporary-file / citation / tool-call） |
+| MessageContentPart | 单条内容段落类型（支持 text / temporary-file / citation / tool-call / image） |
 | CreateMessageData / UpdateMessageData | 用于创建/更新 API 使用的窄类型 |
 
-模块逻辑：为数据库层、IPC 与渲染层提供一致的消息数据结构定义，包含可序列化字段说明。
+模块逻辑：为数据库层、IPC 与渲染层提供一致的消息数据结构定义。注意新增的 `image` 内容类型用来表示内联图片或 data-url（字段形如 {type:'image', image:string, mediaType?:string}），并在前端渲染与发送流程中被优先处理为图片显示。
 
 ---
 
@@ -634,26 +642,26 @@
 ## src/renderer/src/hooks/useAutoScroll.ts
 路径：src/renderer/src/hooks/useAutoScroll.ts
 
-一句话：自动滚动列表的 React Hook（用于消息列表）。
+一句话：自动滚动与锚点管理的 React Hook，用于消息列表，支持在流式生成时选择是否跟随。
 
 | 导出 | 参数 | 返回 |
 |---|---:|---|
-| useAutoScroll | deps?: any[] | {ref, scrollToBottom()}；管理滚动容器的 ref 与触发器 |
+| useAutoScroll | options?: {threshold?:number,smooth?:boolean,follow?:boolean} | {scrollRef, anchorRef, forceScrollToBottom, isAtBottom}；管理滚动容器 ref、锚点与强制滚动 |
 
-模块逻辑：监控消息列表变化并在合适时刻平滑滚动到底部，支持暂停滚动（用户手动滚动时）。
+模块逻辑：监控消息列表变化并在合适时刻平滑滚动到底部。Hook 提供 `follow` 控制（当流式生成时组件会传入 follow:false 以避免自动跟随），并暴露 `forceScrollToBottom()` 以便在用户主动发送消息时强制滚动。还提供 `isAtBottom` 帮助决定是否显示“回到底部”按钮。
 
 ---
 
 ## src/renderer/src/hooks/useFileUpload.ts
 路径：src/renderer/src/hooks/useFileUpload.ts
 
-一句话：处理前端文件选择/拖拽并调用临时文件处理 IPC 的 hook。 
+一句话：处理前端文件选择/拖拽、客户端校验并调用主进程临时文件处理 IPC 的 hook。
 
 | 导出 | 参数 | 返回 |
 |---|---:|---|
-| useFileUpload | options? | {uploadFiles(files), isUploading, progress} |
+| useFileUpload | options?: {maxFiles?:number, maxTotalBytes?:number} | {addFiles(files), isUploading, progress, queuedFiles} |
 
-模块逻辑：封装文件选择、批量上传、进度与错误回退，最后返回 TemporaryFileResult 列表供发送消息使用。
+模块逻辑：在客户端先执行去重与本地约束验证（最大文件数、单文件与总大小限制），对二进制文件将其 base64 编码后通过 IPC `file.processTempContent` 发送给主进程进行解析。Hook 返回 `TemporaryFileResult[]`（每项包含 filename, content/text, size, mime, isImage?）并在结果里标注 `isImage` 以便上层将图片转换为 `image` 内容片段，其他文件转换为 `temporary-file` 片段。为避免重复触发，上传入口有短时 (100ms) 去重/节流保护。
 
 ---
 
@@ -764,26 +772,26 @@
 ## src/renderer/src/components/features/chat/TempFileCard.tsx
 路径：src/renderer/src/components/features/chat/TempFileCard.tsx
 
-一句话：在消息中展示临时文件的卡片（缩略图/文件名/操作）。
+一句话：在消息中展示临时文件的卡片（文件名 / 大小 / 操作），图片使用简洁预览或 data-url 显示。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| TempFileCard | props: {file, onOpen?, onRemove?} | 显示文件缩略与元信息 |
+| TempFileCard | props: {file, variant?:'compact'|'default', onOpen?, onRemove?} | 显示文件基本信息与操作 |
 
-模块逻辑：依据文件类型展示缩略（图片/文本/通用图标），并支持打开或从消息中移除的动作。
+模块逻辑：显示文件名、估算大小和简短元信息。对于图片类型会提供简洁预览（或 data-url 的小图），但不会在卡片中渲染大型缩略以节省布局预算；支持打开文件（在独立窗口/浏览器中）或从消息中移除。Compact 变体用于消息气泡内的紧凑显示。
 
 ---
 
 ## src/renderer/src/components/features/chat/MessageActionIcons.tsx
 路径：src/renderer/src/components/features/chat/MessageActionIcons.tsx
 
-一句话：消息操作图标集合（编辑、删除、复制、重试）。
+一句话：消息操作图标集合（编辑、复制、重试/重生成、删除等），根据角色决定可见操作。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| MessageActionIcons | props: {message, onEdit, onDelete, onCopy, onRegenerate?} | 渲染可见/hover 的操作图标 |
+| MessageActionIcons | props: {message, onEdit, onDelete, onCopy, onRegenerate?} | 渲染 hover 可见的操作图标 |
 
-模块逻辑：集中管理消息相关动作的触发点，保持 UI 行为一致并委派到 store 或 IPC。
+模块逻辑：为用户消息显示编辑/删除操作，为助理消息显示重试/重生成。复制按钮将消息文本或当前流式文本复制到剪贴板并通过通知反馈成功/失败；重生成会调用 store 或 IPC 发起 `message:regenerate`，编辑会弹出 `MessageEditModal` 并在保存后通过 IPC 更新消息内容。
 
 ---
 

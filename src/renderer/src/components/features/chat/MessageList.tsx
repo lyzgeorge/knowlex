@@ -24,7 +24,7 @@ export interface MessageListProps {
  */
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
-  streamingMessageId,
+  streamingMessageId: _streamingMessageId,
   className
 }) => {
   // Empty state
@@ -48,18 +48,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <VStack spacing={4} align="stretch" className={className}>
       {messages.map((message) => {
-        const isStreaming = streamingMessageId === message.id
         return (
           <Box key={message.id} role="listitem">
             {message.role === 'user' ? (
               <UserMessage message={message} showTimestamp={true} />
             ) : (
-              <AssistantMessage
-                message={message}
-                isStreaming={isStreaming}
-                showAvatar={true}
-                showTimestamp={true}
-              />
+              <AssistantMessage message={message} showAvatar={true} showTimestamp={true} />
             )}
           </Box>
         )

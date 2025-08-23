@@ -172,4 +172,5 @@ typings/
 .vscode-test
 
 prd/
-chatbox-src/
+
+app.env

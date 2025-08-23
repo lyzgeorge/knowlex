@@ -51,9 +51,7 @@ function validateMessageContent(content: MessageContent): void {
       throw new Error(`Invalid content type "${part.type}" at index ${index}`)
     }
 
-    if (part.type === 'image') {
-      throw new Error(`Image content type is not supported (at index ${index})`)
-    }
+    // Image parts are supported; validated in validateContentPart
 
     // Validate and check if part has meaningful content
     const isValid = validateContentPart(part, index)
@@ -104,6 +102,18 @@ function validateContentPart(part: MessageContentPart, index: number): boolean {
       return true
     }
 
+    case 'image': {
+      const img = part.image
+      if (!img || typeof img.image !== 'string' || img.image.trim().length === 0) {
+        throw new Error(`Image content part at index ${index} must have base64 data`)
+      }
+      // mediaType is optional; when provided, it should be a string
+      if (img.mediaType !== undefined && typeof img.mediaType !== 'string') {
+        throw new Error(`Image content part at index ${index} has invalid mediaType`)
+      }
+      return true
+    }
+
     default:
       return false
   }
@@ -113,7 +123,7 @@ function validateContentPart(part: MessageContentPart, index: number): boolean {
  * Checks if a content type is valid
  */
 function isValidContentType(type: string): type is ContentType {
-  return ['text', 'citation', 'tool-call', 'temporary-file'].includes(type)
+  return ['text', 'citation', 'tool-call', 'temporary-file', 'image'].includes(type)
 }
 
 /**

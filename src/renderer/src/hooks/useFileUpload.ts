@@ -68,7 +68,22 @@ const ALLOWED_TYPES = [
 const buildFileKey = (f: File): string => `${f.name}-${f.size}-${f.lastModified}`
 const getExtension = (name: string): string => `.${name.split('.').pop()?.toLowerCase()}`
 const isBinaryExt = (ext: string): boolean =>
-  ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods'].includes(ext)
+  [
+    '.pdf',
+    '.docx',
+    '.pptx',
+    '.xlsx',
+    '.odt',
+    '.odp',
+    '.ods',
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.bmp',
+    '.webp',
+    '.svg'
+  ].includes(ext)
 const isImageMime = (mime?: string): boolean => Boolean(mime && mime.startsWith('image/'))
 
 const validateSingleFile = (file: File): string | null => {
