@@ -1,6 +1,9 @@
 import React from 'react'
-import { Box, HStack, Text, IconButton, useColorModeValue } from '@chakra-ui/react'
+import { Box, HStack, Text, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
+import type { BoxProps } from '@chakra-ui/react'
 import { CloseIcon, AttachmentIcon } from '@chakra-ui/icons'
+import { FiFile, FiFileText, FiImage } from 'react-icons/fi'
+import type { MessageContentPart } from '../../../../shared/types/message'
 
 export interface MessageFileLike {
   filename: string
@@ -22,14 +25,39 @@ export interface TempFileCardProps {
   className?: string
 }
 
+// Utility functions
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i]
+}
+
+const getFileIcon = (mimeType: string, filename: string) => {
+  if (mimeType.startsWith('image/')) return FiImage
+  if (mimeType.includes('text') || filename.endsWith('.md') || filename.endsWith('.txt'))
+    return FiFileText
+  if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('office'))
+    return FiFile
+  return AttachmentIcon
+}
+
+const useFileCardTheme = () => ({
+  bgColor: useColorModeValue('surface.secondary', 'surface.secondary'),
+  borderColor: useColorModeValue('border.secondary', 'border.secondary'),
+  textColor: useColorModeValue('text.primary', 'text.primary'),
+  secondaryTextColor: useColorModeValue('text.secondary', 'text.secondary')
+})
+
 /**
  * TempFileCard component for displaying uploaded file information
  *
  * Features:
- * - Shows file name and size
- * - File type icon
- * - Remove button
- * - Compact card layout
+ * - Shows file name and size with appropriate file type icon
+ * - Remove button with hover effects
+ * - Unified design for all file types (text, PDF, office, images)
+ * - Compact and default variants
  */
 export const TempFileCard: React.FC<TempFileCardProps> = ({
   file,
@@ -38,103 +66,53 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
   variant = 'default',
   className
 }) => {
-  const filename = file ? file.name : messageFile?.filename || ''
-  const filesize = file ? file.size : messageFile?.size || 0
-  // mimeType available via props when needed, but not used for rendering here
+  const filename = file?.name || messageFile?.filename || ''
+  const filesize = file?.size || messageFile?.size || 0
+  const mimeType = file?.type || messageFile?.mimeType || ''
 
-  // Theme colors
-  const bgColor = useColorModeValue('surface.secondary', 'surface.secondary')
-  const borderColor = useColorModeValue('border.secondary', 'border.secondary')
-  const textColor = useColorModeValue('text.primary', 'text.primary')
-  const secondaryTextColor = useColorModeValue('text.secondary', 'text.secondary')
+  const theme = useFileCardTheme()
+  const FileIcon = getFileIcon(mimeType, filename)
 
-  // Thumbnails intentionally disabled for image files to keep UI consistent
+  const isCompact = variant === 'compact'
 
-  // Format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B'
-
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-    return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i]
-  }
-
-  if (variant === 'compact') {
-    // Compact variant: always render as file card (no thumbnails)
-    return (
-      <Box
-        bg={bgColor}
-        border="1px solid"
-        borderColor={borderColor}
-        borderRadius="md"
-        p={2}
-        w="160px"
-        flexShrink={0}
-        className={className}
-      >
-        <HStack spacing={2} align="center">
-          {/* File Icon (no image thumbnail) */}
-          <AttachmentIcon color={secondaryTextColor} flexShrink={0} boxSize={3} />
-
-          {/* File Info */}
-          <Box flex={1} minWidth={0}>
-            <Text
-              fontSize="xs"
-              fontWeight="medium"
-              color={textColor}
-              noOfLines={1}
-              title={filename}
-              textAlign="left"
-            >
-              {filename}
-            </Text>
-            <Text fontSize="2xs" color={secondaryTextColor} textAlign="left">
-              {formatFileSize(filesize)}
-            </Text>
-          </Box>
-
-          {/* Remove Button */}
-          {onRemove && (
-            <IconButton
-              aria-label={`Remove ${filename}`}
-              icon={<CloseIcon />}
-              size="2xs"
-              variant="ghost"
-              colorScheme="red"
-              onClick={onRemove}
-              _hover={{ bg: 'red.50' }}
-              minW="auto"
-              h="auto"
-              p={1}
-            />
-          )}
-        </HStack>
-      </Box>
-    )
+  const boxProps = {
+    bg: theme.bgColor,
+    border: '1px solid' as const,
+    borderColor: theme.borderColor,
+    borderRadius: 'md' as const,
+    p: 2,
+    className,
+    ...(isCompact ? { w: '160px', flexShrink: 0 } : { mb: 2 })
   }
 
   return (
-    <Box
-      bg={bgColor}
-      border="1px solid"
-      borderColor={borderColor}
-      borderRadius="md"
-      p={2}
-      mb={2}
-      className={className}
-    >
-      <HStack spacing={3} align="center">
-        {/* File Icon (no image thumbnail) */}
-        <AttachmentIcon color={secondaryTextColor} flexShrink={0} boxSize={4} />
+    <Box {...boxProps}>
+      <HStack spacing={isCompact ? 2 : 3} align="center">
+        {/* File Icon - appropriate icon for file type */}
+        <Icon
+          as={FileIcon}
+          color={theme.secondaryTextColor}
+          flexShrink={0}
+          boxSize={isCompact ? 3 : 4}
+        />
 
         {/* File Info */}
         <Box flex={1} minWidth={0}>
-          <Text fontSize="sm" fontWeight="medium" color={textColor} noOfLines={1} title={filename}>
+          <Text
+            fontSize={isCompact ? 'xs' : 'sm'}
+            fontWeight="medium"
+            color={theme.textColor}
+            noOfLines={1}
+            title={filename}
+            textAlign="left"
+          >
             {filename}
           </Text>
-          <Text fontSize="xs" color={secondaryTextColor}>
+          <Text
+            fontSize={isCompact ? '2xs' : 'xs'}
+            color={theme.secondaryTextColor}
+            textAlign="left"
+          >
             {formatFileSize(filesize)}
           </Text>
         </Box>
@@ -144,11 +122,12 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
           <IconButton
             aria-label={`Remove ${filename}`}
             icon={<CloseIcon />}
-            size="xs"
+            size={isCompact ? '2xs' : 'xs'}
             variant="ghost"
             colorScheme="red"
             onClick={onRemove}
             _hover={{ bg: 'red.50' }}
+            {...(isCompact ? { minW: 'auto', h: 'auto', p: 1 } : {})}
           />
         )}
       </HStack>
@@ -159,3 +138,100 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
 TempFileCard.displayName = 'TempFileCard'
 
 export default TempFileCard
+
+/**
+ * Converts a message content part to a MessageFileLike object for TempFileCard
+ * Handles both temporary files and images with simplified logic
+ */
+export const toMessageFileLikeFromMessagePart = (
+  part: MessageContentPart
+): MessageFileLike | null => {
+  switch (part.type) {
+    case 'temporary-file': {
+      if (!part.temporaryFile) return null
+      return {
+        filename: part.temporaryFile.filename,
+        size: part.temporaryFile.size,
+        mimeType: part.temporaryFile.mimeType
+      }
+    }
+
+    case 'image': {
+      if (!part.image) return null
+
+      // Generate filename from mediaType or use provided filename
+      const filename =
+        part.image.filename || `image.${part.image.mediaType?.split('/')[1] || 'png'}`
+
+      // Estimate size from base64 data if available
+      const size = (() => {
+        const data = part.image?.image
+        if (typeof data === 'string' && data.startsWith('data:')) {
+          const base64 = data.split(',')[1] || ''
+          return Math.round((base64.length * 3) / 4)
+        }
+        return 0
+      })()
+
+      return {
+        filename,
+        size,
+        mimeType: part.image.mediaType || 'image/*'
+      }
+    }
+
+    default:
+      return null
+  }
+}
+
+/**
+ * Unified horizontally scrollable list wrapper for TempFileCard items
+ * Ensures consistent spacing and scrollbar styling across the app.
+ */
+export interface TempFileCardListProps
+  extends Pick<BoxProps, 'alignSelf' | 'maxW' | 'mb' | 'className'> {
+  children: React.ReactNode
+  spacing?: number
+}
+
+export const TempFileCardList: React.FC<TempFileCardListProps> = ({
+  children,
+  spacing = 2,
+  alignSelf,
+  maxW = '100%',
+  mb = 1,
+  className
+}) => {
+  const boxProps = {
+    mb,
+    maxW,
+    className,
+    ...(alignSelf ? { alignSelf } : {})
+  }
+
+  return (
+    <Box {...boxProps}>
+      <HStack
+        spacing={spacing}
+        overflowX="auto"
+        maxW="100%"
+        pb={1}
+        sx={{
+          '&::-webkit-scrollbar': {
+            height: '4px'
+          },
+          '&::-webkit-scrollbar-track': {
+            bg: 'transparent'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            bg: 'gray.300',
+            borderRadius: '2px'
+          }
+        }}
+      >
+        {children}
+      </HStack>
+    </Box>
+  )
+}

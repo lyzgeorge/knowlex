@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Box, HStack, IconButton, useColorModeValue } from '@chakra-ui/react'
+import { Box, IconButton, useColorModeValue } from '@chakra-ui/react'
 import { ArrowUpIcon, AttachmentIcon, RepeatIcon } from '@chakra-ui/icons'
 import { FaStop } from 'react-icons/fa'
 import { keyframes } from '@emotion/react'
@@ -14,7 +14,7 @@ import {
   useReasoningStreamingMessageId
 } from '../../../stores/conversation'
 import { useMessageBranching } from '../../../hooks/useMessageBranching'
-import { TempFileCard, AutoResizeTextarea } from '../../ui'
+import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '../../ui'
 import {
   useFileUpload,
   FileUploadItem,
@@ -362,35 +362,16 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       >
         {/* File Previews - Inside chatbox, above input controls */}
         {fileUpload.state.files.length > 0 && (
-          <Box mb={1}>
-            <HStack
-              spacing={2}
-              overflowX="auto"
-              maxW="100%"
-              pb={1}
-              sx={{
-                '&::-webkit-scrollbar': {
-                  height: '4px'
-                },
-                '&::-webkit-scrollbar-track': {
-                  bg: 'transparent'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  bg: 'gray.300',
-                  borderRadius: '2px'
-                }
-              }}
-            >
-              {fileUpload.state.files.map((fileItem: FileUploadItem) => (
-                <TempFileCard
-                  key={fileItem.id}
-                  file={fileItem.file}
-                  onRemove={() => fileUpload.removeFile(fileItem.file)}
-                  variant="compact"
-                />
-              ))}
-            </HStack>
-          </Box>
+          <TempFileCardList>
+            {fileUpload.state.files.map((fileItem: FileUploadItem) => (
+              <TempFileCard
+                key={fileItem.id}
+                file={fileItem.file}
+                onRemove={() => fileUpload.removeFile(fileItem.file)}
+                variant="compact"
+              />
+            ))}
+          </TempFileCardList>
         )}
 
         {/* Two-row layout */}

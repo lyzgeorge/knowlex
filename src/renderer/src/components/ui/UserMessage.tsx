@@ -12,7 +12,7 @@ import {
 import type { Message, MessageContentPart, MessageContent } from '../../../../shared/types/message'
 import { formatTime } from '../../../../shared/utils/time'
 import MarkdownContent from './MarkdownContent'
-import TempFileCard from './TempFileCard'
+import TempFileCard, { toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
 import AutoResizeTextarea from './AutoResizeTextarea'
 import { useNotifications } from './index'
 import { useSendMessage, useIsSending } from '../../stores/conversation'
@@ -166,64 +166,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
   // Render file content part (temporary files and images)
   const renderFileContent = (part: MessageContentPart, index: number) => {
-    if (part.type === 'temporary-file' && part.temporaryFile) {
-      return (
-        <TempFileCard
-          key={`file-${index}`}
-          variant="compact"
-          messageFile={{
-            filename: part.temporaryFile.filename,
-            size: part.temporaryFile.size,
-            mimeType: part.temporaryFile.mimeType
-          }}
-        />
-      )
-    }
-
-    if (part.type === 'image' && part.image) {
-      // Use stored filename or extract from data URL or use default
-      const getImageFilename = (imageContent: any, mediaType?: string): string => {
-        // Use stored filename if available
-        if (imageContent.filename) {
-          return imageContent.filename
-        }
-
-        if (typeof imageContent.image === 'string' && imageContent.image.startsWith('data:')) {
-          const ext = mediaType?.split('/')[1] || 'png'
-          return `image.${ext}`
-        }
-        return 'Image'
-      }
-
-      // Calculate approximate size
-      const getApproximateSize = (imageData: any): number => {
-        if (typeof imageData === 'string') {
-          if (imageData.startsWith('data:')) {
-            const base64Data = imageData.split(',')[1] || ''
-            return Math.round((base64Data.length * 3) / 4)
-          }
-          return 0
-        }
-        return 0
-      }
-
-      const filename = getImageFilename(part.image, part.image.mediaType)
-      const approximateSize = getApproximateSize(part.image.image)
-
-      return (
-        <TempFileCard
-          key={`image-${index}`}
-          variant="compact"
-          messageFile={{
-            filename,
-            size: approximateSize,
-            mimeType: part.image.mediaType || 'image/*'
-          }}
-        />
-      )
-    }
-
-    return null
+    const messageFile = toMessageFileLikeFromMessagePart(part)
+    return messageFile ? (
+      <TempFileCard key={`filepart-${index}`} variant="compact" messageFile={messageFile} />
+    ) : null
   }
 
   // Get file parts and text parts from the active branch
@@ -372,103 +318,37 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         {isEditing
           ? /* EDITING MODE - Existing Attachments */
             (existingAttachments.length > 0 || fileUpload.state.files.length > 0) && (
-              <Box alignSelf="flex-end" mb={1} maxWidth="100%">
-                <HStack
-                  spacing={2}
-                  overflowX="auto"
-                  maxWidth="100%"
-                  sx={{
-                    '&::-webkit-scrollbar': {
-                      height: '4px'
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      background: 'transparent'
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      borderRadius: '2px'
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      background: 'rgba(255, 255, 255, 0.3)'
-                    }
-                  }}
-                >
-                  {existingAttachments.map((attachment, index) => {
-                    let messageFile
-                    if (attachment.type === 'temporary-file' && attachment.temporaryFile) {
-                      messageFile = {
-                        filename: attachment.temporaryFile.filename,
-                        size: attachment.temporaryFile.size,
-                        mimeType: attachment.temporaryFile.mimeType
-                      }
-                    } else if (attachment.type === 'image' && attachment.image) {
-                      // Use stored filename or default
-                      const originalFilename = attachment.image.filename || 'Image'
-                      // Calculate approximate size from base64 data
-                      let approximateSize = 0
-                      if (typeof attachment.image.image === 'string') {
-                        if (attachment.image.image.startsWith('data:')) {
-                          const base64Data = attachment.image.image.split(',')[1] || ''
-                          approximateSize = Math.round((base64Data.length * 3) / 4)
-                        }
-                      }
-                      messageFile = {
-                        filename: originalFilename,
-                        size: approximateSize,
-                        mimeType: attachment.image.mediaType || 'image/*'
-                      }
-                    }
-
-                    return messageFile ? (
-                      <TempFileCard
-                        key={`existing-${index}`}
-                        variant="compact"
-                        messageFile={messageFile}
-                        onRemove={() => handleRemoveExistingAttachment(index)}
-                      />
-                    ) : null
-                  })}
-
-                  {/* New Attachments from useFileUpload */}
-                  {fileUpload.state.files.map((fileItem) => (
+              <TempFileCardList alignSelf="flex-end" maxW="100%">
+                {existingAttachments.map((attachment, index) => {
+                  const messageFile = toMessageFileLikeFromMessagePart(attachment)
+                  return messageFile ? (
                     <TempFileCard
-                      key={fileItem.id}
-                      file={fileItem.file}
-                      onRemove={() => fileUpload.removeFile(fileItem.file)}
+                      key={`existing-${index}`}
                       variant="compact"
+                      messageFile={messageFile}
+                      onRemove={() => handleRemoveExistingAttachment(index)}
                     />
-                  ))}
-                </HStack>
-              </Box>
+                  ) : null
+                })}
+
+                {/* New Attachments from useFileUpload */}
+                {fileUpload.state.files.map((fileItem) => (
+                  <TempFileCard
+                    key={fileItem.id}
+                    file={fileItem.file}
+                    onRemove={() => fileUpload.removeFile(fileItem.file)}
+                    variant="compact"
+                  />
+                ))}
+              </TempFileCardList>
             )
           : /* NORMAL VIEW MODE - File parts */
             fileParts.length > 0 && (
-              <Box alignSelf="flex-end" mb={1} maxWidth="100%">
-                <HStack
-                  spacing={2}
-                  overflowX="auto"
-                  maxWidth="100%"
-                  sx={{
-                    '&::-webkit-scrollbar': {
-                      height: '4px'
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      background: 'transparent'
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      borderRadius: '2px'
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      background: 'rgba(255, 255, 255, 0.3)'
-                    }
-                  }}
-                >
-                  {fileParts.map((part: MessageContentPart, index: number) =>
-                    renderFileContent(part, index)
-                  )}
-                </HStack>
-              </Box>
+              <TempFileCardList alignSelf="flex-end" maxW="100%">
+                {fileParts.map((part: MessageContentPart, index: number) =>
+                  renderFileContent(part, index)
+                )}
+              </TempFileCardList>
             )}
 
         {/* Text content bubble - editable or normal */}

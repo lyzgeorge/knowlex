@@ -440,33 +440,35 @@
 
 ---
 
-## src/renderer/src/components/features/chat/ChatInterface.tsx
-路径：src/renderer/src/components/features/chat/ChatInterface.tsx
+## src/renderer/src/pages/ConversationPage.tsx
+路径：src/renderer/src/pages/ConversationPage.tsx
 
-一句话：聊天界面容器，显示消息列表、自动滚动逻辑和消息发送入口。
+一句话：会话级页面，负责显示单个会话的消息流、分支视图与消息输入区域。
 
 | 组件 / 导出 | 说明 |
 |---|---|
-| ChatInterface | 主聊天 UI 组件，处理自动滚动、流式显示与发送消息构建逻辑；支持无会话时的入口界面（main-entrance） |
+| ConversationPage | 页面组件：展示会话头部、消息流（含分支/树状视图）并在底部挂载 `ChatInputBox` 或其变体 |
 
-模块逻辑：从 store 读取会话与消息，使用 `useAutoScroll`（带 threshold/smooth/follow 配置）控制滚动行为：在用户主动发送消息时强制滚动到底部，但在流式生成期间不自动跟随流（follow:false），并提供一个显式的“回到底部”按钮。空会话与首次进入时使用 `ChatInputBox` 的 `main-entrance` 变体，消息存在时显示消息列表并用浮动输入窗。
-
----
-
-已追加 renderer 的核心聊天组件：MessageList、AssistantMessage。
+模块逻辑：从 conversation store 加载当前会话消息，支持分支（branching）视图由 `useMessageBranching` 管理；消息列表使用自动滚动策略并在流式生成时允许用户选择是否跟随流；提供分支切换与快捷操作（新建分支、合并、删除分支）。
 
 ---
 
-## src/renderer/src/components/features/chat/MessageList.tsx
-路径：src/renderer/src/components/features/chat/MessageList.tsx
+## src/renderer/src/pages/MainPage.tsx
+路径：src/renderer/src/pages/MainPage.tsx
 
-一句话：渲染消息列表，根据角色选择 UserMessage 或 AssistantMessage 组件，支持流式消息标记与空状态。
+一句话：应用主界面入口页，组织侧栏、会话汇总与活动页面（ConversationPage / other pages）。
 
-| 组件 / 导出 | 参数 | 说明 |
-|---|---:|---|
-| MessageList | props: {messages: Message[], streamingMessageId?:string, className?:string} | 渲染 message 数组；为空时显示提示；为每条消息选择对应组件 |
+| 组件 / 导出 | 说明 |
+|---|---|
+| MainPage | 顶级页面容器：组合侧栏（会话列表）、主内容区（会话/概览页面）与全局工具栏 |
 
-模块逻辑：直接按消息角色渲染不同消息组件，并传入 isStreaming 标记以支持流式 UI。
+模块逻辑：负责路由到正确的页面（比如 `ConversationPage`）、管理全局快捷操作（新会话、搜索）并协调 stores 的初始化与加载状态。
+
+已追加 renderer 的核心聊天页面：ConversationPage、MainPage、以及 AssistantMessage 组件仍用于消息渲染。
+
+<!-- MessageList was refactored into page-level rendering inside ConversationPage; per recent commits the dedicated MessageList component was removed. Message rendering is handled by AssistantMessage/UserMessage and ConversationPage. -->
+
+---
 
 ---
 
@@ -769,29 +771,42 @@
 
 ---
 
-## src/renderer/src/components/features/chat/TempFileCard.tsx
-路径：src/renderer/src/components/features/chat/TempFileCard.tsx
+## src/renderer/src/components/ui/TempFileCard.tsx
+路径：src/renderer/src/components/ui/TempFileCard.tsx
 
-一句话：在消息中展示临时文件的卡片（文件名 / 大小 / 操作），图片使用简洁预览或 data-url 显示。
+一句话：在消息或 UI 中展示临时文件的卡片（文件名 / 大小 / 操作），图片使用简洁预览或 data-url 显示。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
 | TempFileCard | props: {file, variant?:'compact'|'default', onOpen?, onRemove?} | 显示文件基本信息与操作 |
 
-模块逻辑：显示文件名、估算大小和简短元信息。对于图片类型会提供简洁预览（或 data-url 的小图），但不会在卡片中渲染大型缩略以节省布局预算；支持打开文件（在独立窗口/浏览器中）或从消息中移除。Compact 变体用于消息气泡内的紧凑显示。
+模块逻辑：显示文件名、估算大小和简短元信息。对于图片类型会提供简洁预览（或 data-url 的小图），但不会在卡片中渲染大型缩略以节省布局预算；支持打开文件（在独立窗口/浏览器中）或从消息中移除。Compact 变体用于消息气泡内的紧凑显示。该组件已移动到 `components/ui` 以便更广泛复用。
 
 ---
 
-## src/renderer/src/components/features/chat/MessageActionIcons.tsx
-路径：src/renderer/src/components/features/chat/MessageActionIcons.tsx
+<!-- MessageActionIcons component removed in recent refactor; message actions are handled inline or via other UI components. -->
 
-一句话：消息操作图标集合（编辑、复制、重试/重生成、删除等），根据角色决定可见操作。
+## src/renderer/src/components/ui/AutoResizeTextarea.tsx
+路径：src/renderer/src/components/ui/AutoResizeTextarea.tsx
+
+一句话：自动高度调整的文本域组件，替代部分聊天输入中的自实现逻辑。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| MessageActionIcons | props: {message, onEdit, onDelete, onCopy, onRegenerate?} | 渲染 hover 可见的操作图标 |
+| AutoResizeTextarea | props: {value,onChange,placeholder,rows?,maxRows?} | 文本域组件，自动根据内容调整高度并暴露主要回调 |
 
-模块逻辑：为用户消息显示编辑/删除操作，为助理消息显示重试/重生成。复制按钮将消息文本或当前流式文本复制到剪贴板并通过通知反馈成功/失败；重生成会调用 store 或 IPC 发起 `message:regenerate`，编辑会弹出 `MessageEditModal` 并在保存后通过 IPC 更新消息内容。
+模块逻辑：提供一个可复用的自动高度文本域，供 `ChatInputBox` 和消息编辑流程复用，以减少重复实现并保证一致的键盘行为与粘贴处理。
+
+## src/renderer/src/hooks/useMessageBranching.ts
+路径：src/renderer/src/hooks/useMessageBranching.ts
+
+一句话：管理会话内消息分支/树状结构的 Hook，用于实现非线性对话（branching）。
+
+| 导出 | 参数 | 返回 |
+|---|---:|---|
+| useMessageBranching | options? | {branches, activeBranchId, createBranch, switchBranch, mergeBranch, deleteBranch} |
+
+模块逻辑：封装分支的创建/切换/合并/删除逻辑，与后端的会话实体（如果有）同步分支元信息，提供本地选择与 UI 友好的操作接口。
 
 ---
 
