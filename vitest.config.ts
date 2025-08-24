@@ -5,11 +5,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/renderer/src/lib/test-setup.ts']
+    setupFiles: ['./src/renderer/lib/test-setup.ts']
   },
   resolve: {
     alias: {
-      '@renderer': resolve(__dirname, 'src/renderer/src'),
+      '@renderer': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
       '@main': resolve(__dirname, 'src/main'),
       '@preload': resolve(__dirname, 'src/preload')
