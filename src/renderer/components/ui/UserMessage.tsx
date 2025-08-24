@@ -14,9 +14,9 @@ import { formatTime } from '@shared/utils/time'
 import MarkdownContent from './MarkdownContent'
 import TempFileCard, { toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
 import AutoResizeTextarea from './AutoResizeTextarea'
-import { useNotifications } from './index'
-import { useSendMessage, useIsSending } from '../../stores/conversation'
-import { useFileUpload, ProcessedFile, getFileAcceptString } from '../../hooks/useFileUpload'
+import { useNotifications } from '@renderer/components/ui'
+import { useSendMessage, useIsSending } from '@renderer/stores/conversation'
+import { useFileUpload, ProcessedFile, getFileAcceptString } from '@renderer/hooks/useFileUpload'
 
 export interface BranchInfo {
   branches: Message[]

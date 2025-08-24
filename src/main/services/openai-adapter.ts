@@ -2,7 +2,7 @@ import { streamText, generateText, smoothStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '@shared/types/message'
-import type { CancellationToken } from '../utils/cancellation'
+import type { CancellationToken } from '@main/utils/cancellation'
 
 /**
  * OpenAI Adapter Service using official AI SDK
@@ -211,8 +211,7 @@ export async function generateAIResponseOnce(
       ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
       ...(config.topP !== undefined && { topP: config.topP }),
       ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
-      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort })
+      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty })
     }
 
     // Generate response
@@ -225,8 +224,7 @@ export async function generateAIResponseOnce(
           type: 'text',
           text: result.text
         }
-      ],
-      ...(result.reasoningText !== undefined && { reasoning: result.reasoningText })
+      ]
     }
   } catch (error) {
     console.error('AI response generation failed:', error)

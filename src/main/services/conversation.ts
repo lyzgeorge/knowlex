@@ -4,7 +4,7 @@ import {
   listConversations as dbListConversations,
   updateConversation as dbUpdateConversation,
   deleteConversation as dbDeleteConversation
-} from '../database/queries'
+} from '@main/database/queries'
 import { generateId } from '@shared/utils/id'
 import type { Conversation, SessionSettings } from '@shared/types/conversation'
 

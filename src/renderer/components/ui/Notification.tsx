@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react'
-import { useNotifications } from '../../hooks/useNotifications'
+import { useNotifications } from '@renderer/hooks/useNotifications'
 import { NotificationOptions } from '@shared/types/notification'
 
 // Context for notification functions

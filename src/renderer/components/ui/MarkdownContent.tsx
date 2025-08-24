@@ -4,7 +4,7 @@ import { FaForumbee } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import { markdownComponents } from '../../utils/markdownComponents'
+import { markdownComponents } from '@renderer/utils/markdownComponents'
 
 export interface MarkdownContentProps {
   /** Text content to render */

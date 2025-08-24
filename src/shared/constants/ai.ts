@@ -1,4 +1,4 @@
-import type { ModelInfo } from '../types/ai'
+import type { ModelInfo } from '@shared/types/ai'
 
 export const AI_MODELS: Record<string, Record<string, ModelInfo>> = {
   OPENAI: {

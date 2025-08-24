@@ -7,7 +7,8 @@
  * Fallback to "New Chat" on any error to ensure reliability.
  */
 
-import type { Message } from '../../shared/types/message'
+import type { Message } from '@shared/types/message'
+import { cancellationManager, CancellationToken } from '@main/utils/cancellation'
 
 /**
  * Checks if automatic title generation should be triggered
@@ -44,7 +45,7 @@ function extractTextContent(message: Message, maxLength: number): string {
  */
 export async function generateTitleForConversation(conversationId: string): Promise<string> {
   try {
-    const { getMessages } = await import('./message')
+    const { getMessages } = await import('@main/services/message')
     const messages = await getMessages(conversationId)
 
     if (messages.length < 2) {
@@ -52,7 +53,7 @@ export async function generateTitleForConversation(conversationId: string): Prom
     }
 
     // Validate AI configuration
-    const { validateOpenAIConfig } = await import('./openai-adapter')
+    const { validateOpenAIConfig } = await import('@main/services/openai-adapter')
     const validation = validateOpenAIConfig()
     if (!validation.isValid) {
       return 'New Chat'
@@ -75,7 +76,7 @@ export async function generateTitleForConversation(conversationId: string): Prom
     }
 
     // Create title generation prompt
-    const { generateAIResponseOnce } = await import('./openai-adapter')
+    const { generateAIResponseOnce } = await import('@main/services/openai-adapter')
     const titleMessages: Message[] = [
       {
         id: `title-gen-${Date.now()}-0`,
@@ -105,7 +106,17 @@ export async function generateTitleForConversation(conversationId: string): Prom
       }
     ]
 
+    // Create a scoped token so app shutdown or explicit cancellation can stop title generation
+    const tokenId = `title-${conversationId}`
+    const token: CancellationToken = cancellationManager.createToken(tokenId)
+
+    // Currently generateAIResponseOnce does not accept a token; quick cancellation check loop pattern
+    // If future refactor adds streaming/non-blocking version, integrate properly.
+    if (token.isCancelled) return 'New Chat'
     const response = await generateAIResponseOnce(titleMessages)
+    if (token.isCancelled) return 'New Chat'
+    // Mark complete
+    cancellationManager.complete(tokenId)
 
     // Clean and validate generated title
     const generatedTitle = response.content
@@ -143,8 +154,10 @@ export async function tryTriggerAutoTitleGeneration(conversationId: string): Pro
 
       // Only update if we got a meaningful title (not "New Chat")
       if (title && title !== 'New Chat') {
-        const { updateConversation } = await import('./conversation')
-        const { sendConversationEvent, CONVERSATION_EVENTS } = await import('../ipc/conversation')
+        const { updateConversation } = await import('@main/services/conversation')
+        const { sendConversationEvent, CONVERSATION_EVENTS } = await import(
+          '@main/ipc/conversation'
+        )
 
         await updateConversation(conversationId, { title })
 
@@ -173,4 +186,13 @@ export async function tryTriggerAutoTitleGeneration(conversationId: string): Pro
     console.error('Failed to automatically generate title:', titleError)
     // Don't fail the entire operation if title generation fails
   }
+}
+
+/**
+ * Allows external callers (e.g., when a conversation is deleted) to cancel an in-flight
+ * title generation task to avoid wasted AI calls.
+ */
+export function cancelTitleGeneration(conversationId: string): void {
+  cancellationManager.cancel(`title-${conversationId}`)
+  cancellationManager.complete(`title-${conversationId}`)
 }

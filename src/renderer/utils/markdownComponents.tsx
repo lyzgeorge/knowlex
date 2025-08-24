@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   Text,
@@ -14,8 +14,11 @@ import {
   Th,
   Td,
   Divider,
-  useColorModeValue
+  useColorModeValue,
+  IconButton,
+  Tooltip
 } from '@chakra-ui/react'
+import { CopyIcon } from '@chakra-ui/icons'
 import type { Components } from 'react-markdown'
 
 // Helper components that can use hooks
@@ -27,6 +30,19 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
   const inlineCodeBg = useColorModeValue('gray.100', 'gray.700')
   const blockCodeBg = useColorModeValue('gray.50', 'gray.800')
   const codeBorder = useColorModeValue('gray.200', 'gray.600')
+  const copyBg = useColorModeValue('whiteAlpha.800', 'blackAlpha.400')
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    try {
+      const raw = String(children)
+      navigator.clipboard?.writeText(raw)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch (e) {
+      // ignore
+    }
+  }
 
   if (isInline) {
     return (
@@ -48,6 +64,7 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
 
   return (
     <Box
+      position="relative"
       as="pre"
       p={4}
       bg={blockCodeBg}
@@ -59,7 +76,6 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
       borderColor={codeBorder}
       my={3}
       sx={{
-        // Syntax highlighting styles
         '& .hljs': {
           background: 'transparent',
           color: 'text.primary'
@@ -85,6 +101,21 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
         }
       }}
     >
+      <Tooltip label={copied ? '已复制' : '复制'} placement="top" openDelay={200} hasArrow>
+        <IconButton
+          aria-label="copy code"
+          icon={<CopyIcon />}
+          size="xs"
+          variant="ghost"
+          position="absolute"
+          top={1}
+          right={1}
+          onClick={handleCopy}
+          bg={copyBg}
+          _hover={{ bg: copyBg }}
+          fontSize="0.8em"
+        />
+      </Tooltip>
       <code className={className}>{children}</code>
     </Box>
   )

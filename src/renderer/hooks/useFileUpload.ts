@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { useNotifications } from '../components/ui'
+import { useNotifications } from '@renderer/components/ui'
 import type { TemporaryFileResult } from '@shared/types/file'
 
 export interface ProcessedFile extends TemporaryFileResult {

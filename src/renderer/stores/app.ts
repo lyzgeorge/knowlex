@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { themeManager, type ColorMode } from '../utils/theme/colorMode'
+import { themeManager, type ColorMode } from '@renderer/utils/theme/colorMode'
 
 export type Theme = 'light' | 'dark' | 'system'
 export type Language = 'en' | 'zh-CN' | 'zh-TW'

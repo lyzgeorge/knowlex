@@ -326,9 +326,11 @@ function setupEventListeners() {
     setState((s) => {
       s.isStreaming = false
       s.streamingMessageId = null
-      // Also reset reasoning streaming state when streaming is cancelled
+      // Also reset reasoning and text streaming state when streaming is cancelled
       s.isReasoningStreaming = false
       s.reasoningStreamingMessageId = null
+      s.isTextStreaming = false
+      s.textStreamingMessageId = null
       const idx = s._msgIndex[d.messageId]
       if (!idx || !d.message) return
       const arr = s.messages[idx.conversationId]

@@ -13,10 +13,10 @@
  */
 
 import type { Message, MessageContent } from '@shared/types/message'
-import { streamAIResponse } from './openai-adapter'
-import { updateMessage, getMessage } from './message'
-import { cancellationManager } from '../utils/cancellation'
-import { sendMessageEvent, MESSAGE_EVENTS } from '../ipc/conversation'
+import { streamAIResponse } from '@main/services/openai-adapter'
+import { updateMessage, getMessage } from '@main/services/message'
+import { cancellationManager } from '@main/utils/cancellation'
+import { sendMessageEvent, MESSAGE_EVENTS } from '@main/ipc/conversation'
 
 /**
  * Configuration for assistant message generation

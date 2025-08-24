@@ -12,16 +12,16 @@ import {
   useCurrentConversation,
   useIsReasoningStreaming,
   useReasoningStreamingMessageId
-} from '../../../stores/conversation'
-import { useMessageBranching } from '../../../hooks/useMessageBranching'
-import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '../../ui'
+} from '@renderer/stores/conversation'
+import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
+import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
 import {
   useFileUpload,
   FileUploadItem,
   ProcessedFile,
   getFileAcceptString,
   getFileConstraints
-} from '../../../hooks/useFileUpload'
+} from '@renderer/hooks/useFileUpload'
 import type { Message, MessageContent } from '@shared/types/message'
 
 // Animation for refresh icon

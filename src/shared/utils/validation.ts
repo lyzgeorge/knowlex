@@ -1,4 +1,4 @@
-import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../constants/file'
+import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
 
 export function isValidFileType(filename: string, context: 'temporary' | 'project'): boolean {
   const extension = getFileExtension(filename).toLowerCase()

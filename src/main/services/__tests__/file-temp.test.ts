@@ -5,7 +5,8 @@ import {
   processTemporaryFiles,
   extractTextContent,
   validateTemporaryFileConstraints
-} from '../file-temp'
+} from '@main/services/file-temp'
+import type { TemporaryFileResult } from '@shared/types/file'
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 describe('Temporary File Processing', () => {
@@ -104,8 +105,12 @@ describe('Temporary File Processing', () => {
       expect(results).toHaveLength(2)
 
       // Find results by filename since order might vary
-      const validResult = results.find((r) => r.filename === 'valid.txt')
-      const invalidResult = results.find((r) => r.filename === 'invalid.pdf')
+      const validResult = results.find(
+        (r: TemporaryFileResult | undefined) => r?.filename === 'valid.txt'
+      )
+      const invalidResult = results.find(
+        (r: TemporaryFileResult | undefined) => r?.filename === 'invalid.pdf'
+      )
 
       expect(validResult?.error).toBeUndefined()
       expect(validResult?.content).toBe('Valid content')

@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { settingsService } from '../services/settings'
+import { settingsService } from '@main/services/settings'
 
 /**
  * Settings IPC handlers

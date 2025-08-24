@@ -4,14 +4,14 @@ import {
   listMessages as dbListMessages,
   updateMessage as dbUpdateMessage,
   deleteMessage as dbDeleteMessage
-} from '../database/queries'
+} from '@main/database/queries'
 import { generateId } from '@shared/utils/id'
 import type {
   Message,
   MessageContent,
   MessageContentPart,
   ContentType
-} from '../../shared/types/message'
+} from '@shared/types/message'
 import type { TemporaryFileResult } from '@shared/types/file'
 
 /**

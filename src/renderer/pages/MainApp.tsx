@@ -1,9 +1,9 @@
 import { Box } from '@chakra-ui/react'
-import { MainLayout } from '../components/layout/MainLayout'
-import MainPage from '../components/features/chat/MainPage'
-import ConversationPage from '../components/features/chat/ConversationPage'
-import { useCurrentConversation } from '../stores/conversation'
-import { NotificationProvider } from '../components/ui'
+import { MainLayout } from '@renderer/components/layout/MainLayout'
+import MainPage from '@renderer/components/features/chat/MainPage'
+import ConversationPage from '@renderer/components/features/chat/ConversationPage'
+import { useCurrentConversation } from '@renderer/stores/conversation'
+import { NotificationProvider } from '@renderer/components/ui'
 
 /**
  * Main application interface - the primary user workspace

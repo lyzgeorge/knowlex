@@ -6,13 +6,13 @@ import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
 import MarkdownContent from './MarkdownContent'
-import { useNotifications } from './index'
+import { useNotifications } from '@renderer/components/ui'
 import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId,
   useIsTextStreaming,
   useTextStreamingMessageId
-} from '../../stores/conversation'
+} from '@renderer/stores/conversation'
 
 export interface AssistantMessageProps {
   /** Message data */

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
 import { promises as fs } from 'fs'
 import path from 'path'
 import os from 'os'
-import { registerFileIPCHandlers, unregisterFileIPCHandlers } from '../file'
+import { registerFileIPCHandlers, unregisterFileIPCHandlers } from '@main/ipc/file'
 import { ipcMain } from 'electron'
 
 // Mock electron

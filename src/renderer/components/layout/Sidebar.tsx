@@ -32,10 +32,10 @@ import {
   CheckIcon,
   CloseIcon
 } from '@chakra-ui/icons'
-import { Button } from '../ui/Button'
-import { useConversationStore } from '../../stores/conversation'
+import { Button } from '@renderer/components/ui/Button'
+import { useConversationStore } from '@renderer/stores/conversation'
 import { formatRelativeTime } from '@shared/utils/time'
-import { useNotifications } from '../ui'
+import { useNotifications } from '@renderer/components/ui'
 
 export interface SidebarProps {
   className?: string

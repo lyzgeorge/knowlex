@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react'
 import { Box, VStack, IconButton } from '@chakra-ui/react'
-import { useCurrentConversation } from '../../../stores/conversation'
+import { useCurrentConversation } from '@renderer/stores/conversation'
 import ChatInputBox from './ChatInputBox'
-import UserMessage from '../../ui/UserMessage'
-import AssistantMessage from '../../ui/AssistantMessage'
-import { useAutoScroll } from '../../../hooks/useAutoScroll'
-import { useMessageBranching } from '../../../hooks/useMessageBranching'
+import UserMessage from '@renderer/components/ui/UserMessage'
+import AssistantMessage from '@renderer/components/ui/AssistantMessage'
+import { useAutoScroll } from '@renderer/hooks/useAutoScroll'
+import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
 import { FiChevronDown } from 'react-icons/fi'
 
 export interface ConversationPageProps {

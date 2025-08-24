@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs'
-import { getFileExtension, getMimeTypeFromExtension } from '../../shared/utils/validation'
+import { getFileExtension, getMimeTypeFromExtension } from '@shared/utils/validation'
 
 /**
  * File Parser Interface

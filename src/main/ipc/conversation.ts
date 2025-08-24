@@ -7,20 +7,21 @@ import {
   generateConversationTitle,
   type CreateConversationData,
   type UpdateConversationData
-} from '../services/conversation'
+} from '@main/services/conversation'
 import {
   addMessage,
   getMessage,
   getMessages,
   updateMessage,
   deleteMessage
-} from '../services/message'
+} from '@main/services/message'
 import type { IPCResult, ConversationCreateRequest } from '@shared/types/ipc'
 import type { Conversation, SessionSettings } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
-import { testOpenAIConfig } from '../services/openai-adapter'
-import { regenerateReply } from '../services/assistant-service'
-import { cancellationManager } from '../utils/cancellation'
+import { testOpenAIConfig } from '@main/services/openai-adapter'
+import { regenerateReply } from '@main/services/assistant-service'
+import { cancellationManager } from '@main/utils/cancellation'
+import { cancelTitleGeneration } from '@main/services/title-generation'
 
 /**
  * Conversation and Message IPC Handler
@@ -123,7 +124,7 @@ export function registerConversationIPCHandlers(): void {
         }
 
         // Import the service function
-        const { listConversationsPaginated } = await import('../services/conversation')
+        const { listConversationsPaginated } = await import('@main/services/conversation')
         const result = await listConversationsPaginated(limit, offset)
 
         return result
@@ -184,6 +185,8 @@ export function registerConversationIPCHandlers(): void {
   ipcMain.handle('conversation:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const conversationId = requireValidId(id, 'Conversation ID')
+      // Best-effort cancellation of any title generation or streaming tied to this conversation
+      cancelTitleGeneration(conversationId)
       await deleteConversation(conversationId)
     })
   })
@@ -285,6 +288,8 @@ export function registerConversationIPCHandlers(): void {
   // Delete message
   ipcMain.handle('message:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
+      // Cancel potential streaming for this message
+      cancellationManager.cancel(String(id))
       if (!validateMessageId(id)) {
         throw new Error('Invalid message ID')
       }
@@ -372,7 +377,7 @@ export function registerConversationIPCHandlers(): void {
       })
 
       // Use assistant service for unified streaming logic
-      const { generateReplyForNewMessage } = await import('../services/assistant-service')
+      const { generateReplyForNewMessage } = await import('@main/services/assistant-service')
       await generateReplyForNewMessage(assistantMessage.id, actualConversationId)
 
       // Return empty list (UI updates via events)

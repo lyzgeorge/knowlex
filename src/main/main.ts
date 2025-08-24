@@ -11,6 +11,7 @@ import {
 } from './ipc/conversation'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
+import { cancellationManager } from '@main/utils/cancellation'
 // TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
 // Application lifecycle management
@@ -104,6 +105,13 @@ app.on('before-quit', async () => {
   console.log('Application shutting down...')
 
   try {
+    // Cancel any in-flight long-running tasks to prevent ghost operations
+    try {
+      cancellationManager.cancelAll()
+    } catch (e) {
+      console.warn('Failed to cancel all tasks during shutdown:', e)
+    }
+
     // Unregister IPC handlers
     unregisterConversationIPCHandlers()
     unregisterFileIPCHandlers()
