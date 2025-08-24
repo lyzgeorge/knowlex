@@ -3,7 +3,7 @@
  * Consolidates error handling, validation, and response formatting across all IPC handlers
  */
 
-import type { IPCResult } from '../../shared/types/ipc'
+import type { IPCResult } from '@shared/types/ipc'
 
 /**
  * Wraps service calls with consistent error handling and response format

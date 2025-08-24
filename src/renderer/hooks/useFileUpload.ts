@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '../components/ui'
-import type { TemporaryFileResult } from '../../../shared/types/file'
+import type { TemporaryFileResult } from '@shared/types/file'
 
 export interface ProcessedFile extends TemporaryFileResult {
   isImage?: boolean

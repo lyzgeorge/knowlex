@@ -9,8 +9,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@chakra-ui/icons'
-import type { Message, MessageContentPart, MessageContent } from '../../../../shared/types/message'
-import { formatTime } from '../../../../shared/utils/time'
+import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
+import { formatTime } from '@shared/utils/time'
 import MarkdownContent from './MarkdownContent'
 import TempFileCard, { toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
 import AutoResizeTextarea from './AutoResizeTextarea'

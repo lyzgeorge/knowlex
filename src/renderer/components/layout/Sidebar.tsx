@@ -34,7 +34,7 @@ import {
 } from '@chakra-ui/icons'
 import { Button } from '../ui/Button'
 import { useConversationStore } from '../../stores/conversation'
-import { formatRelativeTime } from '../../../../shared/utils/time'
+import { formatRelativeTime } from '@shared/utils/time'
 import { useNotifications } from '../ui'
 
 export interface SidebarProps {

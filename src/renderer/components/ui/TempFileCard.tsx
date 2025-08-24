@@ -3,7 +3,7 @@ import { Box, HStack, Text, IconButton, useColorModeValue, Icon } from '@chakra-
 import type { BoxProps } from '@chakra-ui/react'
 import { CloseIcon, AttachmentIcon } from '@chakra-ui/icons'
 import { FiFile, FiFileText, FiImage } from 'react-icons/fi'
-import type { MessageContentPart } from '../../../../shared/types/message'
+import type { MessageContentPart } from '@shared/types/message'
 
 export interface MessageFileLike {
   filename: string

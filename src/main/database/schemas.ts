@@ -3,8 +3,8 @@
  * Defines the mapping between TypeScript entities and database tables
  */
 
-import type { Conversation } from '../../shared/types/conversation'
-import type { Message } from '../../shared/types/message'
+import type { Conversation } from '@shared/types/conversation'
+import type { Message } from '@shared/types/message'
 import { DatabaseEntity, type EntitySchema, createFieldMapping } from './entity'
 
 /**

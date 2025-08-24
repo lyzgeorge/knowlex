@@ -1,15 +1,15 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import os from 'os'
-import { TemporaryFileResult } from '../../shared/types/file'
+import { TemporaryFileResult } from '@shared/types/file'
 import {
   getFileExtension,
   isValidTemporaryFileType,
   getMimeTypeFromExtension,
   formatBytes,
   isImageFile
-} from '../../shared/utils/validation'
-import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '../../shared/constants/file'
+} from '@shared/utils/validation'
+import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
 import { parseFile, FileParserFactory } from './file-parser'
 
 /**

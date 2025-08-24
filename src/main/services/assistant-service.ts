@@ -12,7 +12,7 @@
  * and message regeneration to eliminate code duplication.
  */
 
-import type { Message, MessageContent } from '../../shared/types/message'
+import type { Message, MessageContent } from '@shared/types/message'
 import { streamAIResponse } from './openai-adapter'
 import { updateMessage, getMessage } from './message'
 import { cancellationManager } from '../utils/cancellation'

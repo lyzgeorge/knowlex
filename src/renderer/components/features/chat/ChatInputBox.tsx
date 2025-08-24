@@ -22,7 +22,7 @@ import {
   getFileAcceptString,
   getFileConstraints
 } from '../../../hooks/useFileUpload'
-import type { Message, MessageContent } from '../../../../../shared/types/message'
+import type { Message, MessageContent } from '@shared/types/message'
 
 // Animation for refresh icon
 const spinAnimation = keyframes`

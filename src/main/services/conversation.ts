@@ -5,8 +5,8 @@ import {
   updateConversation as dbUpdateConversation,
   deleteConversation as dbDeleteConversation
 } from '../database/queries'
-import { generateId } from '../../shared/utils/id'
-import type { Conversation, SessionSettings } from '../../shared/types/conversation'
+import { generateId } from '@shared/utils/id'
+import type { Conversation, SessionSettings } from '@shared/types/conversation'
 
 /**
  * Conversation Management Service

@@ -15,9 +15,9 @@ import {
   updateMessage,
   deleteMessage
 } from '../services/message'
-import type { IPCResult, ConversationCreateRequest } from '../../shared/types/ipc'
-import type { Conversation, SessionSettings } from '../../shared/types/conversation'
-import type { Message, MessageContent } from '../../shared/types/message'
+import type { IPCResult, ConversationCreateRequest } from '@shared/types/ipc'
+import type { Conversation, SessionSettings } from '@shared/types/conversation'
+import type { Message, MessageContent } from '@shared/types/message'
 import { testOpenAIConfig } from '../services/openai-adapter'
 import { regenerateReply } from '../services/assistant-service'
 import { cancellationManager } from '../utils/cancellation'

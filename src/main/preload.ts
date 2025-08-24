@@ -6,8 +6,8 @@ import type {
   TemporaryFileRequest,
   SearchRequest,
   SettingsUpdateRequest
-} from '../shared/types/ipc'
-import type { MessageContent } from '../shared/types/message'
+} from '@shared/types/ipc'
+import type { MessageContent } from '@shared/types/message'
 
 // Define the API interface that will be exposed to the renderer
 export interface KnowlexAPI {

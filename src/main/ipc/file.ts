@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { processTemporaryFiles, processTemporaryFileContents } from '../services/file-temp'
-import type { IPCResult, TemporaryFileRequest } from '../../shared/types/ipc'
-import type { TemporaryFileResult } from '../../shared/types/file'
+import type { IPCResult, TemporaryFileRequest } from '@shared/types/ipc'
+import type { TemporaryFileResult } from '@shared/types/file'
 import { handleIPCCall, validateRequest, validateObject } from './common'
 
 /**

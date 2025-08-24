@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react'
-import type { Message } from '../../../shared/types/message'
+import type { Message } from '@shared/types/message'
 
 // Sentinel key for top-level roots (messages with parentMessageId === null)
 const ROOT_KEY = '__ROOT__'

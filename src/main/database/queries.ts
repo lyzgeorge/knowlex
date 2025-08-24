@@ -1,6 +1,6 @@
 import { executeQuery } from './index'
-import type { Conversation } from '../../shared/types/conversation'
-import type { Message, MessageContent } from '../../shared/types/message'
+import type { Conversation } from '@shared/types/conversation'
+import type { Message, MessageContent } from '@shared/types/message'
 import { conversationEntity, messageEntity } from './schemas'
 
 /**

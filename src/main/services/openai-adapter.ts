@@ -1,7 +1,7 @@
 import { streamText, generateText, smoothStream } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import type { Message, MessageContent } from '../../shared/types/message'
+import type { Message, MessageContent } from '@shared/types/message'
 import type { CancellationToken } from '../utils/cancellation'
 
 /**

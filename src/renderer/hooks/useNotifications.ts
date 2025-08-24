@@ -5,7 +5,7 @@ import {
   NotificationOptions,
   NotificationPresetKey,
   NOTIFICATION_PRESETS
-} from '../../../shared/types/notification'
+} from '@shared/types/notification'
 
 /**
  * Unified notification hook that wraps Chakra UI's useToast

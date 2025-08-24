@@ -9,8 +9,8 @@
 import React from 'react'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { Conversation, SessionSettings } from '../../../shared/types/conversation'
-import type { Message, MessageContent } from '../../../shared/types/message'
+import type { Conversation, SessionSettings } from '@shared/types/conversation'
+import type { Message, MessageContent } from '@shared/types/message'
 
 const EMPTY_MESSAGES: Message[] = []
 const nowISO = () => new Date().toISOString()
