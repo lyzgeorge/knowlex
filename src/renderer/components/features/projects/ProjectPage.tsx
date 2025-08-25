@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { Box, Heading, VStack, Text } from '@chakra-ui/react'
 import { useConversations, useConversationStore } from '@renderer/stores/conversation'
+import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
 import ConversationCard from './ConversationCard'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
@@ -14,6 +15,8 @@ interface Props {
 const ProjectPage: React.FC<Props> = ({ projectId }) => {
   const conversations = useConversations()
   const setCurrentConversation = useConversationStore((s) => s.setCurrentConversation)
+  const currentConversationId = useConversationStore((s) => s.currentConversationId)
+  const { navigateToChat } = useNavigationActions()
   const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId))
 
   const projectConversations = useMemo(
@@ -22,6 +25,20 @@ const ProjectPage: React.FC<Props> = ({ projectId }) => {
   )
 
   const [menuTargetId, setMenuTargetId] = useState<string | null>(null)
+
+  // When entering a project page, clear current selection so a new send will create
+  // a fresh conversation and message:added event can set the new current conversation.
+  useEffect(() => {
+    setCurrentConversation(null)
+  }, [projectId, setCurrentConversation])
+
+  // If a conversation becomes selected (e.g. after sending a message from project input
+  // or clicking a card), navigate to the chat view.
+  useEffect(() => {
+    if (currentConversationId) {
+      navigateToChat()
+    }
+  }, [currentConversationId, navigateToChat])
 
   return (
     <Box p={6}>

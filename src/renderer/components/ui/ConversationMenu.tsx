@@ -1,6 +1,6 @@
 import React from 'react'
-import { Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react'
-import { HamburgerIcon, ChevronRightIcon } from '@chakra-ui/icons'
+import { Menu, MenuButton, MenuList, MenuItem, IconButton, MenuDivider } from '@chakra-ui/react'
+import { HamburgerIcon } from '@chakra-ui/icons'
 import { useProjectStore } from '@renderer/stores/project'
 import { useConversationStore } from '@renderer/stores/conversation'
 
@@ -30,24 +30,19 @@ const ConversationMenu: React.FC<Props> = ({
         variant="ghost"
       />
       <MenuList>
-        <Menu placement="right-start" autoSelect={false}>
-          <MenuButton as={MenuItem} icon={<ChevronRightIcon />}>
-            Move
-          </MenuButton>
-          <MenuList>
-            {currentProjectId && (
-              <MenuItem onClick={() => move(conversationId, null)}>Remove from project</MenuItem>
-            )}
-            {currentProjectId && <MenuItem isDisabled>──────────────</MenuItem>}
-            {projects
-              .filter((p) => p.id !== currentProjectId)
-              .map((p) => (
-                <MenuItem key={p.id} onClick={() => move(conversationId, p.id)}>
-                  {p.name}
-                </MenuItem>
-              ))}
-          </MenuList>
-        </Menu>
+        <MenuItem isDisabled>Move to</MenuItem>
+        {currentProjectId && (
+          <MenuItem onClick={() => move(conversationId, null)}>Remove from project</MenuItem>
+        )}
+        {projects.filter((p) => p.id !== currentProjectId).length > 0 && <MenuDivider />}
+        {projects
+          .filter((p) => p.id !== currentProjectId)
+          .map((p) => (
+            <MenuItem key={p.id} onClick={() => move(conversationId, p.id)}>
+              {p.name}
+            </MenuItem>
+          ))}
+        <MenuDivider />
         <MenuItem onClick={onRename}>Rename</MenuItem>
         <MenuItem color="red.500" onClick={onDelete}>
           Delete

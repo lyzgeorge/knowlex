@@ -1,47 +1,21 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Box,
   VStack,
-  HStack,
-  Text,
-  IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  Avatar,
-  Input,
-  InputGroup,
-  InputLeftElement,
   Divider,
-  useDisclosure,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogContent,
-  AlertDialogOverlay,
-  Tooltip,
-  Spinner
+  AlertDialogOverlay
 } from '@chakra-ui/react'
-import {
-  AddIcon,
-  SearchIcon,
-  SettingsIcon,
-  HamburgerIcon,
-  CheckIcon,
-  CloseIcon,
-  ChevronRightIcon,
-  ChevronDownIcon
-} from '@chakra-ui/icons'
-import ConversationMenu from '@renderer/components/ui/ConversationMenu'
-import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { Button } from '@renderer/components/ui/Button'
-import { useConversationStore } from '@renderer/stores/conversation'
-import { useProjectStore } from '@renderer/stores/project'
-import { useNavigationActions } from '@renderer/stores/navigation'
-import { formatRelativeTime } from '@shared/utils/time'
-import { useNotifications } from '@renderer/components/ui'
+import { SidebarHeader } from './SidebarHeader'
+import { ProjectsSection } from './ProjectsSection'
+import { ConversationsSection } from './ConversationsSection'
+import { SidebarFooter } from './SidebarFooter'
+import { useConversationManagement } from '@renderer/hooks/useConversationManagement'
 
 export interface SidebarProps {
   className?: string
@@ -58,175 +32,34 @@ export interface SidebarProps {
  * - 虚拟滚动优化和键盘导航支持
  */
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
-  // Local state for UI interactions
   const [searchQuery, setSearchQuery] = useState('')
-  const [hoveredConversation, setHoveredConversation] = useState<string | null>(null)
 
-  // Inline editing state
-  const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
-  const [editingTitle, setEditingTitle] = useState('')
-
-  // Delete confirmation state
-  const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
-  const cancelRef = React.useRef<HTMLButtonElement>(null)
-
-  // Zustand stores
-  const conversations = useConversationStore((state) => state.conversations)
-  const messages = useConversationStore((state) => state.messages)
-  const deleteConversation = useConversationStore((state) => state.deleteConversation)
-  const updateConversationTitle = useConversationStore((state) => state.updateConversationTitle)
-  const currentConversationId = useConversationStore((state) => state.currentConversationId)
-  const setCurrentConversation = useConversationStore((state) => state.setCurrentConversation)
-  const loadMoreConversations = useConversationStore((state) => state.loadMoreConversations)
-  const hasMoreConversations = useConversationStore((state) => state.hasMoreConversations)
-  const isLoadingMore = useConversationStore((state) => state.isLoadingMore)
-
-  // Notifications
-  const notifications = useNotifications()
-
-  // Projects state
-  const projects = useProjectStore((s) => s.projects)
-  const expanded = useProjectStore((s) => s.expanded)
-  const toggleProject = useProjectStore((s) => s.toggle)
-  const fetchProjects = useProjectStore((s) => s.fetchProjects)
-  const addProject = useProjectStore((s) => s.addProject)
-  const editProject = useProjectStore((s) => s.editProject)
-  const removeProject = useProjectStore((s) => s.removeProject)
-  const { navigateToProjectDetail, navigateToChat } = useNavigationActions()
-  const [isCreatingProject, setIsCreatingProject] = useState(false)
-  const [newProjectName, setNewProjectName] = useState('')
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
-  const [editingProjectName, setEditingProjectName] = useState('')
   const {
-    isOpen: isDeleteProjectOpen,
-    onOpen: onOpenDeleteProject,
-    onClose: onCloseDeleteProject
-  } = useDisclosure()
-  const [projectPendingDeletion, setProjectPendingDeletion] = useState<{
-    id: string
-    name: string
-  } | null>(null)
+    conversations,
+    uncategorizedConversations,
+    currentConversationId,
+    hoveredConversation,
+    setHoveredConversation,
+    handleNewChat,
+    handleSelectConversation,
+    handleDeleteConversation,
+    confirmDelete,
+    isDeleteOpen,
+    onDeleteClose,
+    cancelRef,
+    isDeleting,
+    sentinelRef,
+    hasMoreConversations,
+    isLoadingMore
+  } = useConversationManagement()
 
-  useEffect(() => {
-    fetchProjects().catch(() => {})
-  }, [fetchProjects])
-
-  // Ref for infinite scroll sentinel
-  const sentinelRef = useRef<HTMLDivElement>(null)
-
-  // Infinite scroll logic
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel || !hasMoreConversations || isLoadingMore) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (entry && entry.isIntersecting) {
-          loadMoreConversations()
-        }
-      },
-      {
-        root: null,
-        rootMargin: '50px',
-        threshold: 0.1
-      }
-    )
-
-    observer.observe(sentinel)
-
-    return () => {
-      observer.unobserve(sentinel)
-    }
-  }, [hasMoreConversations, isLoadingMore, loadMoreConversations])
-
-  // Handle new chat creation (just clear current conversation, don't create new one yet)
-  const handleNewChat = useCallback(() => {
-    // Just clear current conversation - new one will be created when user sends first message
-    setCurrentConversation(null)
-  }, [setCurrentConversation])
-
-  // Handle inline editing
-  const handleStartInlineEdit = useCallback((conversationId: string, currentTitle: string) => {
-    setEditingConversationId(conversationId)
-    setEditingTitle(currentTitle)
-  }, [])
-
-  const handleCancelInlineEdit = useCallback(() => {
-    setEditingConversationId(null)
-    setEditingTitle('')
-  }, [])
-
-  const handleInputBlur = useCallback(() => {
-    // Add a small delay to allow clicking confirm button
-    setTimeout(() => {
-      if (editingConversationId) {
-        handleCancelInlineEdit()
-      }
-    }, 150)
-  }, [editingConversationId, handleCancelInlineEdit])
-
-  const handleConfirmInlineEdit = useCallback(async () => {
-    if (!editingConversationId || !editingTitle.trim()) return
-
-    console.log('Updating conversation title:', {
-      conversationId: editingConversationId,
-      newTitle: editingTitle.trim()
-    })
-
-    try {
-      await updateConversationTitle(editingConversationId, editingTitle.trim())
-      console.log('Conversation title updated successfully')
-      notifications.conversationRenamed()
-      setEditingConversationId(null)
-      setEditingTitle('')
-    } catch (error) {
-      console.error('Failed to update conversation title:', error)
-      notifications.conversationRenameFailed(
-        error instanceof Error ? error.message : 'An error occurred'
-      )
-    }
-  }, [editingConversationId, editingTitle, updateConversationTitle, notifications])
-
-  // Handle conversation delete
-  const handleDeleteConversation = useCallback(
-    (conversationId: string) => {
-      setDeleteConversationId(conversationId)
-      onDeleteOpen()
-    },
-    [onDeleteOpen]
-  )
-
-  const confirmDelete = useCallback(async () => {
-    if (!deleteConversationId) return
-
-    setIsDeleting(true)
-    try {
-      await deleteConversation(deleteConversationId)
-      notifications.conversationDeleted()
-      onDeleteClose()
-    } catch (error) {
-      notifications.conversationDeleteFailed(
-        error instanceof Error ? error.message : 'An error occurred'
-      )
-    } finally {
-      setIsDeleting(false)
-    }
-  }, [deleteConversationId, deleteConversation, notifications, onDeleteClose])
-
-  // Handle global search
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query)
-    // TODO: Implement global search functionality
     console.log('Searching for:', query)
-  }
+  }, [])
 
-  // Keyboard navigation support
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Handle common keyboard shortcuts
       switch (e.key) {
         case 'n':
           if (e.metaKey || e.ctrlKey) {
@@ -237,7 +70,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         case 'k':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault()
-            // Focus search input
             const searchInput = document.querySelector(
               '[placeholder="Global Search"]'
             ) as HTMLInputElement
@@ -247,7 +79,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           }
           break
         case 'Escape':
-          // Clear search when escape is pressed in search box
           if (e.target instanceof HTMLInputElement && e.target.placeholder === 'Global Search') {
             setSearchQuery('')
             e.target.blur()
@@ -256,26 +87,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       }
     },
     [handleNewChat]
-  )
-
-  // Memoize conversation filtering to prevent re-renders
-  // Show conversations that have at least 1 message (don't show empty conversations)
-  const filteredConversations = useMemo(
-    () =>
-      conversations
-        .filter((conv) => {
-          const conversationMessages = messages[conv.id] || []
-          // Only show conversations with at least 1 message (don't show empty conversations)
-          return conversationMessages.length >= 1
-        })
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), // Sort by last modified (newest first)
-    [conversations, messages]
-  )
-
-  // Filter for uncategorized conversations (no projectId)
-  const uncategorizedConversations = useMemo(
-    () => filteredConversations.filter((conv) => !conv.projectId), // Only conversations without a project
-    [filteredConversations]
   )
 
   return (
@@ -294,483 +105,46 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       aria-label="Main navigation sidebar"
       tabIndex={-1}
     >
-      {/* Draggable Top Area */}
-      <Box
-        h="2rem"
-        w="100%"
-        position="absolute"
-        top={0}
-        left={0}
-        zIndex={1000}
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        bg="transparent"
-        pointerEvents="all"
+      <SidebarHeader
+        searchQuery={searchQuery}
+        onSearchChange={handleSearch}
+        onNewChat={handleNewChat}
       />
-      {/* Top Section: Logo and New Chat */}
-      <Box p={4} pt="2rem">
-        <VStack spacing={4} align="stretch">
-          {/* Logo */}
-          <Text fontSize="xl" fontWeight="bold" color="text.primary">
-            Knowlex
-          </Text>
 
-          {/* New Chat Button */}
-          <Button
-            leftIcon={<AddIcon />}
-            variant="solid"
-            bg="primary.500"
-            color="white"
-            _hover={{ bg: 'primary.600' }}
-            _active={{ bg: 'primary.700' }}
-            size="sm"
-            isFullWidth
-            justifyContent="flex-start"
-            onClick={handleNewChat}
-            aria-label="Create new chat conversation (Ctrl/Cmd+N)"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            New Chat
-          </Button>
+      <Divider />
 
-          {/* Global Search */}
-          <InputGroup size="sm" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <InputLeftElement>
-              <SearchIcon color="text.secondary" />
-            </InputLeftElement>
-            <Input
-              placeholder="Global Search"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              bg="surface.secondary"
-              border="1px solid"
-              borderColor="border.secondary"
-              _focus={{
-                borderColor: 'primary.500',
-                boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-              }}
-              aria-label="Search across all conversations (Ctrl/Cmd+K)"
+      <Box flex={1} overflowY="auto">
+        <VStack spacing={0} align="stretch">
+          <Box px={2}>
+            <ProjectsSection
+              filteredConversations={conversations}
+              currentConversationId={currentConversationId}
+              onSelectConversation={handleSelectConversation}
+              onDeleteConversation={handleDeleteConversation}
             />
-          </InputGroup>
-        </VStack>
-      </Box>
-
-      <Divider />
-
-      {/* Main Content Area - Scrollable */}
-      <Box flex={1} overflowY="auto" px={4} py={3}>
-        <VStack spacing={6} align="stretch">
-          {/* Projects Section */}
-          <Box>
-            <HStack justify="space-between" mb={3}>
-              <Text fontSize="sm" fontWeight="semibold" color="text.secondary">
-                Projects
-              </Text>
-              <IconButton
-                aria-label="New project"
-                icon={<AddIcon />}
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  setIsCreatingProject(true)
-                  setNewProjectName('')
-                }}
-              />
-            </HStack>
-
-            {isCreatingProject && (
-              <HStack mb={2}>
-                <Input
-                  placeholder="Project name"
-                  size="sm"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && newProjectName.trim()) {
-                      const proj = await addProject(newProjectName.trim())
-                      setIsCreatingProject(false)
-                      setNewProjectName('')
-                      navigateToProjectDetail(proj.id)
-                    } else if (e.key === 'Escape') {
-                      setIsCreatingProject(false)
-                      setNewProjectName('')
-                    }
-                  }}
-                  autoFocus
-                />
-                <IconButton
-                  aria-label="Create project"
-                  icon={<CheckIcon />}
-                  size="xs"
-                  variant="ghost"
-                  isDisabled={!newProjectName.trim()}
-                  onClick={async () => {
-                    if (!newProjectName.trim()) return
-                    const proj = await addProject(newProjectName.trim())
-                    setIsCreatingProject(false)
-                    setNewProjectName('')
-                    navigateToProjectDetail(proj.id)
-                  }}
-                />
-                <IconButton
-                  aria-label="Cancel"
-                  icon={<CloseIcon />}
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => {
-                    setIsCreatingProject(false)
-                    setNewProjectName('')
-                  }}
-                />
-              </HStack>
-            )}
-
-            <VStack spacing={0} align="stretch" role="list" aria-label="Projects">
-              {projects.map((p) => (
-                <Box key={p.id}>
-                  <HStack
-                    role="listitem"
-                    p={2}
-                    borderRadius="md"
-                    _hover={{ bg: 'surface.hover' }}
-                    justify="space-between"
-                  >
-                    <HStack spacing={2} flex={1}>
-                      <IconButton
-                        aria-label={expanded[p.id] ? 'Collapse' : 'Expand'}
-                        icon={expanded[p.id] ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                        size="xs"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleProject(p.id)
-                        }}
-                      />
-                      {editingProjectId === p.id ? (
-                        <HStack flex={1} spacing={1}>
-                          <Input
-                            value={editingProjectName}
-                            onChange={(e) => setEditingProjectName(e.target.value)}
-                            fontSize="sm"
-                            variant="unstyled"
-                            size="sm"
-                            h="24px"
-                            onKeyDown={async (e) => {
-                              if (e.key === 'Enter' && editingProjectName.trim()) {
-                                await editProject(p.id, editingProjectName.trim())
-                                setEditingProjectId(null)
-                                setEditingProjectName('')
-                              } else if (e.key === 'Escape') {
-                                setEditingProjectId(null)
-                                setEditingProjectName('')
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <IconButton
-                            aria-label="Confirm rename"
-                            icon={<CheckIcon />}
-                            size="xs"
-                            variant="ghost"
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (!editingProjectName.trim()) return
-                              await editProject(p.id, editingProjectName.trim())
-                              setEditingProjectId(null)
-                              setEditingProjectName('')
-                            }}
-                          />
-                          <IconButton
-                            aria-label="Cancel rename"
-                            icon={<CloseIcon />}
-                            size="xs"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingProjectId(null)
-                              setEditingProjectName('')
-                            }}
-                          />
-                        </HStack>
-                      ) : (
-                        <Text
-                          fontSize="sm"
-                          fontWeight="medium"
-                          noOfLines={1}
-                          onClick={() => navigateToProjectDetail(p.id)}
-                        >
-                          {p.name}
-                        </Text>
-                      )}
-                    </HStack>
-
-                    {editingProjectId !== p.id && (
-                      <Menu>
-                        <MenuButton
-                          as={IconButton}
-                          aria-label="Project options"
-                          icon={<HamburgerIcon />}
-                          size="xs"
-                          variant="ghost"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <MenuList>
-                          <MenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingProjectId(p.id)
-                              setEditingProjectName(p.name)
-                            }}
-                          >
-                            Rename
-                          </MenuItem>
-                          <MenuItem
-                            color="red.500"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setProjectPendingDeletion({ id: p.id, name: p.name })
-                              onOpenDeleteProject()
-                            }}
-                          >
-                            Delete
-                          </MenuItem>
-                        </MenuList>
-                      </Menu>
-                    )}
-                  </HStack>
-
-                  {expanded[p.id] && (
-                    <VStack align="stretch" pl={8} spacing={0} mb={2}>
-                      {filteredConversations
-                        .filter((c) => c.projectId === p.id)
-                        .map((conversation) => (
-                          <HStack
-                            key={conversation.id}
-                            p={2}
-                            borderRadius="md"
-                            _hover={{ bg: 'surface.hover' }}
-                            justify="space-between"
-                            onClick={() => {
-                              setCurrentConversation(conversation.id)
-                              navigateToChat()
-                            }}
-                          >
-                            <Text fontSize="sm" noOfLines={1} flex={1}>
-                              {conversation.title}
-                            </Text>
-                            <ConversationMenu
-                              conversationId={conversation.id}
-                              currentProjectId={p.id}
-                              onRename={() =>
-                                handleStartInlineEdit(conversation.id, conversation.title)
-                              }
-                              onDelete={() => handleDeleteConversation(conversation.id)}
-                            />
-                          </HStack>
-                        ))}
-                    </VStack>
-                  )}
-                </Box>
-              ))}
-            </VStack>
           </Box>
 
-          {/* Conversations Section */}
-          <Box>
-            <Text fontSize="sm" fontWeight="semibold" color="text.secondary" mb={3}>
-              Conversations
-            </Text>
+          <Divider />
 
-            <VStack
-              spacing={0}
-              align="stretch"
-              role="list"
-              aria-label="Uncategorized conversations"
-            >
-              {uncategorizedConversations.length === 0 ? (
-                <Text fontSize="sm" color="text.tertiary" fontStyle="italic" py={2}>
-                  No uncategorized conversations
-                </Text>
-              ) : (
-                uncategorizedConversations.map((conversation) => {
-                  const isCurrentConversation = currentConversationId === conversation.id
-                  const isConvHovered = hoveredConversation === conversation.id
-
-                  return (
-                    <HStack
-                      key={conversation.id}
-                      role="listitem"
-                      p={2}
-                      borderRadius="md"
-                      cursor="pointer"
-                      bg={isCurrentConversation ? 'primary.50' : 'transparent'}
-                      borderLeft={isCurrentConversation ? '3px solid' : 'none'}
-                      borderColor="primary.500"
-                      transition="all 0.2s"
-                      _hover={{
-                        bg: isCurrentConversation ? 'primary.100' : 'surface.hover'
-                      }}
-                      onMouseEnter={() => setHoveredConversation(conversation.id)}
-                      onMouseLeave={() => setHoveredConversation(null)}
-                      onClick={() => {
-                        setCurrentConversation(conversation.id)
-                        navigateToChat()
-                      }}
-                      justify="space-between"
-                      align="center"
-                    >
-                      {/* Conversation Title */}
-                      {editingConversationId === conversation.id ? (
-                        <HStack flex={1} spacing={1}>
-                          <Input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            fontSize="sm"
-                            fontWeight="medium"
-                            variant="unstyled"
-                            size="sm"
-                            h="24px"
-                            lineHeight="24px"
-                            px={0}
-                            py={0}
-                            bg="transparent"
-                            _focus={{ boxShadow: 'none', bg: 'transparent' }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                handleConfirmInlineEdit()
-                              } else if (e.key === 'Escape') {
-                                e.preventDefault()
-                                handleCancelInlineEdit()
-                              }
-                            }}
-                            onBlur={handleInputBlur}
-                            autoFocus
-                          />
-                        </HStack>
-                      ) : (
-                        <Tooltip
-                          label={conversation.title}
-                          placement="right"
-                          hasArrow
-                          openDelay={600}
-                          closeDelay={200}
-                          bg="surface.primary"
-                          color="text.primary"
-                          borderRadius="md"
-                          border="1px solid"
-                          borderColor="border.primary"
-                          shadow="dropdown"
-                          fontSize="sm"
-                          fontWeight="medium"
-                          px={3}
-                          py={2}
-                          maxW="280px"
-                          textAlign="left"
-                          whiteSpace="normal"
-                        >
-                          <Text
-                            fontSize="sm"
-                            fontWeight="medium"
-                            noOfLines={1}
-                            flex={1}
-                            py={0.5}
-                            minW={0}
-                          >
-                            {conversation.title}
-                          </Text>
-                        </Tooltip>
-                      )}
-
-                      {/* Time or Action Icons */}
-                      <Box minW="60px" display="flex" justifyContent="flex-end" alignItems="center">
-                        {editingConversationId === conversation.id ? (
-                          <HStack spacing={1}>
-                            <IconButton
-                              aria-label="Confirm rename"
-                              icon={<CheckIcon />}
-                              size="xs"
-                              variant="ghost"
-                              color="green.500"
-                              _hover={{ bg: 'green.50', color: 'green.600' }}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleConfirmInlineEdit()
-                              }}
-                            />
-                            <IconButton
-                              aria-label="Cancel rename"
-                              icon={<CloseIcon />}
-                              size="xs"
-                              variant="ghost"
-                              color="gray.500"
-                              _hover={{ bg: 'gray.50', color: 'gray.600' }}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCancelInlineEdit()
-                              }}
-                            />
-                          </HStack>
-                        ) : isConvHovered ? (
-                          <ConversationMenu
-                            conversationId={conversation.id}
-                            currentProjectId={null}
-                            onRename={() =>
-                              handleStartInlineEdit(conversation.id, conversation.title)
-                            }
-                            onDelete={() => handleDeleteConversation(conversation.id)}
-                          />
-                        ) : (
-                          <Text fontSize="xs" color="text.tertiary" flexShrink={0}>
-                            {formatRelativeTime(conversation.updatedAt)}
-                          </Text>
-                        )}
-                      </Box>
-                    </HStack>
-                  )
-                })
-              )}
-
-              {/* Loading indicator */}
-              {isLoadingMore && (
-                <HStack justify="center" py={4}>
-                  <Spinner size="sm" color="primary.500" />
-                  <Text fontSize="sm" color="text.secondary">
-                    Loading more conversations...
-                  </Text>
-                </HStack>
-              )}
-
-              {/* Sentinel element for infinite scroll */}
-              {hasMoreConversations && !isLoadingMore && <Box ref={sentinelRef} h="1px" />}
-            </VStack>
+          <Box px={2}>
+            <ConversationsSection
+              conversations={uncategorizedConversations}
+              currentConversationId={currentConversationId}
+              hoveredConversation={hoveredConversation}
+              onConversationHover={setHoveredConversation}
+              onSelectConversation={handleSelectConversation}
+              onDeleteConversation={handleDeleteConversation}
+              isLoadingMore={isLoadingMore}
+              hasMoreConversations={hasMoreConversations}
+              sentinelRef={sentinelRef}
+            />
           </Box>
         </VStack>
       </Box>
 
       <Divider />
 
-      {/* Bottom Section: User Profile and Settings */}
-      <Box p={4}>
-        <HStack spacing={3}>
-          <Avatar size="sm" name="User Name" />
-          <VStack align="start" spacing={0} flex={1} minW={0}>
-            <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
-              用户名
-            </Text>
-          </VStack>
-          <IconButton
-            aria-label="Settings"
-            icon={<SettingsIcon />}
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              console.log('Open settings')
-            }}
-          />
-        </HStack>
-      </Box>
+      <SidebarFooter />
 
       {/* Delete Conversation Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={cancelRef} onClose={onDeleteClose}>
@@ -795,34 +169,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
-      {/* Delete Project Modal (two-step) */}
-      <DeleteProjectModal
-        isOpen={isDeleteProjectOpen}
-        onClose={() => {
-          setProjectPendingDeletion(null)
-          onCloseDeleteProject()
-        }}
-        projectName={projectPendingDeletion?.name || ''}
-        conversationCount={
-          projectPendingDeletion
-            ? conversations.filter((c) => c.projectId === projectPendingDeletion.id).length
-            : 0
-        }
-        messageCount={
-          projectPendingDeletion
-            ? conversations
-                .filter((c) => c.projectId === projectPendingDeletion.id)
-                .map((c) => (messages[c.id] || []).length)
-                .reduce((a, b) => a + b, 0)
-            : 0
-        }
-        onConfirm={async () => {
-          if (!projectPendingDeletion) return
-          await removeProject(projectPendingDeletion.id)
-          setProjectPendingDeletion(null)
-          onCloseDeleteProject()
-        }}
-      />
     </Box>
   )
 }

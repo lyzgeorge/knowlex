@@ -269,15 +269,21 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         .reverse()
         .find((msg) => msg.role === 'assistant')
 
+      // Determine routing for the message based on variant/context
       const sendOptions: { conversationId?: string; parentMessageId?: string; projectId?: string } =
         {}
-      if (currentConversation?.id) {
-        sendOptions.conversationId = currentConversation.id
-      } else if (variant === 'project-entrance' && projectId) {
+
+      if (variant === 'project-entrance' && projectId) {
+        // Always create a new conversation under this project.
+        // Do not thread into any previously selected conversation.
         sendOptions.projectId = projectId
-      }
-      if (lastAssistantMessage?.id) {
-        sendOptions.parentMessageId = lastAssistantMessage.id
+        // Intentionally avoid setting parentMessageId to start a fresh thread
+      } else if (currentConversation?.id) {
+        // Normal behavior: send to currently selected conversation
+        sendOptions.conversationId = currentConversation.id
+        if (lastAssistantMessage?.id) {
+          sendOptions.parentMessageId = lastAssistantMessage.id
+        }
       }
 
       console.log('handleSend: Sending with options:', sendOptions)

@@ -26,13 +26,23 @@ function MainApp(): JSX.Element {
         <Box display="flex" flexDirection="column" h="100%">
           {/* Page Content - Direct routing without intermediate component */}
           <Box flex={1} bg="background.primary" minH={0}>
-            {currentView === 'project-detail' && selectedProjectId ? (
-              <ProjectPage projectId={selectedProjectId} />
-            ) : !currentConversation || currentMessages.length === 0 ? (
-              <MainPage />
-            ) : (
-              <ConversationPage />
-            )}
+            {(() => {
+              switch (currentView) {
+                case 'project-detail':
+                  return selectedProjectId ? (
+                    <ProjectPage projectId={selectedProjectId} />
+                  ) : (
+                    <MainPage />
+                  ) // Fallback if no project is selected
+                case 'chat':
+                default:
+                  return !currentConversation || currentMessages.length === 0 ? (
+                    <MainPage />
+                  ) : (
+                    <ConversationPage />
+                  )
+              }
+            })()}
           </Box>
         </Box>
       </MainLayout>

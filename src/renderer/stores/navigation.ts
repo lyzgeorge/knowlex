@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { useConversationStore } from './conversation'
 
 export type MainView = 'chat' | 'project-list' | 'project-detail' | 'project-files' | 'settings'
 
@@ -68,6 +69,13 @@ export const useNavigationStore = create<NavigationState>()(
         state.currentView = view
         state.selectedProjectId = projectId || null
       })
+
+      // If navigating away from a chat-centric view, clear the active conversation
+      if (view !== 'chat') {
+        setTimeout(() => {
+          useConversationStore.getState().setCurrentConversation(null)
+        }, 0)
+      }
     },
 
     navigateBack: () => {
