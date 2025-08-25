@@ -362,8 +362,8 @@
 
 ---
 
-## src/renderer/src/stores/conversation.ts
-路径：src/renderer/src/stores/conversation.ts
+## src/renderer/stores/conversation.ts
+路径：src/renderer/stores/conversation.ts
 
 一句话：前端会话状态管理（Zustand），包含消息索引、事件处理、网络调用封装及流式更新逻辑。
 
@@ -411,8 +411,8 @@
 
 ---
 
-## src/renderer/src/App.tsx
-路径：src/renderer/src/App.tsx
+## src/renderer/App.tsx
+路径：src/renderer/App.tsx
 
 一句话：React 顶层组件，负责应用初始化、加载/错误显示与主界面挂载。
 
@@ -426,8 +426,8 @@
 
 ---
 
-## src/renderer/src/stores/index.ts
-路径：src/renderer/src/stores/index.ts
+## src/renderer/stores/index.ts
+路径：src/renderer/stores/index.ts
 
 一句话：前端 stores 集中导出与初始化入口，协调 settings/conversation/app stores 的初始化顺序。
 
@@ -440,8 +440,8 @@
 
 ---
 
-## src/renderer/src/pages/ConversationPage.tsx
-路径：src/renderer/src/pages/ConversationPage.tsx
+## src/renderer/components/features/chat/ConversationPage.tsx
+路径：src/renderer/components/features/chat/ConversationPage.tsx
 
 一句话：会话级页面，负责显示单个会话的消息流、分支视图与消息输入区域。
 
@@ -453,8 +453,8 @@
 
 ---
 
-## src/renderer/src/pages/MainPage.tsx
-路径：src/renderer/src/pages/MainPage.tsx
+## src/renderer/components/features/chat/MainPage.tsx
+路径：src/renderer/components/features/chat/MainPage.tsx
 
 一句话：应用主界面入口页，组织侧栏、会话汇总与活动页面（ConversationPage / other pages）。
 
@@ -472,8 +472,8 @@
 
 ---
 
-## src/renderer/src/components/ui/AssistantMessage.tsx
-路径：src/renderer/src/components/ui/AssistantMessage.tsx
+## src/renderer/components/ui/AssistantMessage.tsx
+路径：src/renderer/components/ui/AssistantMessage.tsx
 
 一句话：Assistant 消息 UI，显示 avatar、reasoning 区块、流式指示与操作图标。
 
@@ -489,21 +489,8 @@
 
 ---
 
-## src/renderer/src/components/ui/MessageContentRenderer.tsx
-路径：src/renderer/src/components/ui/MessageContentRenderer.tsx
-
-一句话：统一消息内容渲染器，支持 text / temporary-file / image 等类型，使用 ReactMarkdown 渲染 Markdown 并显示流式光标。
-
-| 组件 / 导出 | 参数 | 说明 |
-|---|---:|---|
-| MessageContentRenderer | props: {content:MessageContent, variant:'user'|'assistant', isStreaming?:boolean, showCursor?:boolean, isReasoningStreaming?:boolean} | 渲染各类型内容：text/image/temporary-file/citation 等。对于 `user` variant，文件/图片优先渲染为 `TempFileCard`（compact）；对于 `assistant` variant，文件内容以内联摘录方式展示；支持在流式文本末尾显示光标并在推理流时隐藏该光标。 |
-
-模块逻辑：根据 content part 的类型渲染不同 UI：文本使用 `ReactMarkdown`（含语法高亮），图片在用户消息显示为 `TempFileCard`（估算大小），临时文件在用户端显示为卡片，在助理端以内联块展示文件摘录（只显示前 N 字符）。流式场景下最后一个文本片段会显示闪烁光标，若 `isReasoningStreaming` 为 true 则隐藏文本光标以突出推理流。
-
----
-
-## src/renderer/src/components/features/chat/ChatInputBox.tsx
-路径：src/renderer/src/components/features/chat/ChatInputBox.tsx
+## src/renderer/components/features/chat/ChatInputBox.tsx
+路径：src/renderer/components/features/chat/ChatInputBox.tsx
 
 一句话：聊天输入组件，支持文本输入、文件上传（拖拽/选择）、自动扩展与发送/停止流式操作。
 
@@ -641,8 +628,8 @@
 
 ---
 
-## src/renderer/src/hooks/useAutoScroll.ts
-路径：src/renderer/src/hooks/useAutoScroll.ts
+## src/renderer/hooks/useAutoScroll.ts
+路径：src/renderer/hooks/useAutoScroll.ts
 
 一句话：自动滚动与锚点管理的 React Hook，用于消息列表，支持在流式生成时选择是否跟随。
 
@@ -654,8 +641,8 @@
 
 ---
 
-## src/renderer/src/hooks/useFileUpload.ts
-路径：src/renderer/src/hooks/useFileUpload.ts
+## src/renderer/hooks/useFileUpload.ts
+路径：src/renderer/hooks/useFileUpload.ts
 
 一句话：处理前端文件选择/拖拽、客户端校验并调用主进程临时文件处理 IPC 的 hook。
 
@@ -667,8 +654,8 @@
 
 ---
 
-## src/renderer/src/hooks/useNotifications.ts
-路径：src/renderer/src/hooks/useNotifications.ts
+## src/renderer/hooks/useNotifications.ts
+路径：src/renderer/hooks/useNotifications.ts
 
 一句话：应用内通知管理 hook（队列、显示/移除）。
 
@@ -680,8 +667,8 @@
 
 ---
 
-## src/renderer/src/components/ui/UserMessage.tsx
-路径：src/renderer/src/components/ui/UserMessage.tsx
+## src/renderer/components/ui/UserMessage.tsx
+路径：src/renderer/components/ui/UserMessage.tsx
 
 一句话：渲染用户消息的 UI 组件（气泡、时间、文件附件预览）。
 
@@ -693,8 +680,8 @@
 
 ---
 
-## src/renderer/src/components/ui/ReasoningBox.tsx
-路径：src/renderer/src/components/ui/ReasoningBox.tsx
+## src/renderer/components/ui/ReasoningBox.tsx
+路径：src/renderer/components/ui/ReasoningBox.tsx
 
 一句话：显示 AI 推理/中间思路的可折叠 UI 区块。
 
@@ -706,8 +693,8 @@
 
 ---
 
-## src/renderer/src/components/ui/Input.tsx
-路径：src/renderer/src/components/ui/Input.tsx
+## src/renderer/components/ui/Input.tsx
+路径：src/renderer/components/ui/Input.tsx
 
 一句话：通用受控输入组件（文本域/单行）带样式与状态钩子。
 
@@ -719,8 +706,21 @@
 
 ---
 
-## src/renderer/src/components/ui/Modal.tsx
-路径：src/renderer/src/components/ui/Modal.tsx
+## src/renderer/components/ui/MarkdownContent.tsx
+路径：src/renderer/components/ui/MarkdownContent.tsx
+
+一句话：渲染 Markdown 内容的组件，支持语法高亮和自定义组件。
+
+| 组件 / 导出 | 参数 | 返回 / 说明 |
+|---|---:|---|
+| MarkdownContent | content: string | React.ReactElement；渲染 markdown 字符串 |
+
+模块逻辑：使用 ReactMarkdown 和自定义组件来安全地渲染 markdown 内容，提供代码语法高亮和一致的样式。
+
+---
+
+## src/renderer/components/ui/Modal.tsx
+路径：src/renderer/components/ui/Modal.tsx
 
 一句话：通用模态对话框组件（标题、内容、底部按钮）。
 
@@ -732,8 +732,8 @@
 
 ---
 
-## src/renderer/src/components/ui/Button.tsx
-路径：src/renderer/src/components/ui/Button.tsx
+## src/renderer/components/ui/Button.tsx
+路径：src/renderer/components/ui/Button.tsx
 
 一句话：样式化按钮组件，支持不同变体与图标。
 
@@ -745,8 +745,8 @@
 
 ---
 
-## src/renderer/src/components/ui/Notification.tsx
-路径：src/renderer/src/components/ui/Notification.tsx
+## src/renderer/components/ui/Notification.tsx
+路径：src/renderer/components/ui/Notification.tsx
 
 一句话：单个通知展示组件（可自动消失、关闭按钮）。
 
@@ -758,8 +758,8 @@
 
 ---
 
-## src/renderer/src/components/ui/index.ts
-路径：src/renderer/src/components/ui/index.ts
+## src/renderer/components/ui/index.ts
+路径：src/renderer/components/ui/index.ts
 
 一句话：UI 组件的集中导出文件，便于按需导入。
 
@@ -771,8 +771,8 @@
 
 ---
 
-## src/renderer/src/components/ui/TempFileCard.tsx
-路径：src/renderer/src/components/ui/TempFileCard.tsx
+## src/renderer/components/ui/TempFileCard.tsx
+路径：src/renderer/components/ui/TempFileCard.tsx
 
 一句话：在消息或 UI 中展示临时文件的卡片（文件名 / 大小 / 操作），图片使用简洁预览或 data-url 显示。
 
@@ -786,8 +786,8 @@
 
 <!-- MessageActionIcons component removed in recent refactor; message actions are handled inline or via other UI components. -->
 
-## src/renderer/src/components/ui/AutoResizeTextarea.tsx
-路径：src/renderer/src/components/ui/AutoResizeTextarea.tsx
+## src/renderer/components/ui/AutoResizeTextarea.tsx
+路径：src/renderer/components/ui/AutoResizeTextarea.tsx
 
 一句话：自动高度调整的文本域组件，替代部分聊天输入中的自实现逻辑。
 
@@ -797,8 +797,8 @@
 
 模块逻辑：提供一个可复用的自动高度文本域，供 `ChatInputBox` 和消息编辑流程复用，以减少重复实现并保证一致的键盘行为与粘贴处理。
 
-## src/renderer/src/hooks/useMessageBranching.ts
-路径：src/renderer/src/hooks/useMessageBranching.ts
+## src/renderer/hooks/useMessageBranching.ts
+路径：src/renderer/hooks/useMessageBranching.ts
 
 一句话：管理会话内消息分支/树状结构的 Hook，用于实现非线性对话（branching）。
 
@@ -810,8 +810,8 @@
 
 ---
 
-## src/renderer/src/stores/settings.ts
-路径：src/renderer/src/stores/settings.ts
+## src/renderer/stores/settings.ts
+路径：src/renderer/stores/settings.ts
 
 一句话：前端设置 store，缓存用户配置并提供更新接口。
 
@@ -824,8 +824,8 @@
 
 ---
 
-## src/renderer/src/stores/app.ts
-路径：src/renderer/src/stores/app.ts
+## src/renderer/stores/app.ts
+路径：src/renderer/stores/app.ts
 
 一句话：应用级 store（就绪状态、全局错误/启动流程）。
 
@@ -837,8 +837,8 @@
 
 ---
 
-## src/renderer/src/stores/navigation.ts
-路径：src/renderer/src/stores/navigation.ts
+## src/renderer/stores/navigation.ts
+路径：src/renderer/stores/navigation.ts
 
 一句话：前端导航与当前视图状态管理（活动会话 id 等）。
 
@@ -850,8 +850,8 @@
 
 ---
 
-## src/renderer/src/pages/MainApp.tsx
-路径：src/renderer/src/pages/MainApp.tsx
+## src/renderer/pages/MainApp.tsx
+路径：src/renderer/pages/MainApp.tsx
 
 一句话：主应用页面布局，组合侧栏、消息列表与输入区域。
 
@@ -890,8 +890,8 @@
 
 ---
 
-## src/renderer/src/main.tsx
-路径：src/renderer/src/main.tsx
+## src/renderer/main.tsx
+路径：src/renderer/main.tsx
 
 一句话：渲染进程入口，挂载 React 应用到 DOM 并注入全局样式与 provider。
 
@@ -903,8 +903,8 @@
 
 ---
 
-## src/renderer/src/lib/test-setup.ts
-路径：src/renderer/src/lib/test-setup.ts
+## src/renderer/lib/test-setup.ts
+路径：src/renderer/lib/test-setup.ts
 
 一句话：测试环境初始化（jest/vitest 的 global mocks 与 DOM 配置）。
 
@@ -916,8 +916,8 @@
 
 ---
 
-## src/renderer/src/utils/markdownComponents.tsx
-路径：src/renderer/src/utils/markdownComponents.tsx
+## src/renderer/utils/markdownComponents.tsx
+路径：src/renderer/utils/markdownComponents.tsx
 
 一句话：为 ReactMarkdown 提供自定义渲染器（code blocks、links、images）。
 
@@ -975,21 +975,8 @@
 
 ---
 
-## src/renderer/src/components/features/chat/MessageEditModal.tsx
-路径：src/renderer/src/components/features/chat/MessageEditModal.tsx
-
-一句话：用于编辑已发送消息的模态对话框，提供保存/取消操作。
-
-| 组件 / 导出 | 参数 | 说明 |
-|---|---:|---|
-| MessageEditModal | props: {message, open, onSave, onClose} | 编辑消息文本并触发更新回调 |
-
-模块逻辑：呈现可编辑的文本域，执行本地验证后通过回调将更新提交到 store 或 IPC，并在完成后关闭模态。
-
----
-
-## src/renderer/src/components/layout/MainLayout.tsx
-路径：src/renderer/src/components/layout/MainLayout.tsx
+## src/renderer/components/layout/MainLayout.tsx
+路径：src/renderer/components/layout/MainLayout.tsx
 
 一句话：应用的主布局组件，组合侧栏与内容区域并处理响应式布局。
 
@@ -1001,8 +988,8 @@
 
 ---
 
-## src/renderer/src/components/layout/Sidebar.tsx
-路径：src/renderer/src/components/layout/Sidebar.tsx
+## src/renderer/components/layout/Sidebar.tsx
+路径：src/renderer/components/layout/Sidebar.tsx
 
 一句话：侧栏组件，列出会话、导航与全局操作（新建/搜索/设置）。
 
@@ -1014,8 +1001,8 @@
 
 ---
 
-## src/renderer/src/styles/markdown.css
-路径：src/renderer/src/styles/markdown.css
+## src/renderer/styles/markdown.css
+路径：src/renderer/styles/markdown.css
 
 一句话：Markdown 渲染的样式规则（代码块、高亮、表格、图片）。
 
@@ -1028,8 +1015,8 @@
 
 ---
 
-## src/renderer/src/types/global.d.ts
-路径：src/renderer/src/types/global.d.ts
+## src/renderer/types/global.d.ts
+路径：src/renderer/types/global.d.ts
 
 一句话：全局 TypeScript 声明（window.knowlex、环境变量等）。
 
@@ -1041,8 +1028,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/breakpoints.ts
-路径：src/renderer/src/utils/theme/breakpoints.ts
+## src/renderer/utils/theme/breakpoints.ts
+路径：src/renderer/utils/theme/breakpoints.ts
 
 一句话：响应式断点定义（xs/sm/md/lg/xl），供样式系统使用。
 
@@ -1054,8 +1041,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/colorMode.ts
-路径：src/renderer/src/utils/theme/colorMode.ts
+## src/renderer/utils/theme/colorMode.ts
+路径：src/renderer/utils/theme/colorMode.ts
 
 一句话：处理亮/暗色模式切换的工具（localStorage 缓存、系统偏好检测）。
 
@@ -1067,8 +1054,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/colors.ts
-路径：src/renderer/src/utils/theme/colors.ts
+## src/renderer/utils/theme/colors.ts
+路径：src/renderer/utils/theme/colors.ts
 
 一句话：主题色调表（primary/secondary/背景/文本 等）。
 
@@ -1080,8 +1067,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/components.ts
-路径：src/renderer/src/utils/theme/components.ts
+## src/renderer/utils/theme/components.ts
+路径：src/renderer/utils/theme/components.ts
 
 一句话：为 UI 组件提供主题化样式映射（Button/Input/Modal 等）。
 
@@ -1093,8 +1080,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/fonts.ts
-路径：src/renderer/src/utils/theme/fonts.ts
+## src/renderer/utils/theme/fonts.ts
+路径：src/renderer/utils/theme/fonts.ts
 
 一句话：定义用于应用的字体族、大小与字重 token。
 
@@ -1106,8 +1093,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/index.ts
-路径：src/renderer/src/utils/theme/index.ts
+## src/renderer/utils/theme/index.ts
+路径：src/renderer/utils/theme/index.ts
 
 一句话：导出整合的主题对象（colors/breakpoints/components 等）供 Provider 使用。
 
@@ -1119,8 +1106,8 @@
 
 ---
 
-## src/renderer/src/utils/theme/shadows.ts
-路径：src/renderer/src/utils/theme/shadows.ts
+## src/renderer/utils/theme/shadows.ts
+路径：src/renderer/utils/theme/shadows.ts
 
 一句话：预定义阴影样式 token（低/中/高 强度）。
 

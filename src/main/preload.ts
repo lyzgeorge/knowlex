@@ -38,6 +38,7 @@ export interface KnowlexAPI {
     updateSettings: (conversationId: string, settings: any) => Promise<IPCResult>
     generateTitle: (conversationId: string) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
+    move: (conversationId: string, projectId: string | null) => Promise<IPCResult>
   }
 
   // Message IPC
@@ -53,6 +54,16 @@ export interface KnowlexAPI {
     delete: (id: string) => Promise<IPCResult>
     regenerate: (messageId: string) => Promise<IPCResult>
     edit: (messageId: string, content: any) => Promise<IPCResult>
+  }
+
+  // Project IPC
+  project: {
+    create: (name: string) => Promise<IPCResult>
+    list: () => Promise<IPCResult>
+    get: (id: string) => Promise<IPCResult>
+    update: (id: string, updates: { name?: string }) => Promise<IPCResult>
+    delete: (id: string) => Promise<IPCResult>
+    conversations: (id: string) => Promise<IPCResult>
   }
 
   // File IPC
@@ -142,7 +153,9 @@ const knowlexAPI: KnowlexAPI = {
       ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
     generateTitle: (conversationId) =>
       ipcRenderer.invoke('conversation:generate-title', conversationId),
-    delete: (id) => ipcRenderer.invoke('conversation:delete', id)
+    delete: (id) => ipcRenderer.invoke('conversation:delete', id),
+    move: (conversationId, projectId) =>
+      ipcRenderer.invoke('conversation:move', conversationId, projectId)
   },
 
   // Message IPC
@@ -154,6 +167,16 @@ const knowlexAPI: KnowlexAPI = {
     delete: (id) => ipcRenderer.invoke('message:delete', id),
     regenerate: (messageId) => ipcRenderer.invoke('message:regenerate', messageId),
     edit: (messageId, content) => ipcRenderer.invoke('message:edit', messageId, content)
+  },
+
+  // Project IPC
+  project: {
+    create: (name) => ipcRenderer.invoke('project:create', name),
+    list: () => ipcRenderer.invoke('project:list'),
+    get: (id) => ipcRenderer.invoke('project:get', id),
+    update: (id, updates) => ipcRenderer.invoke('project:update', id, updates),
+    delete: (id) => ipcRenderer.invoke('project:delete', id),
+    conversations: (id) => ipcRenderer.invoke('project:conversations', id)
   },
 
   // File IPC

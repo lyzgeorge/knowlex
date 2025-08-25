@@ -7,6 +7,7 @@
 import useAppStoreInternal from './app'
 import useSettingsStoreInternal from './settings'
 import useConversationStoreInternal from './conversation'
+import useProjectStoreInternal from './project'
 
 // Store exports
 export {
@@ -84,6 +85,7 @@ export const initializeStores = async () => {
   // Initialize stores that need async setup
   const settingsStore = useSettingsStoreInternal.getState()
   const conversationStore = useConversationStoreInternal.getState()
+  const projectStore = useProjectStoreInternal.getState()
   const appStore = useAppStoreInternal.getState()
 
   try {
@@ -99,6 +101,7 @@ export const initializeStores = async () => {
     console.log('Initializing data stores...')
     // Initialize data stores
     await conversationStore.initialize()
+    await projectStore.fetchProjects()
 
     console.log('Marking app as initialized...')
     // Mark app as initialized

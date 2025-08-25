@@ -9,6 +9,7 @@ import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
 } from './ipc/conversation'
+import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
 import { cancellationManager } from '@main/utils/cancellation'
@@ -39,6 +40,7 @@ class Application {
     try {
       console.log('Registering IPC handlers...')
       registerConversationIPCHandlers()
+      registerProjectIPCHandlers()
       registerFileIPCHandlers()
       registerSettingsIPCHandlers()
       console.log('IPC handlers registered successfully')
@@ -114,6 +116,7 @@ app.on('before-quit', async () => {
 
     // Unregister IPC handlers
     unregisterConversationIPCHandlers()
+    unregisterProjectIPCHandlers()
     unregisterFileIPCHandlers()
     unregisterSettingsIPCHandlers()
 

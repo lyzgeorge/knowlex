@@ -4,6 +4,7 @@
  */
 
 import type { Conversation } from '@shared/types/conversation'
+import type { Project } from '@shared/types/project'
 import type { Message } from '@shared/types/message'
 import { DatabaseEntity, type EntitySchema, createFieldMapping } from './entity'
 
@@ -19,6 +20,11 @@ export const conversationSchema: EntitySchema<Conversation> = {
   },
   fields: [
     createFieldMapping('id', 'id'),
+    // Nullable foreign key to projects
+    createFieldMapping('projectId', 'project_id', {
+      required: false,
+      updatable: true
+    }),
     createFieldMapping('title', 'title'),
     createFieldMapping('createdAt', 'created_at'),
     createFieldMapping('updatedAt', 'updated_at'),
@@ -66,3 +72,23 @@ export const messageSchema: EntitySchema<Message> = {
  */
 export const conversationEntity = new DatabaseEntity<Conversation>(conversationSchema)
 export const messageEntity = new DatabaseEntity<Message>(messageSchema)
+
+/**
+ * Project entity schema
+ */
+export const projectSchema: EntitySchema<Project> = {
+  tableName: 'projects',
+  primaryKey: 'id',
+  defaultOrder: {
+    column: 'created_at',
+    direction: 'DESC'
+  },
+  fields: [
+    createFieldMapping('id', 'id'),
+    createFieldMapping('name', 'name'),
+    createFieldMapping('createdAt', 'created_at'),
+    createFieldMapping('updatedAt', 'updated_at')
+  ]
+}
+
+export const projectEntity = new DatabaseEntity<Project>(projectSchema)

@@ -17,11 +17,13 @@ import type { Conversation, SessionSettings } from '@shared/types/conversation'
 export interface CreateConversationData {
   title?: string
   settings?: SessionSettings
+  projectId?: string | null
 }
 
 export interface UpdateConversationData {
   title?: string
   settings?: SessionSettings
+  projectId?: string | null
 }
 
 /**
@@ -41,7 +43,8 @@ export async function createConversation(data: CreateConversationData): Promise<
     id: conversationId,
     title: data.title?.trim() || 'New Chat',
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    projectId: data.projectId ?? null
   }
 
   if (data.settings) {
@@ -153,12 +156,15 @@ export async function updateConversation(
   }
 
   // Prepare update data
-  const updates: Partial<Pick<Conversation, 'title' | 'settings'>> = {}
+  const updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId'>> = {}
   if (data.title !== undefined) {
     updates.title = data.title.trim()
   }
   if (data.settings !== undefined) {
     updates.settings = data.settings
+  }
+  if (data.projectId !== undefined) {
+    updates.projectId = data.projectId
   }
 
   // Only proceed if there are actual changes
@@ -239,4 +245,21 @@ export async function generateConversationTitle(id: string): Promise<string> {
     console.error(`Failed to generate title for conversation ${id}:`, error)
     return 'New Chat'
   }
+}
+
+/**
+ * Moves a conversation to a project (or uncategorized when projectId is null)
+ */
+export async function moveConversation(
+  conversationId: string,
+  projectId: string | null
+): Promise<void> {
+  if (!conversationId || !conversationId.trim()) {
+    throw new Error('Conversation ID is required')
+  }
+  // Ensure conversation exists
+  const existing = await dbGetConversation(conversationId.trim())
+  if (!existing) throw new Error('Conversation not found')
+
+  await dbUpdateConversation(conversationId.trim(), { projectId })
 }

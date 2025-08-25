@@ -30,11 +30,13 @@ const spinAnimation = keyframes`
   to { transform: rotate(360deg); }
 `
 
-export type ChatInputVariant = 'main-entrance' | 'conversation'
+export type ChatInputVariant = 'main-entrance' | 'conversation' | 'project-entrance'
 
 export interface ChatInputBoxProps {
   /** Input variant determines styling and behavior */
   variant?: ChatInputVariant
+  /** Optional project context for creating new conversations */
+  projectId?: string
   /** Whether the input is disabled */
   disabled?: boolean
   /** Custom placeholder text (overrides variant defaults) */
@@ -58,6 +60,7 @@ export interface ChatInputBoxProps {
  */
 export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   variant = 'conversation',
+  projectId,
   disabled = false,
   placeholder,
   showFileAttachment = true,
@@ -154,6 +157,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     switch (variant) {
       case 'main-entrance':
         return 'Type your message...'
+      case 'project-entrance':
+        return 'Start a conversation in this project...'
       case 'conversation':
         return 'Type your message...'
       default:
@@ -264,9 +269,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         .reverse()
         .find((msg) => msg.role === 'assistant')
 
-      const sendOptions: { conversationId?: string; parentMessageId?: string } = {}
+      const sendOptions: { conversationId?: string; parentMessageId?: string; projectId?: string } =
+        {}
       if (currentConversation?.id) {
         sendOptions.conversationId = currentConversation.id
+      } else if (variant === 'project-entrance' && projectId) {
+        sendOptions.projectId = projectId
       }
       if (lastAssistantMessage?.id) {
         sendOptions.parentMessageId = lastAssistantMessage.id
@@ -297,7 +305,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     buildMessageContent,
     currentConversation,
     filteredMessages,
-    variant
+    variant,
+    projectId
   ])
 
   // Handle keyboard shortcuts

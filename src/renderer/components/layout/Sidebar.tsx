@@ -30,10 +30,16 @@ import {
   SettingsIcon,
   HamburgerIcon,
   CheckIcon,
-  CloseIcon
+  CloseIcon,
+  ChevronRightIcon,
+  ChevronDownIcon
 } from '@chakra-ui/icons'
+import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { Button } from '@renderer/components/ui/Button'
 import { useConversationStore } from '@renderer/stores/conversation'
+import { useProjectStore } from '@renderer/stores/project'
+import { useNavigationActions } from '@renderer/stores/navigation'
 import { formatRelativeTime } from '@shared/utils/time'
 import { useNotifications } from '@renderer/components/ui'
 
@@ -79,6 +85,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   // Notifications
   const notifications = useNotifications()
+
+  // Projects state
+  const projects = useProjectStore((s) => s.projects)
+  const expanded = useProjectStore((s) => s.expanded)
+  const toggleProject = useProjectStore((s) => s.toggle)
+  const fetchProjects = useProjectStore((s) => s.fetchProjects)
+  const addProject = useProjectStore((s) => s.addProject)
+  const editProject = useProjectStore((s) => s.editProject)
+  const removeProject = useProjectStore((s) => s.removeProject)
+  const { navigateToProjectDetail, navigateToChat } = useNavigationActions()
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingProjectName, setEditingProjectName] = useState('')
+  const {
+    isOpen: isDeleteProjectOpen,
+    onOpen: onOpenDeleteProject,
+    onClose: onCloseDeleteProject
+  } = useDisclosure()
+  const [projectPendingDeletion, setProjectPendingDeletion] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+
+  useEffect(() => {
+    fetchProjects().catch(() => {})
+  }, [fetchProjects])
 
   // Ref for infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -227,7 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
   // Memoize conversation filtering to prevent re-renders
   // Show conversations that have at least 1 message (don't show empty conversations)
-  const allConversations = useMemo(
+  const filteredConversations = useMemo(
     () =>
       conversations
         .filter((conv) => {
@@ -237,6 +270,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         })
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), // Sort by last modified (newest first)
     [conversations, messages]
+  )
+
+  // Filter for uncategorized conversations (no projectId)
+  const uncategorizedConversations = useMemo(
+    () => filteredConversations.filter((conv) => !conv.projectId), // Only conversations without a project
+    [filteredConversations]
   )
 
   return (
@@ -320,19 +359,239 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* Main Content Area - Scrollable */}
       <Box flex={1} overflowY="auto" px={4} py={3}>
         <VStack spacing={6} align="stretch">
+          {/* Projects Section */}
+          <Box>
+            <HStack justify="space-between" mb={3}>
+              <Text fontSize="sm" fontWeight="semibold" color="text.secondary">
+                Projects
+              </Text>
+              <IconButton
+                aria-label="New project"
+                icon={<AddIcon />}
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setIsCreatingProject(true)
+                  setNewProjectName('')
+                }}
+              />
+            </HStack>
+
+            {isCreatingProject && (
+              <HStack mb={2}>
+                <Input
+                  placeholder="Project name"
+                  size="sm"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && newProjectName.trim()) {
+                      const proj = await addProject(newProjectName.trim())
+                      setIsCreatingProject(false)
+                      setNewProjectName('')
+                      navigateToProjectDetail(proj.id)
+                    } else if (e.key === 'Escape') {
+                      setIsCreatingProject(false)
+                      setNewProjectName('')
+                    }
+                  }}
+                  autoFocus
+                />
+                <IconButton
+                  aria-label="Create project"
+                  icon={<CheckIcon />}
+                  size="xs"
+                  variant="ghost"
+                  isDisabled={!newProjectName.trim()}
+                  onClick={async () => {
+                    if (!newProjectName.trim()) return
+                    const proj = await addProject(newProjectName.trim())
+                    setIsCreatingProject(false)
+                    setNewProjectName('')
+                    navigateToProjectDetail(proj.id)
+                  }}
+                />
+                <IconButton
+                  aria-label="Cancel"
+                  icon={<CloseIcon />}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsCreatingProject(false)
+                    setNewProjectName('')
+                  }}
+                />
+              </HStack>
+            )}
+
+            <VStack spacing={0} align="stretch" role="list" aria-label="Projects">
+              {projects.map((p) => (
+                <Box key={p.id}>
+                  <HStack
+                    role="listitem"
+                    p={2}
+                    borderRadius="md"
+                    _hover={{ bg: 'surface.hover' }}
+                    justify="space-between"
+                  >
+                    <HStack spacing={2} flex={1}>
+                      <IconButton
+                        aria-label={expanded[p.id] ? 'Collapse' : 'Expand'}
+                        icon={expanded[p.id] ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                        size="xs"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleProject(p.id)
+                        }}
+                      />
+                      {editingProjectId === p.id ? (
+                        <HStack flex={1} spacing={1}>
+                          <Input
+                            value={editingProjectName}
+                            onChange={(e) => setEditingProjectName(e.target.value)}
+                            fontSize="sm"
+                            variant="unstyled"
+                            size="sm"
+                            h="24px"
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter' && editingProjectName.trim()) {
+                                await editProject(p.id, editingProjectName.trim())
+                                setEditingProjectId(null)
+                                setEditingProjectName('')
+                              } else if (e.key === 'Escape') {
+                                setEditingProjectId(null)
+                                setEditingProjectName('')
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <IconButton
+                            aria-label="Confirm rename"
+                            icon={<CheckIcon />}
+                            size="xs"
+                            variant="ghost"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!editingProjectName.trim()) return
+                              await editProject(p.id, editingProjectName.trim())
+                              setEditingProjectId(null)
+                              setEditingProjectName('')
+                            }}
+                          />
+                          <IconButton
+                            aria-label="Cancel rename"
+                            icon={<CloseIcon />}
+                            size="xs"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingProjectId(null)
+                              setEditingProjectName('')
+                            }}
+                          />
+                        </HStack>
+                      ) : (
+                        <Text
+                          fontSize="sm"
+                          fontWeight="medium"
+                          noOfLines={1}
+                          onClick={() => navigateToProjectDetail(p.id)}
+                        >
+                          {p.name}
+                        </Text>
+                      )}
+                    </HStack>
+
+                    {editingProjectId !== p.id && (
+                      <Menu>
+                        <MenuButton
+                          as={IconButton}
+                          aria-label="Project options"
+                          icon={<HamburgerIcon />}
+                          size="xs"
+                          variant="ghost"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <MenuList>
+                          <MenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingProjectId(p.id)
+                              setEditingProjectName(p.name)
+                            }}
+                          >
+                            Rename
+                          </MenuItem>
+                          <MenuItem
+                            color="red.500"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setProjectPendingDeletion({ id: p.id, name: p.name })
+                              onOpenDeleteProject()
+                            }}
+                          >
+                            Delete
+                          </MenuItem>
+                        </MenuList>
+                      </Menu>
+                    )}
+                  </HStack>
+
+                  {expanded[p.id] && (
+                    <VStack align="stretch" pl={8} spacing={0} mb={2}>
+                      {filteredConversations
+                        .filter((c) => c.projectId === p.id)
+                        .map((conversation) => (
+                          <HStack
+                            key={conversation.id}
+                            p={2}
+                            borderRadius="md"
+                            _hover={{ bg: 'surface.hover' }}
+                            justify="space-between"
+                            onClick={() => {
+                              setCurrentConversation(conversation.id)
+                              navigateToChat()
+                            }}
+                          >
+                            <Text fontSize="sm" noOfLines={1} flex={1}>
+                              {conversation.title}
+                            </Text>
+                            <ConversationMenu
+                              conversationId={conversation.id}
+                              currentProjectId={p.id}
+                              onRename={() =>
+                                handleStartInlineEdit(conversation.id, conversation.title)
+                              }
+                              onDelete={() => handleDeleteConversation(conversation.id)}
+                            />
+                          </HStack>
+                        ))}
+                    </VStack>
+                  )}
+                </Box>
+              ))}
+            </VStack>
+          </Box>
+
           {/* Conversations Section */}
           <Box>
             <Text fontSize="sm" fontWeight="semibold" color="text.secondary" mb={3}>
               Conversations
             </Text>
 
-            <VStack spacing={0} align="stretch" role="list" aria-label="All conversations">
-              {allConversations.length === 0 ? (
+            <VStack
+              spacing={0}
+              align="stretch"
+              role="list"
+              aria-label="Uncategorized conversations"
+            >
+              {uncategorizedConversations.length === 0 ? (
                 <Text fontSize="sm" color="text.tertiary" fontStyle="italic" py={2}>
-                  No conversations yet
+                  No uncategorized conversations
                 </Text>
               ) : (
-                allConversations.map((conversation) => {
+                uncategorizedConversations.map((conversation) => {
                   const isCurrentConversation = currentConversationId === conversation.id
                   const isConvHovered = hoveredConversation === conversation.id
 
@@ -352,7 +611,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                       }}
                       onMouseEnter={() => setHoveredConversation(conversation.id)}
                       onMouseLeave={() => setHoveredConversation(null)}
-                      onClick={() => setCurrentConversation(conversation.id)}
+                      onClick={() => {
+                        setCurrentConversation(conversation.id)
+                        navigateToChat()
+                      }}
                       justify="space-between"
                       align="center"
                     >
@@ -451,31 +713,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             />
                           </HStack>
                         ) : isConvHovered ? (
-                          <Menu>
-                            <MenuButton
-                              as={IconButton}
-                              aria-label="Conversation options"
-                              icon={<HamburgerIcon />}
-                              size="xs"
-                              variant="ghost"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <MenuList>
-                              <MenuItem
-                                onClick={() =>
-                                  handleStartInlineEdit(conversation.id, conversation.title)
-                                }
-                              >
-                                Rename
-                              </MenuItem>
-                              <MenuItem
-                                color="red.500"
-                                onClick={() => handleDeleteConversation(conversation.id)}
-                              >
-                                Delete
-                              </MenuItem>
-                            </MenuList>
-                          </Menu>
+                          <ConversationMenu
+                            conversationId={conversation.id}
+                            currentProjectId={null}
+                            onRename={() =>
+                              handleStartInlineEdit(conversation.id, conversation.title)
+                            }
+                            onDelete={() => handleDeleteConversation(conversation.id)}
+                          />
                         ) : (
                           <Text fontSize="xs" color="text.tertiary" flexShrink={0}>
                             {formatRelativeTime(conversation.updatedAt)}
@@ -550,6 +795,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+      {/* Delete Project Modal (two-step) */}
+      <DeleteProjectModal
+        isOpen={isDeleteProjectOpen}
+        onClose={() => {
+          setProjectPendingDeletion(null)
+          onCloseDeleteProject()
+        }}
+        projectName={projectPendingDeletion?.name || ''}
+        conversationCount={
+          projectPendingDeletion
+            ? conversations.filter((c) => c.projectId === projectPendingDeletion.id).length
+            : 0
+        }
+        messageCount={
+          projectPendingDeletion
+            ? conversations
+                .filter((c) => c.projectId === projectPendingDeletion.id)
+                .map((c) => (messages[c.id] || []).length)
+                .reduce((a, b) => a + b, 0)
+            : 0
+        }
+        onConfirm={async () => {
+          if (!projectPendingDeletion) return
+          await removeProject(projectPendingDeletion.id)
+          setProjectPendingDeletion(null)
+          onCloseDeleteProject()
+        }}
+      />
     </Box>
   )
 }

@@ -3,6 +3,8 @@ export interface Conversation {
   title: string
   createdAt: string
   updatedAt: string
+  // Optional project association; null means uncategorized
+  projectId?: string | null
   settings?: SessionSettings
 }
 

@@ -1,4 +1,64 @@
-## 1. Overview and Architecture Principles
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 1. Development Commands
+
+### Core Development Workflow
+```bash
+# Start development server
+npm run dev
+
+# Build the application
+npm run build
+
+# Run tests
+npm run test
+npm run test:ui      # Vitest UI interface
+npm run test:coverage # Coverage report
+
+# Type checking and linting
+npm run typecheck    # TypeScript type checking
+npm run lint         # ESLint with auto-fix
+npm run format       # Prettier formatting
+
+# Distribution builds
+npm run dist         # Build distributable
+npm run dist:win     # Windows build
+npm run dist:mac     # macOS build
+npm run dist:linux   # Linux build
+```
+
+### Path Aliases
+The project uses TypeScript path mapping:
+- `@shared/*` - Shared code between main and renderer processes
+- `@main/*` - Main process code (Node.js + Electron)
+- `@renderer/*` - Renderer process code (React)
+- `@preload/*` - Preload script code
+
+### Database Operations
+- Database files are stored in user data directory
+- Migrations run automatically on application start
+- Use database queries from `@main/database/queries.ts`
+- Entity operations through `@main/database/entity.ts`
+
+### IPC Communication Pattern
+All IPC follows the `IPCResult<T>` pattern:
+```typescript
+interface IPCResult<T = unknown> {
+  success: boolean
+  data?: T
+  error?: string
+}
+```
+
+IPC channels are organized by domain:
+- `conversation:*` - Conversation operations
+- `message:*` - Message operations  
+- `file:*` - File operations
+- `settings:*` - Settings operations
+
+## 2. Overview and Architecture Principles
 
 ### 1.1 Project Vision
 
@@ -17,13 +77,13 @@ Knowlex is a cross-platform desktop application built with Electron that serves 
 - Knowledge accumulation and memory systems
 - Advanced file processing and indexing
 
-### 1.2 Architecture Design Principles
+### 2.2 Architecture Design Principles
 
-**Three-Layer Electron Architecture** (inspired by Chatbox):
+**Three-Layer Electron Architecture**:
 ```
 ┌─────────────────────────────────────┐
 │        Renderer Process             │
-│    React + TypeScript + Jotai      │
+│    React + TypeScript + Zustand    │
 │         UI and Interactions         │
 ├─────────────────────────────────────┤
 │        Main Process                 │
@@ -229,16 +289,63 @@ knowlex/
 
 | Category | Technology | Purpose |
 |----------|------------|---------|
-| **Application Framework** | Electron | Cross-platform desktop application |
+| **Application Framework** | Electron 28 | Cross-platform desktop application |
 | **Frontend Framework** | React 18 + TypeScript | User interface development |
-| **State Management** | Zustand | Lightweight state management with persistence |
-| **UI Component System** | Chakra UI | Complete component library with theming |
-| **Data Storage** | SQLite (better-sqlite3) | Local database for conversations and messages |
-| **AI Integration** | Custom OpenAI adapter | Direct OpenAI API integration with streaming |
-| **File Processing** | Custom parsers | Text extraction from common file formats |
+| **State Management** | Zustand 5.0 | Lightweight state management with persistence |
+| **UI Component System** | Chakra UI 2.8 | Complete component library with theming |
+| **Data Storage** | SQLite (@libsql/client) | Local database for conversations and messages |
+| **AI Integration** | AI SDK (ai 5.0) | Unified AI provider integration with streaming |
+| **AI Providers** | OpenAI, Anthropic, Google | Multiple AI model support |
+| **File Processing** | Custom parsers (pdf-parse, officeparser) | Text extraction from common file formats |
 | **Build Tool** | Vite (electron-vite) | Development and build tooling |
+| **Testing** | Vitest + Testing Library | Unit and integration testing |
 
-## 3. Current Implementation Status
+## 3. Key Architectural Patterns
+
+### 3.1 IPC Communication Architecture
+The application uses a structured IPC pattern with standardized error handling:
+
+**Main Process Service → IPC Handler → Renderer**
+```typescript
+// IPC handlers use handleIPCCall wrapper for consistent error handling
+export const handleIPCCall = async <T>(operation: () => Promise<T>): Promise<IPCResult<T>>
+
+// Services are domain-specific (conversation, message, file, settings)
+// Each service module exports business logic functions
+// IPC handlers are thin wrappers that validate input and call services
+```
+
+### 3.2 Database Layer Architecture
+**Entity-Based CRUD with Generic Operations**:
+- `@main/database/entity.ts` - Generic CRUD base class
+- `@main/database/schemas.ts` - Entity schemas and mappings
+- `@main/database/queries.ts` - Optimized query functions
+- Services use database queries, not direct entity access
+
+### 3.3 AI Integration Architecture
+**Unified AI Provider System**:
+- `@main/services/openai-adapter.ts` - AI SDK integration
+- `@main/services/assistant-service.ts` - Unified streaming logic
+- Supports cancellation tokens for request management
+- Real-time event emission to renderer during streaming
+
+### 3.4 State Management Architecture
+**Zustand Store Pattern**:
+```typescript
+// Stores are domain-specific and composable
+// Located in @renderer/src/stores/
+// Each store handles its own persistence
+// Cross-store communication via direct imports
+```
+
+### 3.5 File Processing Architecture
+**Temporary File System**:
+- Files uploaded per-conversation (not globally stored)
+- Text extraction via `@main/services/file-parser.ts`
+- Support for PDF, Office docs, plain text, images
+- File content becomes message parts in conversation context
+
+## 4. Current Implementation Status
 
 ### 3.1 Implemented Features (MVP)
 - ✅ **Chat Interface**: Clean chat UI with message bubbles, user/assistant roles
@@ -252,11 +359,43 @@ knowlex/
 - ✅ **Auto Title Generation**: Automatic conversation titles based on content
 - ✅ **Responsive Design**: Desktop-optimized layout with resizable panels
 
-### 3.2 Planned Features (Not Yet Implemented)
+### 4.2 Planned Features (Not Yet Implemented)
 - ❌ **Project Management**: Project-centric workspace (database schema exists)
-- ❌ **Vector Search/RAG**: File indexing and semantic search capabilities
-- ❌ **Multiple AI Providers**: Support for Claude, other AI models
+- ❌ **Vector Search/RAG**: File indexing and semantic search capabilities  
 - ❌ **Persistent File Management**: Long-term file storage and organization
 - ❌ **Knowledge Accumulation**: Project memory and note-taking systems
 - ❌ **Full-Text Search**: Search across conversations and content
 - ❌ **Export/Import**: Data portability features
+
+## 5. Important Architectural Guidelines
+
+### 5.1 Code Organization
+- Keep files under 300 lines when practical
+- Use descriptive, intention-revealing names
+- Separate UI, business logic, and data access concerns
+- Prefer composition over inheritance
+- Single responsibility at module/component/function level
+
+### 5.2 Error Handling
+- All IPC operations must use `handleIPCCall` wrapper
+- Services should throw meaningful errors with context
+- UI components should handle loading/error states
+- Use cancellation tokens for long-running operations
+
+### 5.3 Testing Strategy
+- Unit tests for services and utilities using Vitest
+- Integration tests for IPC communication
+- Component tests for React components using Testing Library
+- Mock Electron APIs in tests using vi.mock()
+
+### 5.4 Performance Considerations
+- Streaming responses for AI interactions
+- Pagination for large data sets (conversations, messages)
+- Lazy loading for components and modules
+- Cancellation support for all async operations
+
+### 5.5 Security Guidelines
+- Never expose sensitive data through IPC
+- Validate all input at IPC boundaries
+- Use preload script for secure API exposure
+- Store sensitive data (API keys) in encrypted settings

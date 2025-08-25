@@ -1,7 +1,8 @@
 import { executeQuery } from './index'
 import type { Conversation } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
-import { conversationEntity, messageEntity } from './schemas'
+import { conversationEntity, messageEntity, projectEntity } from './schemas'
+import type { Project } from '@shared/types/project'
 
 /**
  * Optimized database queries using generic CRUD utilities
@@ -63,7 +64,7 @@ export async function listConversations(limit?: number, offset?: number): Promis
 
 export async function updateConversation(
   id: string,
-  updates: Partial<Pick<Conversation, 'title' | 'settings'>>
+  updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId'>>
 ): Promise<void> {
   await conversationEntity.update(id, updates)
 }
@@ -109,6 +110,41 @@ export async function updateMessage(
 
 export async function deleteMessage(id: string): Promise<void> {
   await messageEntity.delete(id)
+}
+
+// ============================================================================
+// Project Queries (Using Generic CRUD)
+// ============================================================================
+
+export async function createProject(project: Project): Promise<void> {
+  await projectEntity.create(project)
+}
+
+export async function getProject(id: string): Promise<Project | null> {
+  return await projectEntity.get(id)
+}
+
+export async function listProjects(): Promise<Project[]> {
+  return await projectEntity.list({ orderBy: 'created_at', direction: 'DESC' })
+}
+
+export async function updateProject(
+  id: string,
+  updates: Partial<Pick<Project, 'name'>>
+): Promise<void> {
+  await projectEntity.update(id, updates)
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  await projectEntity.delete(id)
+}
+
+export async function listConversationsByProject(projectId: string): Promise<Conversation[]> {
+  return await conversationEntity.list({
+    where: { column: 'project_id', value: projectId },
+    orderBy: 'updated_at',
+    direction: 'DESC'
+  })
 }
 
 // ============================================================================

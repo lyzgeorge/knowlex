@@ -94,6 +94,9 @@ export function registerConversationIPCHandlers(): void {
 
         const createData: CreateConversationData = {}
         if (requestData.title !== undefined) createData.title = requestData.title
+        // Allow optional projectId passthrough if provided during creation
+        if ((requestData as any).projectId !== undefined)
+          (createData as any).projectId = (requestData as any).projectId
 
         return await createConversation(createData)
       })
@@ -228,6 +231,20 @@ export function registerConversationIPCHandlers(): void {
     }
   )
 
+  // Move conversation to project (or remove by null)
+  ipcMain.handle(
+    'conversation:move',
+    async (_, conversationId: unknown, projectId: unknown): Promise<IPCResult<boolean>> => {
+      return handleIPCCall(async () => {
+        const validConversationId = requireValidId(conversationId, 'Conversation ID')
+        const targetProjectId = projectId === null ? null : String(projectId)
+        const { moveConversation } = await import('@main/services/conversation')
+        await moveConversation(validConversationId, targetProjectId)
+        return true
+      })
+    }
+  )
+
   // ============================================================================
   // Message Handlers
   // ============================================================================
@@ -344,11 +361,17 @@ export function registerConversationIPCHandlers(): void {
           ? request.parentMessageId.trim()
           : undefined
 
+      const projectIdForNew: string | undefined =
+        typeof request.projectId === 'string' && request.projectId.trim().length > 0
+          ? request.projectId.trim()
+          : undefined
+
       // Determine conversation - create if needed
       let actualConversationId = providedConversationId
       if (!actualConversationId) {
         const newConv = await createConversation({
-          title: 'New Chat'
+          title: 'New Chat',
+          projectId: projectIdForNew ?? null
         })
         actualConversationId = newConv.id
 

@@ -7,6 +7,7 @@ export interface IPCResult<T = unknown> {
 // Conversation IPC
 export interface ConversationCreateRequest {
   title?: string
+  projectId?: string | null
 }
 
 // File IPC (for temp files only)
