@@ -5,7 +5,6 @@ import { useNavigationActions } from '@renderer/stores/navigation'
 import { useNotifications } from '@renderer/components/ui'
 
 export function useConversationManagement() {
-  const [hoveredConversation, setHoveredConversation] = useState<string | null>(null)
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -16,14 +15,13 @@ export function useConversationManagement() {
     conversations,
     messages,
     currentConversationId,
-    setCurrentConversation,
     deleteConversation,
     loadMoreConversations,
     hasMoreConversations,
     isLoadingMore
   } = useConversationStore()
 
-  const { navigateToChat } = useNavigationActions()
+  const { goHome, openConversation } = useNavigationActions()
   const notifications = useNotifications()
 
   // Ref for infinite scroll sentinel
@@ -56,15 +54,17 @@ export function useConversationManagement() {
   }, [hasMoreConversations, isLoadingMore, loadMoreConversations])
 
   const handleNewChat = useCallback(() => {
-    setCurrentConversation(null)
-  }, [setCurrentConversation])
+    goHome()
+  }, [goHome])
 
   const handleSelectConversation = useCallback(
     (conversationId: string) => {
-      setCurrentConversation(conversationId)
-      navigateToChat()
+      // Get the conversation to find its projectId
+      const conversation = conversations.find((c) => c.id === conversationId)
+      const projectId = conversation?.projectId || null
+      openConversation(conversationId, projectId)
     },
-    [setCurrentConversation, navigateToChat]
+    [conversations, openConversation]
   )
 
   const handleDeleteConversation = useCallback(
@@ -114,10 +114,6 @@ export function useConversationManagement() {
     conversations: filteredConversations,
     uncategorizedConversations,
     currentConversationId,
-
-    // UI state
-    hoveredConversation,
-    setHoveredConversation,
 
     // Actions
     handleNewChat,

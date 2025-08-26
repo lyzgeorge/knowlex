@@ -11,11 +11,10 @@ import {
   MenuList,
   MenuItem
 } from '@chakra-ui/react'
-import { AddIcon, CheckIcon, CloseIcon, HamburgerIcon } from '@chakra-ui/icons'
-import { AiOutlineFolder, AiFillFolderOpen } from 'react-icons/ai'
+import { LiaPlusSolid, LiaCheckSolid, LiaTimesSolid, LiaBarsSolid } from 'react-icons/lia'
+import { LiaFolderSolid, LiaFolderOpenSolid } from 'react-icons/lia'
 import { useProjectManagement } from '@renderer/hooks/useProjectManagement'
-import { useNavigationActions } from '@renderer/stores/navigation'
-import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import { ConversationItem } from '@renderer/components/ui/ConversationItem'
 import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { useConversationStore } from '@renderer/stores/conversation'
 import { useInlineEdit } from '@renderer/hooks/useInlineEdit'
@@ -29,18 +28,20 @@ interface ProjectsSectionProps {
   currentConversationId: string | null
   onSelectConversation: (id: string) => void
   onDeleteConversation: (id: string) => void
+  onSelectProject: (projectId: string) => void
 }
 
 export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   filteredConversations,
   currentConversationId,
   onSelectConversation,
-  onDeleteConversation
+  onDeleteConversation,
+  onSelectProject
 }) => {
   const projectManagement = useProjectManagement()
-  const { navigateToProjectDetail } = useNavigationActions()
   const { messages, conversations } = useConversationStore()
   const inlineEdit = useInlineEdit()
+  // Hover state no longer needed; ConversationMenu handles its own hover UI
 
   const {
     projects,
@@ -69,12 +70,12 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     <Box>
       {/* Header */}
       <HStack justify="space-between" px={2} py={2}>
-        <Text fontSize="sm" fontWeight="semibold" color="text.secondary">
+        <Text fontSize="sm" fontWeight={'semibold'} color="text.secondary">
           Projects
         </Text>
         <IconButton
           aria-label="New project"
-          icon={<AddIcon />}
+          icon={<LiaPlusSolid />}
           size="xs"
           variant="ghost"
           onClick={handleStartCreateProject}
@@ -100,7 +101,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           />
           <IconButton
             aria-label="Create project"
-            icon={<CheckIcon />}
+            icon={<LiaCheckSolid />}
             size="xs"
             variant="ghost"
             isDisabled={!newProjectName.trim()}
@@ -108,7 +109,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           />
           <IconButton
             aria-label="Cancel"
-            icon={<CloseIcon />}
+            icon={<LiaTimesSolid />}
             size="xs"
             variant="ghost"
             onClick={handleCancelCreateProject}
@@ -131,14 +132,14 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                navigateToProjectDetail(p.id)
+                onSelectProject(p.id)
               }}
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
               <HStack spacing={2}>
                 <IconButton
                   aria-label={expanded[p.id] ? 'Collapse project' : 'Expand project'}
-                  icon={expanded[p.id] ? <AiFillFolderOpen /> : <AiOutlineFolder />}
+                  icon={expanded[p.id] ? <LiaFolderOpenSolid /> : <LiaFolderSolid />}
                   size="xs"
                   variant="ghost"
                   onClick={(e) => {
@@ -166,7 +167,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     />
                     <IconButton
                       aria-label="Confirm rename"
-                      icon={<CheckIcon />}
+                      icon={<LiaCheckSolid />}
                       size="xs"
                       variant="ghost"
                       onClick={async (e) => {
@@ -176,7 +177,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     />
                     <IconButton
                       aria-label="Cancel rename"
-                      icon={<CloseIcon />}
+                      icon={<LiaTimesSolid />}
                       size="xs"
                       variant="ghost"
                       onClick={(e) => {
@@ -193,7 +194,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     cursor="pointer"
                     onClick={(e) => {
                       e.stopPropagation()
-                      navigateToProjectDetail(p.id)
+                      onSelectProject(p.id)
                     }}
                   >
                     {p.name}
@@ -206,7 +207,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   <MenuButton
                     as={IconButton}
                     aria-label="Project options"
-                    icon={<HamburgerIcon />}
+                    icon={<LiaBarsSolid />}
                     size="xs"
                     variant="ghost"
                     onClick={(e) => e.stopPropagation()}
@@ -236,40 +237,26 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
             {/* Project Conversations */}
             {expanded[p.id] && (
-              <VStack align="stretch" pl={2} spacing={0}>
+              <VStack align="stretch" ml={2} spacing={0}>
                 {filteredConversations
                   .filter((c) => c.projectId === p.id)
                   .map((conversation) => (
-                    <HStack
+                    <ConversationItem
                       key={conversation.id}
-                      p={2}
-                      borderRadius="md"
-                      cursor="pointer"
-                      justify="space-between"
-                      onClick={() => onSelectConversation(conversation.id)}
-                      bg={currentConversationId === conversation.id ? 'primary.50' : 'transparent'}
-                      borderLeft={currentConversationId === conversation.id ? '3px solid' : 'none'}
-                      borderColor="primary.500"
-                      transition="all 0.2s"
-                      _hover={{
-                        bg:
-                          currentConversationId === conversation.id
-                            ? 'primary.100'
-                            : 'surface.hover'
-                      }}
-                    >
-                      <Text fontSize="sm" noOfLines={1} flex={1}>
-                        {conversation.title}
-                      </Text>
-                      <ConversationMenu
-                        conversationId={conversation.id}
-                        currentProjectId={p.id}
-                        onRename={() =>
-                          inlineEdit.handleStartEdit(conversation.id, conversation.title)
-                        }
-                        onDelete={() => onDeleteConversation(conversation.id)}
-                      />
-                    </HStack>
+                      conversation={conversation}
+                      currentConversationId={currentConversationId}
+                      onSelectConversation={onSelectConversation}
+                      onDeleteConversation={onDeleteConversation}
+                      editingConversationId={inlineEdit.editingConversationId}
+                      editingTitle={inlineEdit.editingTitle}
+                      setEditingTitle={inlineEdit.setEditingTitle}
+                      onStartEdit={inlineEdit.handleStartEdit}
+                      onCancelEdit={inlineEdit.handleCancelEdit}
+                      onConfirmEdit={inlineEdit.handleConfirmEdit}
+                      onInputBlur={inlineEdit.handleInputBlur}
+                      isNested={true}
+                      currentProjectId={p.id}
+                    />
                   ))}
               </VStack>
             )}

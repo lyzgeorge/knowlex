@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, HStack, Text, Collapse, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
-import { FaChevronDown, FaChevronRight, FaBrain } from 'react-icons/fa'
+import { LiaChevronDownSolid, LiaChevronRightSolid, LiaBrainSolid } from 'react-icons/lia'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -128,7 +128,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
         </ReactMarkdown>
         {showCursor && (
           <Icon
-            as={FaBrain}
+            as={LiaBrainSolid}
             boxSize={3}
             color="purple.400"
             ml={1}
@@ -166,13 +166,13 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
         _hover={{ bg: hoverBg }}
         transition="background-color 0.2s"
       >
-        <Icon as={FaBrain} boxSize={3} color={iconColor} />
+        <Icon as={LiaBrainSolid} boxSize={3} color={iconColor} />
         <Text fontSize="sx" fontWeight="medium" color={headerTextColor} flex={1}>
           {isThinking ? 'Thinking ...' : 'Reasoning'}
         </Text>
         <IconButton
           aria-label={isExpanded ? 'Collapse reasoning' : 'Expand reasoning'}
-          icon={<Icon as={isExpanded ? FaChevronDown : FaChevronRight} />}
+          icon={<Icon as={isExpanded ? LiaChevronDownSolid : LiaChevronRightSolid} />}
           size={'sx'}
           variant="ghost"
           color={iconColor}
@@ -208,7 +208,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
       {isThinking && (
         <HStack px={3} pb={2} pt={0} spacing={2} align="center">
           <Icon
-            as={FaBrain}
+            as={LiaBrainSolid}
             boxSize={3}
             color={iconColor}
             animation="pulse 1.5s ease-in-out infinite"

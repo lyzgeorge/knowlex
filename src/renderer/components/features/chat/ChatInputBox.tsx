@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Box, IconButton, useColorModeValue } from '@chakra-ui/react'
-import { ArrowUpIcon, AttachmentIcon, RepeatIcon } from '@chakra-ui/icons'
-import { FaStop } from 'react-icons/fa'
+import { Box, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
+import { LiaArrowUpSolid, LiaPaperclipSolid, LiaRedoSolid } from 'react-icons/lia'
+import { LiaStopSolid } from 'react-icons/lia'
 import { keyframes } from '@emotion/react'
 import {
   useSendMessage,
@@ -411,7 +411,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <>
                 <IconButton
                   aria-label="Attach file"
-                  icon={<AttachmentIcon />}
+                  icon={<LiaPaperclipSolid />}
                   size="sm"
                   variant="ghost"
                   borderRadius="full"
@@ -449,9 +449,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
                 icon={
                   isHoveringStreamButton ? (
-                    <FaStop />
+                    <LiaStopSolid />
                   ) : (
-                    <RepeatIcon css={{ animation: `${spinAnimation} 1s linear infinite` }} />
+                    <Icon
+                      as={LiaRedoSolid}
+                      css={{ animation: `${spinAnimation} 1s linear infinite` }}
+                    />
                   )
                 }
                 variant="solid"
@@ -468,7 +471,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             ) : (
               <IconButton
                 aria-label="Send message"
-                icon={<ArrowUpIcon />}
+                icon={<LiaArrowUpSolid />}
                 {...(canSend ? { colorScheme: 'primary' } : {})}
                 size="sm"
                 borderRadius="md"

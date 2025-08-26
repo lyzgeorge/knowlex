@@ -11,7 +11,7 @@ import {
   InputProps as ChakraInputProps,
   IconButton
 } from '@chakra-ui/react'
-import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
+import { LiaEyeSolid, LiaEyeSlashSolid } from 'react-icons/lia'
 
 export interface InputProps extends Omit<ChakraInputProps, 'size'> {
   /** Input size */
@@ -114,7 +114,7 @@ export const Input = forwardRef<'input', InputProps>((props, ref) => {
           {shouldShowPasswordToggle ? (
             <IconButton
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+              icon={showPassword ? <LiaEyeSlashSolid /> : <LiaEyeSolid />}
               onClick={togglePasswordVisibility}
               variant="ghost"
               size="sm"

@@ -29,7 +29,7 @@ export function useProjectManagement() {
     removeProject
   } = useProjectStore()
 
-  const { navigateToProjectDetail } = useNavigationActions()
+  const { openProject } = useNavigationActions()
 
   useEffect(() => {
     fetchProjects().catch(() => {})
@@ -40,8 +40,8 @@ export function useProjectManagement() {
     const proj = await addProject(newProjectName.trim())
     setIsCreatingProject(false)
     setNewProjectName('')
-    navigateToProjectDetail(proj.id)
-  }, [newProjectName, addProject, navigateToProjectDetail])
+    openProject(proj.id)
+  }, [newProjectName, addProject, openProject])
 
   const handleStartCreateProject = useCallback(() => {
     setIsCreatingProject(true)

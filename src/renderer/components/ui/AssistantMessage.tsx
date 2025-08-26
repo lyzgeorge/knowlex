@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon, IconButton } from '@chakra-ui/react'
-import { FaForumbee } from 'react-icons/fa'
-import { CopyIcon } from '@chakra-ui/icons'
+import { LiaRobotSolid } from 'react-icons/lia'
+import { LiaCopySolid } from 'react-icons/lia'
 import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
@@ -113,7 +113,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           borderColor={avatarBorder}
           flexShrink={0}
         >
-          <Icon as={FaForumbee} boxSize={4} color={iconColor} />
+          <Icon as={LiaRobotSolid} boxSize={4} color={iconColor} />
         </Box>
       )}
 
@@ -154,7 +154,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         {isTextStreamingForMessage && (
           <HStack spacing={2} px={2} align="center" alignSelf="flex-start">
             <Icon
-              as={FaForumbee}
+              as={LiaRobotSolid}
               boxSize={3}
               color={iconColor}
               animation="flash 1.5s ease-in-out infinite"
@@ -180,7 +180,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           <Box display={isHovered ? 'flex' : 'none'}>
             <IconButton
               aria-label="Copy to clipboard"
-              icon={<CopyIcon />}
+              icon={<LiaCopySolid />}
               size="xs"
               variant="ghost"
               onClick={handleCopy}

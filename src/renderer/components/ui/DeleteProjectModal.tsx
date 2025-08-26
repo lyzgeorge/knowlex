@@ -70,7 +70,7 @@ const DeleteProjectModal: React.FC<Props> = ({
         </VStack>
       ) : (
         <VStack align="stretch" spacing={3}>
-          <Text>Type the project name to confirm deletion:</Text>
+          <Text>Type the project name “{projectName}” to confirm deletion:</Text>
           <Box
             as="input"
             value={input}

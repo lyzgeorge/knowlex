@@ -16,6 +16,7 @@ import { ProjectsSection } from './ProjectsSection'
 import { ConversationsSection } from './ConversationsSection'
 import { SidebarFooter } from './SidebarFooter'
 import { useConversationManagement } from '@renderer/hooks/useConversationManagement'
+import { useNavigationActions } from '@renderer/stores/navigation'
 
 export interface SidebarProps {
   className?: string
@@ -38,8 +39,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     conversations,
     uncategorizedConversations,
     currentConversationId,
-    hoveredConversation,
-    setHoveredConversation,
     handleNewChat,
     handleSelectConversation,
     handleDeleteConversation,
@@ -52,6 +51,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     hasMoreConversations,
     isLoadingMore
   } = useConversationManagement()
+
+  const { openProject } = useNavigationActions()
+
+  const handleProjectSelect = useCallback(
+    (projectId: string) => {
+      console.debug('[Sidebar] project selected:', projectId)
+      openProject(projectId)
+    },
+    [openProject]
+  )
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query)
@@ -111,27 +120,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         onNewChat={handleNewChat}
       />
 
-      <Divider />
-
       <Box flex={1} overflowY="auto">
         <VStack spacing={0} align="stretch">
           <Box px={2}>
+            {/* Pass the project select handler so it is used */}
             <ProjectsSection
               filteredConversations={conversations}
               currentConversationId={currentConversationId}
-              onSelectConversation={handleSelectConversation}
+              onSelectConversation={handleSelectConversation} // only for conversation rows
               onDeleteConversation={handleDeleteConversation}
+              onSelectProject={handleProjectSelect} // NEW: implement inside ProjectsSection
             />
           </Box>
-
-          <Divider />
 
           <Box px={2}>
             <ConversationsSection
               conversations={uncategorizedConversations}
               currentConversationId={currentConversationId}
-              hoveredConversation={hoveredConversation}
-              onConversationHover={setHoveredConversation}
               onSelectConversation={handleSelectConversation}
               onDeleteConversation={handleDeleteConversation}
               isLoadingMore={isLoadingMore}

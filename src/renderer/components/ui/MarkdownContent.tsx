@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Icon } from '@chakra-ui/react'
-import { FaForumbee } from 'react-icons/fa'
+import { LiaRobotSolid } from 'react-icons/lia'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -38,7 +38,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
       </ReactMarkdown>
       {showCursor && isStreaming && (
         <Icon
-          as={FaForumbee}
+          as={LiaRobotSolid}
           boxSize={3}
           color="gray.400"
           ml={1}

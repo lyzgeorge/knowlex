@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { Box, VStack, HStack, Text, useColorModeValue, IconButton } from '@chakra-ui/react'
+import { Box, VStack, HStack, Text, useColorModeValue, IconButton, Icon } from '@chakra-ui/react'
 import {
-  EditIcon,
-  CopyIcon,
-  AttachmentIcon,
-  ArrowUpIcon,
-  CloseIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
-} from '@chakra-ui/icons'
+  LiaPenSolid,
+  LiaCopySolid,
+  LiaPaperclipSolid,
+  LiaArrowUpSolid,
+  LiaTimesSolid,
+  LiaChevronLeftSolid,
+  LiaChevronRightSolid
+} from 'react-icons/lia'
 import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
 import MarkdownContent from './MarkdownContent'
@@ -407,7 +407,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* File Upload Button */}
             <IconButton
               aria-label="Attach file"
-              icon={<AttachmentIcon />}
+              icon={<LiaPaperclipSolid />}
               size="xs"
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
@@ -417,7 +417,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* Cancel Button */}
             <IconButton
               aria-label="Cancel editing"
-              icon={<CloseIcon />}
+              icon={<LiaTimesSolid />}
               size="xs"
               variant="ghost"
               onClick={handleCancelEdit}
@@ -426,7 +426,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* Send Button */}
             <IconButton
               aria-label="Send message"
-              icon={<ArrowUpIcon />}
+              icon={<LiaArrowUpSolid />}
               size="xs"
               variant="ghost"
               onClick={handleSendEdit}
@@ -450,7 +450,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Edit */}
                 <IconButton
                   aria-label="Edit message"
-                  icon={<EditIcon />}
+                  icon={<LiaPenSolid />}
                   size="xs"
                   variant="ghost"
                   onClick={handleEdit}
@@ -459,7 +459,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Copy */}
                 <IconButton
                   aria-label="Copy to clipboard"
-                  icon={<CopyIcon />}
+                  icon={<LiaCopySolid />}
                   size="xs"
                   variant="ghost"
                   onClick={handleCopy}
@@ -473,7 +473,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* Branch Switcher - always show when multiple branches exist */}
             {showBranchSwitcher && (
               <HStack spacing={1} fontSize="xs" color="text.secondary" align="center">
-                <ChevronLeftIcon
+                <Icon
+                  as={LiaChevronLeftSolid}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
@@ -483,7 +484,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 <Text lineHeight="1">{activeBranchIndex + 1}</Text>
                 <Text lineHeight="1">/</Text>
                 <Text lineHeight="1">{branches.length}</Text>
-                <ChevronRightIcon
+                <Icon
+                  as={LiaChevronRightSolid}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
