@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon, IconButton } from '@chakra-ui/react'
-import { HiChatBubbleLeft, HiClipboard } from 'react-icons/hi2'
+import { HiSparkles, HiClipboard } from 'react-icons/hi2'
 import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
@@ -112,7 +112,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           borderColor={avatarBorder}
           flexShrink={0}
         >
-          <Icon as={HiChatBubbleLeft} boxSize={4} color={iconColor} />
+          <Icon as={HiSparkles} boxSize={4} color={iconColor} />
         </Box>
       )}
 
@@ -149,11 +149,11 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           </Box>
         )}
 
-        {/* Text streaming indicator (blinking HiChatBubbleLeft) when text is streaming */}
+        {/* Text streaming indicator (blinking HiSparkles) when text is streaming */}
         {isTextStreamingForMessage && (
           <HStack spacing={2} px={2} align="center" alignSelf="flex-start">
             <Icon
-              as={HiChatBubbleLeft}
+              as={HiSparkles}
               boxSize={3}
               color={iconColor}
               animation="flash 1.5s ease-in-out infinite"

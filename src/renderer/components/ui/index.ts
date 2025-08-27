@@ -10,3 +10,6 @@ export { TempFileCardList } from './TempFileCard'
 
 // Inputs
 export { default as AutoResizeTextarea } from './AutoResizeTextarea'
+
+// Language selection
+export { LanguageSelector } from './LanguageSelector'

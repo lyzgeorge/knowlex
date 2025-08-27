@@ -17,6 +17,7 @@ import { ConversationsSection } from './ConversationsSection'
 import { SidebarFooter } from './SidebarFooter'
 import { useConversationManagement } from '@renderer/hooks/useConversationManagement'
 import { useNavigationActions } from '@renderer/stores/navigation'
+import { useI18n } from '@renderer/hooks/useI18n'
 
 export interface SidebarProps {
   className?: string
@@ -33,6 +34,7 @@ export interface SidebarProps {
  * - 虚拟滚动优化和键盘导航支持
  */
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
+  const { t } = useI18n()
   const [searchQuery, setSearchQuery] = useState('')
 
   const {
@@ -80,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault()
             const searchInput = document.querySelector(
-              '[placeholder="Global Search"]'
+              `[placeholder="${t('sidebar.globalSearch')}"]`
             ) as HTMLInputElement
             if (searchInput) {
               searchInput.focus()
@@ -88,7 +90,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           }
           break
         case 'Escape':
-          if (e.target instanceof HTMLInputElement && e.target.placeholder === 'Global Search') {
+          if (
+            e.target instanceof HTMLInputElement &&
+            e.target.placeholder === t('sidebar.globalSearch')
+          ) {
             setSearchQuery('')
             e.target.blur()
           }
@@ -156,19 +161,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         <AlertDialogOverlay>
           <AlertDialogContent>
             <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Delete Conversation
+              {t('conversation.delete')}
             </AlertDialogHeader>
 
-            <AlertDialogBody>
-              Are you sure you want to delete this conversation? This action cannot be undone.
-            </AlertDialogBody>
+            <AlertDialogBody>{t('conversation.deleteConfirm')}</AlertDialogBody>
 
             <AlertDialogFooter>
               <Button ref={cancelRef} onClick={onDeleteClose}>
-                Cancel
+                {t('conversation.cancel')}
               </Button>
               <Button colorScheme="red" onClick={confirmDelete} ml={3} isLoading={isDeleting}>
-                Delete
+                {t('conversation.delete_action')}
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>

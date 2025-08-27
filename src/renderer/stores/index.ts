@@ -53,7 +53,8 @@ export {
 } from './settings'
 
 // Type exports
-export type { Theme, Language, AppState } from './app'
+export type { Theme, AppState } from './app'
+export type { Language } from '@shared/i18n/types'
 export type { ConversationState } from './conversation'
 export type {
   SettingsState,
@@ -97,6 +98,11 @@ export const initializeStores = async () => {
     console.log('Loading settings...')
     // Load settings
     await settingsStore.loadSettings()
+
+    console.log('Initializing i18n...')
+    // Initialize i18n with current language setting
+    const { initializeI18n } = await import('@shared/i18n')
+    await initializeI18n(appStore.language)
 
     console.log('Initializing data stores...')
     // Initialize data stores

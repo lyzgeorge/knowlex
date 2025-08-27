@@ -1,6 +1,7 @@
 import React from 'react'
 import { VStack, Text } from '@chakra-ui/react'
 import ChatInputBox from './ChatInputBox'
+import { useI18n } from '@renderer/hooks/useI18n'
 
 export interface MainPageProps {
   /** Additional CSS classes */
@@ -16,6 +17,8 @@ export interface MainPageProps {
  * - Main entrance input box for starting conversations
  */
 export const MainPage: React.FC<MainPageProps> = ({ className }) => {
+  const { t } = useI18n()
+
   return (
     <VStack
       spacing={8}
@@ -29,7 +32,7 @@ export const MainPage: React.FC<MainPageProps> = ({ className }) => {
     >
       {/* Welcome Message */}
       <Text fontSize="3xl" fontWeight="medium" color="text.primary">
-        How do you do?
+        {t('chat.greeting')}
       </Text>
 
       {/* Main Entrance Input - Uses main-entrance variant */}

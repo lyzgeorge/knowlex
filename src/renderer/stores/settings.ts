@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import type { Language } from '@shared/i18n/types'
 
 export interface APIProvider {
   id: string
@@ -21,7 +22,7 @@ export interface APIProvider {
 }
 
 export interface GeneralSettings {
-  language: 'en' | 'zh-CN' | 'zh-TW'
+  language: Language
   theme: 'light' | 'dark' | 'system'
   autoSave: boolean
   autoBackup: boolean

@@ -6,6 +6,9 @@ import App from './App'
 import theme from './utils/theme'
 import './styles/markdown.css'
 
+// Import i18n configuration
+import '@shared/i18n/config'
+
 /**
  * Error Fallback Component for Error Boundary
  */

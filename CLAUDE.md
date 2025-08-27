@@ -365,3 +365,11 @@ export const handleIPCCall = async <T>(operation: () => Promise<T>): Promise<IPC
 - Validate all input at IPC boundaries
 - Use preload script for secure API exposure
 - Store sensitive data (API keys) in encrypted settings
+- src/shared/i18n/config.ts - Main i18n configuration
+  - src/shared/i18n/types.ts - Type definitions
+  - src/shared/i18n/init.ts - Initialization logic
+  - src/shared/i18n/locales/en.json - English translations
+  - src/shared/i18n/locales/zh.json - Chinese translations
+  - src/renderer/hooks/useI18n.ts - React hook for i18n
+  - src/renderer/components/ui/LanguageSelector.tsx - Language picker component
+  - src/renderer/hooks/useLanguage.ts - Dedicated language management hook

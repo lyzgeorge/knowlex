@@ -7,9 +7,9 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { themeManager, type ColorMode } from '@renderer/utils/theme/colorMode'
+import type { Language } from '@shared/i18n/types'
 
 export type Theme = 'light' | 'dark' | 'system'
-export type Language = 'en' | 'zh-CN' | 'zh-TW'
 
 export interface AppState {
   // UI State
@@ -69,9 +69,13 @@ export const useAppStore = create<AppState>()(
 
       // Language management
       setLanguage: (language: Language) => {
-        set((state) => {
-          state.language = language
-        })
+        const currentState = get()
+        // Only update if language is actually different
+        if (currentState.language !== language) {
+          set((state) => {
+            state.language = language
+          })
+        }
       },
 
       // Sidebar management

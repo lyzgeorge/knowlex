@@ -53,6 +53,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileUpload = useFileUpload()
 
   // Theme colors
@@ -84,7 +85,19 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
     // Clear file upload state for new attachments
     fileUpload.clearFiles()
-  }, [isEditing, currentBranch.id, currentBranch.content, fileUpload])
+  }, [isEditing, currentBranch.id])
+
+  // Separate effect for auto-focus to avoid infinite loop
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      setTimeout(() => {
+        textareaRef.current?.focus()
+        // Set cursor at end of text
+        const length = textareaRef.current?.value.length || 0
+        textareaRef.current?.setSelectionRange(length, length)
+      }, 0)
+    }
+  }, [isEditing])
 
   // Build message content from draft and attachments
   const buildMessageContent = useCallback((): MessageContent => {
@@ -367,6 +380,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               <>
                 {/* Text Editor */}
                 <AutoResizeTextarea
+                  ref={textareaRef}
                   value={draftText}
                   onChange={(e) => setDraftText(e.target.value)}
                   onKeyDown={handleKeyDown}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, HStack, Text, Collapse, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
-import { HiChevronDown, HiChevronRight, HiCpuChip } from 'react-icons/hi2'
+import { HiChevronDown, HiChevronRight, HiLightBulb } from 'react-icons/hi2'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -128,7 +128,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
         </ReactMarkdown>
         {showCursor && (
           <Icon
-            as={HiCpuChip}
+            as={HiLightBulb}
             boxSize={3}
             color="purple.400"
             ml={1}
@@ -166,7 +166,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
         _hover={{ bg: hoverBg }}
         transition="background-color 0.2s"
       >
-        <Icon as={HiCpuChip} boxSize={3} color={iconColor} />
+        <Icon as={HiLightBulb} boxSize={3} color={iconColor} />
         <Text fontSize="sx" fontWeight="medium" color={headerTextColor} flex={1}>
           {isThinking ? 'Thinking ...' : 'Reasoning'}
         </Text>
@@ -208,7 +208,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
       {isThinking && (
         <HStack px={3} pb={2} pt={0} spacing={2} align="center">
           <Icon
-            as={HiCpuChip}
+            as={HiLightBulb}
             boxSize={3}
             color={iconColor}
             animation="pulse 1.5s ease-in-out infinite"

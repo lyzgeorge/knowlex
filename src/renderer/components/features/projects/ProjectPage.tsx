@@ -100,7 +100,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
       align="flex-start"
     >
       {/* Title and content section */}
-      <VStack align="stretch" spacing={1} flex={1} minW={0}>
+      <VStack align="stretch" spacing={1} px={1} flex={1} minW={0}>
         {/* Title row */}
         {isEditing ? (
           <HStack flex={1} spacing={1}>
@@ -109,7 +109,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
               onChange={(e) => setEditTitle(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={handleSaveTitle}
-              fontSize="md"
+              fontSize="sm"
               fontWeight="medium"
               variant="unstyled"
               size="sm"
@@ -144,7 +144,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
             textAlign="left"
             whiteSpace="normal"
           >
-            <Text fontWeight="medium" fontSize="md" noOfLines={1} flex={1} minW={0}>
+            <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1} minW={0}>
               {conversation.title}
             </Text>
           </Tooltip>

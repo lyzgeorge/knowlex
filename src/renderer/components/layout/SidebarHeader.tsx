@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, VStack, Text, InputGroup, InputLeftElement, Input } from '@chakra-ui/react'
 import { HiPlus, HiMagnifyingGlass } from 'react-icons/hi2'
 import { Button } from '@renderer/components/ui/Button'
+import { useI18n } from '@renderer/hooks/useI18n'
 
 interface SidebarHeaderProps {
   searchQuery: string
@@ -14,6 +15,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
   onSearchChange,
   onNewChat
 }) => {
+  const { t } = useI18n()
+
   return (
     <>
       {/* Draggable Top Area */}
@@ -34,7 +37,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
         <VStack spacing={4} align="stretch">
           {/* Logo */}
           <Text fontSize="xl" fontWeight="bold" color="text.primary">
-            Knowlex
+            {t('app.name')}
           </Text>
 
           {/* New Chat Button */}
@@ -52,7 +55,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
             aria-label="Create new chat conversation (Ctrl/Cmd+N)"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            New Chat
+            {t('sidebar.newChat')}
           </Button>
 
           {/* Global Search */}
@@ -61,7 +64,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
               <HiMagnifyingGlass color="text.secondary" />
             </InputLeftElement>
             <Input
-              placeholder="Global Search"
+              placeholder={t('sidebar.globalSearch')}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               bg="surface.secondary"

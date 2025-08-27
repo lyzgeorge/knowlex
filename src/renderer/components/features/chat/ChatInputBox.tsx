@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react'
 import { Box, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
 import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
 import { keyframes } from '@emotion/react'
+import { useI18n } from '@renderer/hooks/useI18n'
 import {
   useSendMessage,
   useIsSending,
@@ -67,6 +68,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   className,
   branching
 }) => {
+  const { t } = useI18n()
   const [input, setInput] = useState('')
   const [isHoveringStreamButton, setIsHoveringStreamButton] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -157,13 +159,13 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const getDefaultPlaceholder = (): string => {
     switch (variant) {
       case 'main-entrance':
-        return 'Type your message...'
+        return t('chat.typeMessage')
       case 'project-entrance':
-        return 'Start a conversation in this project...'
+        return t('chat.startConversation')
       case 'conversation':
-        return 'Type your message...'
+        return t('chat.typeMessage')
       default:
-        return 'Type your message...'
+        return t('chat.typeMessage')
     }
   }
 
@@ -450,7 +452,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             {showFileAttachment && (
               <>
                 <IconButton
-                  aria-label="Attach file"
+                  aria-label={t('chat.attachFile')}
                   icon={<HiPaperClip />}
                   size="sm"
                   variant="ghost"
@@ -486,7 +488,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             {/* Send / Refreshing-Stop Button - Bottom Right */}
             {isRefreshing ? (
               <IconButton
-                aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
+                aria-label={isHoveringStreamButton ? t('chat.stop') : t('chat.refreshing')}
                 icon={
                   isHoveringStreamButton ? (
                     <HiStop />
@@ -510,7 +512,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               />
             ) : (
               <IconButton
-                aria-label="Send message"
+                aria-label={t('chat.sendMessage')}
                 icon={<HiArrowUp />}
                 {...(canSend ? { colorScheme: 'primary' } : {})}
                 size="sm"

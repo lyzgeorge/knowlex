@@ -34,6 +34,9 @@ const AutoResizeTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizeTexta
 
       const next = Math.min(el.scrollHeight, maxPx)
       el.style.height = `${next}px`
+
+      // Disable scrolling if content fits within max rows
+      el.style.overflowY = el.scrollHeight <= maxPx ? 'hidden' : 'auto'
     }
 
     useEffect(() => {
@@ -57,6 +60,8 @@ const AutoResizeTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizeTexta
         px={0}
         bg="transparent"
         _focus={{ boxShadow: 'none' }}
+        // Start with overflow hidden for single-line content
+        overflow="hidden"
         // Respect any parent-provided styles
         style={style}
         {...(sx && { sx })}

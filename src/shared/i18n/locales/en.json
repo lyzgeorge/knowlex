@@ -1,0 +1,106 @@
+{
+  "app": {
+    "name": "Knowlex",
+    "description": "Knowlex Desktop AI Assistant"
+  },
+  "sidebar": {
+    "newChat": "New Chat",
+    "search": "Search",
+    "globalSearch": "Global Search",
+    "projects": "Projects",
+    "conversations": "Conversations",
+    "settings": "Settings"
+  },
+  "conversation": {
+    "delete": "Delete Conversation",
+    "deleteConfirm": "Are you sure you want to delete this conversation? This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete_action": "Delete",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "export": "Export",
+    "untitled": "Untitled Conversation"
+  },
+  "project": {
+    "new": "New Project",
+    "delete": "Delete Project",
+    "deleteConfirm": "Are you sure you want to delete this project? This will also delete all conversations within it.",
+    "rename": "Rename",
+    "settings": "Project Settings",
+    "untitled": "Untitled Project",
+    "conversations": "Conversations",
+    "overview": "Overview"
+  },
+  "chat": {
+    "typeMessage": "Type your message...",
+    "startConversation": "Start a conversation in this project...",
+    "attachFile": "Attach file",
+    "sendMessage": "Send message",
+    "stop": "Stop",
+    "refreshing": "Refreshing",
+    "thinking": "Thinking...",
+    "reasoning": "Reasoning...",
+    "greeting": "How do you do?"
+  },
+  "file": {
+    "upload": "Upload File",
+    "uploading": "Uploading...",
+    "processing": "Processing...",
+    "error": "Error processing file",
+    "remove": "Remove",
+    "maxFiles": "Maximum {{count}} files allowed",
+    "unsupportedType": "Unsupported file type",
+    "tooLarge": "File too large"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "language": "Language",
+    "theme": "Theme",
+    "ai": "AI Settings",
+    "apiKey": "API Key",
+    "model": "Model",
+    "temperature": "Temperature",
+    "maxTokens": "Max Tokens",
+    "save": "Save",
+    "cancel": "Cancel",
+    "reset": "Reset to Default"
+  },
+  "themes": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "languages": {
+    "en": "English",
+    "zh-CN": "中文"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "copy": "Copy",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "clear": "Clear",
+    "refresh": "Refresh"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "validation": "Please check your input and try again.",
+    "unauthorized": "Unauthorized access. Please check your credentials.",
+    "notFound": "Resource not found.",
+    "serverError": "Server error. Please try again later."
+  }
+}

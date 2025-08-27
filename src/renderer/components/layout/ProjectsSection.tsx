@@ -12,6 +12,7 @@ import {
   MenuItem,
   Tooltip
 } from '@chakra-ui/react'
+import { useI18n } from '@renderer/hooks/useI18n'
 import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { useConversationStore } from '@renderer/stores/conversation'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
@@ -38,6 +39,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   onDeleteConversation,
   onSelectProject
 }) => {
+  const { t } = useI18n()
   const projectManagement = useProjectManagement()
   const { messages, conversations } = useConversationStore()
 
@@ -100,8 +102,8 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     <Box>
       {/* Header */}
       <HStack justify="space-between" px={2} py={2}>
-        <Text fontSize="sm" fontWeight={'semibold'} color="text.secondary">
-          Projects
+        <Text fontSize="sm" fontStyle="italic" color="text.secondary">
+          {t('sidebar.projects')}
         </Text>
         <IconButton
           aria-label="New project"

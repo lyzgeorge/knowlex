@@ -1,0 +1,106 @@
+{
+  "app": {
+    "name": "Knowlex",
+    "description": "Knowlex 桌面智能助理"
+  },
+  "sidebar": {
+    "newChat": "新建对话",
+    "search": "搜索",
+    "globalSearch": "全局搜索",
+    "projects": "项目",
+    "conversations": "对话",
+    "settings": "设置"
+  },
+  "conversation": {
+    "delete": "删除对话",
+    "deleteConfirm": "确定要删除这个对话吗？此操作无法撤销。",
+    "cancel": "取消",
+    "delete_action": "删除",
+    "rename": "重命名",
+    "duplicate": "复制",
+    "export": "导出",
+    "untitled": "未命名对话"
+  },
+  "project": {
+    "new": "新建项目",
+    "delete": "删除项目",
+    "deleteConfirm": "确定要删除这个项目吗？这将同时删除其中的所有对话。",
+    "rename": "重命名",
+    "settings": "项目设置",
+    "untitled": "未命名项目",
+    "conversations": "对话",
+    "overview": "概览"
+  },
+  "chat": {
+    "typeMessage": "输入您的消息...",
+    "startConversation": "在此项目中开始对话...",
+    "attachFile": "附加文件",
+    "sendMessage": "发送消息",
+    "stop": "停止",
+    "refreshing": "刷新中",
+    "thinking": "思考中...",
+    "reasoning": "推理中...",
+    "greeting": "你好，请问有什么可以帮助您的吗？"
+  },
+  "file": {
+    "upload": "上传文件",
+    "uploading": "上传中...",
+    "processing": "处理中...",
+    "error": "文件处理错误",
+    "remove": "移除",
+    "maxFiles": "最多允许 {{count}} 个文件",
+    "unsupportedType": "不支持的文件类型",
+    "tooLarge": "文件过大"
+  },
+  "settings": {
+    "title": "设置",
+    "general": "通用",
+    "language": "语言",
+    "theme": "主题",
+    "ai": "AI 设置",
+    "apiKey": "API 密钥",
+    "model": "模型",
+    "temperature": "温度",
+    "maxTokens": "最大令牌数",
+    "save": "保存",
+    "cancel": "取消",
+    "reset": "重置为默认"
+  },
+  "themes": {
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
+  },
+  "languages": {
+    "en": "English",
+    "zh-CN": "中文"
+  },
+  "common": {
+    "ok": "确定",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "copy": "复制",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "warning": "警告",
+    "info": "信息",
+    "close": "关闭",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "search": "搜索",
+    "clear": "清空",
+    "refresh": "刷新"
+  },
+  "errors": {
+    "generic": "出现了一些问题，请重试。",
+    "network": "网络错误，请检查您的连接。",
+    "validation": "请检查您的输入并重试。",
+    "unauthorized": "未授权访问，请检查您的凭据。",
+    "notFound": "未找到资源。",
+    "serverError": "服务器错误，请稍后重试。"
+  }
+}

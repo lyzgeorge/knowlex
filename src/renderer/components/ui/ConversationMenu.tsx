@@ -80,10 +80,20 @@ const ConversationMenu: React.FC<Props> = ({
           <MenuItem
             onMouseEnter={(e) => {
               const rect = e.currentTarget.getBoundingClientRect()
-              setSubmenuPosition({
-                top: rect.top,
-                left: rect.right
-              })
+              const submenuWidth = 200
+              const submenuHeight = 150 // Approximate submenu height
+              const viewportWidth = window.innerWidth
+              const viewportHeight = window.innerHeight
+
+              // Check horizontal overflow
+              const wouldOverflowRight = rect.right + submenuWidth > viewportWidth
+              const left = wouldOverflowRight ? rect.left - submenuWidth : rect.right
+
+              // Check vertical overflow
+              const wouldOverflowBottom = rect.top + submenuHeight > viewportHeight
+              const top = wouldOverflowBottom ? viewportHeight - submenuHeight - 10 : rect.top
+
+              setSubmenuPosition({ top, left })
               setShowSubmenu(true)
             }}
             onMouseLeave={() => setShowSubmenu(false)}

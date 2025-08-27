@@ -3,6 +3,7 @@ import { Box, HStack, VStack, Text, Spinner, Input, IconButton, Tooltip } from '
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
 import { useConversationStore } from '@renderer/stores/conversation'
+import { useI18n } from '@renderer/hooks/useI18n'
 
 interface ConversationsSectionProps {
   conversations: Array<{
@@ -28,6 +29,7 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
   hasMoreConversations,
   sentinelRef
 }) => {
+  const { t } = useI18n()
   const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
 
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
@@ -62,8 +64,8 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
 
   return (
     <Box>
-      <Text fontSize="sm" fontWeight="semibold" color="text.secondary" px={2} py={2}>
-        Conversations
+      <Text fontSize="sm" fontStyle="italic" color="text.secondary" px={2} py={2}>
+        {t('sidebar.conversations')}
       </Text>
 
       <VStack spacing={0} align="stretch" role="list" aria-label="Uncategorized conversations">
