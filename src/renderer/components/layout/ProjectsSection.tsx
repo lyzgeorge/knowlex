@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Box,
   HStack,
@@ -9,21 +9,21 @@ import {
   Menu,
   MenuButton,
   MenuList,
-  MenuItem
+  MenuItem,
+  Tooltip
 } from '@chakra-ui/react'
-import { LiaPlusSolid, LiaCheckSolid, LiaTimesSolid, LiaBarsSolid } from 'react-icons/lia'
-import { LiaFolderSolid, LiaFolderOpenSolid } from 'react-icons/lia'
-import { useProjectManagement } from '@renderer/hooks/useProjectManagement'
-import { ConversationItem } from '@renderer/components/ui/ConversationItem'
 import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { useConversationStore } from '@renderer/stores/conversation'
-import { useInlineEdit } from '@renderer/hooks/useInlineEdit'
+import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import { HiPlus, HiCheck, HiXMark, HiBars3, HiFolder, HiFolderOpen } from 'react-icons/hi2'
+import { useProjectManagement } from '@renderer/hooks/useProjectManagement'
 
 interface ProjectsSectionProps {
   filteredConversations: Array<{
     id: string
     title: string
     projectId?: string | null
+    updatedAt?: string
   }>
   currentConversationId: string | null
   onSelectConversation: (id: string) => void
@@ -40,8 +40,38 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 }) => {
   const projectManagement = useProjectManagement()
   const { messages, conversations } = useConversationStore()
-  const inlineEdit = useInlineEdit()
-  // Hover state no longer needed; ConversationMenu handles its own hover UI
+
+  const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
+
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+
+  const startEdit = useCallback((id: string, title: string) => {
+    setEditingConversationId(id)
+    setEditingTitle(title)
+  }, [])
+
+  const cancelEdit = useCallback(() => {
+    setEditingConversationId(null)
+    setEditingTitle('')
+  }, [])
+
+  const confirmEdit = useCallback(async () => {
+    if (!editingConversationId || !editingTitle.trim()) return
+    try {
+      await updateConversationTitle(editingConversationId, editingTitle.trim())
+    } catch (err) {
+      console.error('Failed to rename conversation:', err)
+    } finally {
+      cancelEdit()
+    }
+  }, [editingConversationId, editingTitle, updateConversationTitle, cancelEdit])
+
+  const handleInputBlur = useCallback(() => {
+    setTimeout(() => {
+      if (editingConversationId) cancelEdit()
+    }, 150)
+  }, [editingConversationId, cancelEdit])
 
   const {
     projects,
@@ -75,7 +105,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         </Text>
         <IconButton
           aria-label="New project"
-          icon={<LiaPlusSolid />}
+          icon={<HiPlus />}
           size="xs"
           variant="ghost"
           onClick={handleStartCreateProject}
@@ -101,7 +131,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           />
           <IconButton
             aria-label="Create project"
-            icon={<LiaCheckSolid />}
+            icon={<HiCheck />}
             size="xs"
             variant="ghost"
             isDisabled={!newProjectName.trim()}
@@ -109,7 +139,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
           />
           <IconButton
             aria-label="Cancel"
-            icon={<LiaTimesSolid />}
+            icon={<HiXMark />}
             size="xs"
             variant="ghost"
             onClick={handleCancelCreateProject}
@@ -119,7 +149,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
       {/* Projects List */}
       <VStack spacing={0} align="stretch" role="list" aria-label="Projects">
-        {projects.map((p) => (
+        {projects.map((p: any) => (
           <Box key={p.id}>
             {/* Project Item */}
             <HStack
@@ -139,7 +169,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
               <HStack spacing={2}>
                 <IconButton
                   aria-label={expanded[p.id] ? 'Collapse project' : 'Expand project'}
-                  icon={expanded[p.id] ? <LiaFolderOpenSolid /> : <LiaFolderSolid />}
+                  icon={expanded[p.id] ? <HiFolderOpen /> : <HiFolder />}
                   size="xs"
                   variant="ghost"
                   onClick={(e) => {
@@ -167,7 +197,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     />
                     <IconButton
                       aria-label="Confirm rename"
-                      icon={<LiaCheckSolid />}
+                      icon={<HiCheck />}
                       size="xs"
                       variant="ghost"
                       onClick={async (e) => {
@@ -177,7 +207,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     />
                     <IconButton
                       aria-label="Cancel rename"
-                      icon={<LiaTimesSolid />}
+                      icon={<HiXMark />}
                       size="xs"
                       variant="ghost"
                       onClick={(e) => {
@@ -207,12 +237,12 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   <MenuButton
                     as={IconButton}
                     aria-label="Project options"
-                    icon={<LiaBarsSolid />}
+                    icon={<HiBars3 />}
                     size="xs"
                     variant="ghost"
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <MenuList>
+                  <MenuList minW="120px" maxW="300px">
                     <MenuItem
                       onClick={(e) => {
                         e.stopPropagation()
@@ -240,24 +270,124 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
               <VStack align="stretch" ml={2} spacing={0}>
                 {filteredConversations
                   .filter((c) => c.projectId === p.id)
-                  .map((conversation) => (
-                    <ConversationItem
-                      key={conversation.id}
-                      conversation={conversation}
-                      currentConversationId={currentConversationId}
-                      onSelectConversation={onSelectConversation}
-                      onDeleteConversation={onDeleteConversation}
-                      editingConversationId={inlineEdit.editingConversationId}
-                      editingTitle={inlineEdit.editingTitle}
-                      setEditingTitle={inlineEdit.setEditingTitle}
-                      onStartEdit={inlineEdit.handleStartEdit}
-                      onCancelEdit={inlineEdit.handleCancelEdit}
-                      onConfirmEdit={inlineEdit.handleConfirmEdit}
-                      onInputBlur={inlineEdit.handleInputBlur}
-                      isNested={true}
-                      currentProjectId={p.id}
-                    />
-                  ))}
+                  .map((conversation) => {
+                    const isCurrent = currentConversationId === conversation.id
+                    const isEditing = editingConversationId === conversation.id
+                    return (
+                      <HStack
+                        key={conversation.id}
+                        role="listitem"
+                        p={2}
+                        pl={2}
+                        borderRadius="md"
+                        cursor="pointer"
+                        bg={isCurrent ? 'primary.50' : 'transparent'}
+                        borderLeft={isCurrent ? '3px solid' : 'none'}
+                        borderColor="primary.500"
+                        transition="all 0.2s"
+                        _hover={{ bg: isCurrent ? 'primary.100' : 'surface.hover' }}
+                        onClick={() => onSelectConversation(conversation.id)}
+                        justify="space-between"
+                        align="center"
+                      >
+                        {isEditing ? (
+                          <HStack flex={1} spacing={1}>
+                            <Input
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              fontSize="sm"
+                              fontWeight="medium"
+                              variant="unstyled"
+                              size="sm"
+                              h="24px"
+                              lineHeight="24px"
+                              px={0}
+                              py={0}
+                              bg="transparent"
+                              _focus={{ boxShadow: 'none', bg: 'transparent' }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  confirmEdit()
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault()
+                                  cancelEdit()
+                                }
+                              }}
+                              onBlur={handleInputBlur}
+                              autoFocus
+                            />
+                          </HStack>
+                        ) : (
+                          <Tooltip
+                            label={conversation.title}
+                            placement="right"
+                            hasArrow
+                            openDelay={600}
+                            closeDelay={200}
+                            bg="surface.primary"
+                            color="text.primary"
+                            borderRadius="md"
+                            border="1px solid"
+                            borderColor="border.primary"
+                            shadow="dropdown"
+                            fontSize="sm"
+                            fontWeight="medium"
+                            px={3}
+                            py={2}
+                            maxW="280px"
+                            textAlign="left"
+                            whiteSpace="normal"
+                          >
+                            <Text fontSize="sm" noOfLines={1} flex={1} py={0.5} minW={0}>
+                              {conversation.title}
+                            </Text>
+                          </Tooltip>
+                        )}
+
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          {isEditing ? (
+                            <HStack spacing={1}>
+                              <IconButton
+                                aria-label="Confirm rename"
+                                icon={<HiCheck />}
+                                size="xs"
+                                variant="ghost"
+                                color="green.500"
+                                _hover={{ bg: 'green.50', color: 'green.600' }}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  confirmEdit()
+                                }}
+                              />
+                              <IconButton
+                                aria-label="Cancel rename"
+                                icon={<HiXMark />}
+                                size="xs"
+                                variant="ghost"
+                                color="gray.500"
+                                _hover={{ bg: 'gray.50', color: 'gray.600' }}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  cancelEdit()
+                                }}
+                              />
+                            </HStack>
+                          ) : (
+                            <ConversationMenu
+                              conversationId={conversation.id}
+                              currentProjectId={p.id}
+                              onRename={() => startEdit(conversation.id, conversation.title)}
+                              onDelete={() => onDeleteConversation(conversation.id)}
+                              updatedAt={conversation.updatedAt}
+                            />
+                          )}
+                        </Box>
+                      </HStack>
+                    )
+                  })}
               </VStack>
             )}
           </Box>
@@ -287,3 +417,5 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     </Box>
   )
 }
+
+export default ProjectsSection

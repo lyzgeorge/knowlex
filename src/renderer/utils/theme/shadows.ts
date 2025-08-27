@@ -20,9 +20,9 @@ export const shadows = {
   outline: '0 0 0 3px rgba(66, 153, 225, 0.6)',
 
   // Chat message shadows
-  'message-user': '0 2px 8px rgba(34, 197, 94, 0.15)',
-  'message-assistant': '0 2px 8px rgba(0, 0, 0, 0.1)',
-  'message-hover': '0 4px 12px rgba(0, 0, 0, 0.15)',
+  'message-user': '0 2px 8px rgba(34, 197, 94, 0.2)',
+  'message-assistant': '0 2px 8px rgba(59, 130, 246, 0.2)',
+  'message-hover': '0 4px 12px rgba(34, 197, 94, 0.3)',
 
   // Sidebar shadow
   sidebar: '2px 0 8px rgba(0, 0, 0, 0.1)',
@@ -31,22 +31,22 @@ export const shadows = {
   modal: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
 
   // File card shadows
-  'file-card': '0 2px 4px rgba(0, 0, 0, 0.1)',
-  'file-card-hover': '0 4px 8px rgba(0, 0, 0, 0.15)',
-  'file-card-active': '0 1px 2px rgba(0, 0, 0, 0.1)',
+  'file-card': '0 2px 8px rgba(59, 130, 246, 0.15)',
+  'file-card-hover': '0 4px 16px rgba(59, 130, 246, 0.25)',
+  'file-card-active': '0 1px 4px rgba(59, 130, 246, 0.2)',
 
   // Project card shadows
-  'project-card': '0 2px 8px rgba(0, 0, 0, 0.1)',
-  'project-card-hover': '0 8px 16px rgba(0, 0, 0, 0.15)',
+  'project-card': '0 2px 8px rgba(34, 197, 94, 0.15)',
+  'project-card-hover': '0 8px 20px rgba(34, 197, 94, 0.25)',
 
   // Button shadows
-  'button-primary': '0 2px 4px rgba(34, 197, 94, 0.2)',
-  'button-secondary': '0 2px 4px rgba(59, 130, 246, 0.2)',
-  'button-hover': '0 4px 8px rgba(0, 0, 0, 0.15)',
+  'button-primary': '0 4px 16px rgba(34, 197, 94, 0.2)',
+  'button-secondary': '0 4px 16px rgba(59, 130, 246, 0.2)',
+  'button-hover': '0 6px 20px rgba(34, 197, 94, 0.35)',
 
   // Input field shadows
-  'input-focus': '0 0 0 3px rgba(34, 197, 94, 0.1)',
-  'input-error': '0 0 0 3px rgba(239, 68, 68, 0.1)',
+  'input-focus': '0 0 0 3px rgba(34, 197, 94, 0.2)',
+  'input-error': '0 0 0 3px rgba(239, 68, 68, 0.2)',
 
   // Toast/notification shadows
   toast: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',

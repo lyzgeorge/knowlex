@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, HStack, VStack, Text, IconButton, Avatar } from '@chakra-ui/react'
-import { LiaCogSolid } from 'react-icons/lia'
+import { HiCog6Tooth } from 'react-icons/hi2'
 
 export const SidebarFooter: React.FC = () => {
   return (
@@ -14,7 +14,7 @@ export const SidebarFooter: React.FC = () => {
         </VStack>
         <IconButton
           aria-label="Settings"
-          icon={<LiaCogSolid />}
+          icon={<HiCog6Tooth />}
           size="sm"
           variant="ghost"
           onClick={() => {
@@ -25,3 +25,5 @@ export const SidebarFooter: React.FC = () => {
     </Box>
   )
 }
+
+export default SidebarFooter

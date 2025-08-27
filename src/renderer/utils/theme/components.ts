@@ -329,7 +329,7 @@ export const components = {
       list: {
         borderRadius: 'md',
         shadow: 'dropdown',
-        border: '1px solid',
+        border: '0px',
         borderColor: 'border.primary',
         bg: 'surface.primary',
         py: 1

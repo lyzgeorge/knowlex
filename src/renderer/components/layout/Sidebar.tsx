@@ -120,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         onNewChat={handleNewChat}
       />
 
-      <Box flex={1} overflowY="auto">
+      <Box flex={1} overflowY="auto" overflowX="hidden">
         <VStack spacing={0} align="stretch">
           <Box px={2}>
             {/* Pass the project select handler so it is used */}

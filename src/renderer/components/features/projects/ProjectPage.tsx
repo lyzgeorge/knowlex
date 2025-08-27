@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react'
 import { Box, Heading, VStack, Text, HStack, Input, IconButton, Tooltip } from '@chakra-ui/react'
-import { LiaCheckSolid, LiaTimesSolid } from 'react-icons/lia'
+import { HiCheck, HiXMark } from 'react-icons/hi2'
 import { useConversations, useConversationStore } from '@renderer/stores/conversation'
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
@@ -162,7 +162,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
           <HStack spacing={1}>
             <IconButton
               aria-label="Confirm rename"
-              icon={<LiaCheckSolid />}
+              icon={<HiCheck />}
               size="xs"
               variant="ghost"
               color="green.500"
@@ -175,7 +175,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
             />
             <IconButton
               aria-label="Cancel rename"
-              icon={<LiaTimesSolid />}
+              icon={<HiXMark />}
               size="xs"
               variant="ghost"
               color="gray.500"

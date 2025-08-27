@@ -6,7 +6,7 @@ import UserMessage from '@renderer/components/ui/UserMessage'
 import AssistantMessage from '@renderer/components/ui/AssistantMessage'
 import { useAutoScroll } from '@renderer/hooks/useAutoScroll'
 import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
-import { LiaChevronDownSolid } from 'react-icons/lia'
+import { HiArrowDown } from 'react-icons/hi2'
 
 export interface ConversationPageProps {
   /** Additional CSS classes */
@@ -140,7 +140,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
           >
             <IconButton
               aria-label="Scroll to bottom"
-              icon={<LiaChevronDownSolid />}
+              icon={<HiArrowDown />}
               size="sm"
               colorScheme="gray"
               variant="solid"

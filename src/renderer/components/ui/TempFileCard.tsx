@@ -1,8 +1,7 @@
 import React from 'react'
 import { Box, HStack, Text, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
 import type { BoxProps } from '@chakra-ui/react'
-import { LiaTimesSolid, LiaPaperclipSolid } from 'react-icons/lia'
-import { LiaFileSolid, LiaFileAltSolid, LiaImageSolid } from 'react-icons/lia'
+import { HiXMark, HiPaperClip, HiDocument, HiDocumentText, HiPhoto } from 'react-icons/hi2'
 import type { MessageContentPart } from '@shared/types/message'
 
 export interface MessageFileLike {
@@ -35,12 +34,12 @@ const formatFileSize = (bytes: number): string => {
 }
 
 const getFileIcon = (mimeType: string, filename: string) => {
-  if (mimeType.startsWith('image/')) return LiaImageSolid
+  if (mimeType.startsWith('image/')) return HiPhoto
   if (mimeType.includes('text') || filename.endsWith('.md') || filename.endsWith('.txt'))
-    return LiaFileAltSolid
+    return HiDocumentText
   if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('office'))
-    return LiaFileSolid
-  return LiaPaperclipSolid
+    return HiDocument
+  return HiPaperClip
 }
 
 const useFileCardTheme = () => ({
@@ -121,7 +120,7 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
         {onRemove && (
           <IconButton
             aria-label={`Remove ${filename}`}
-            icon={<LiaTimesSolid />}
+            icon={<HiXMark />}
             size={isCompact ? '2xs' : 'xs'}
             variant="ghost"
             colorScheme="red"

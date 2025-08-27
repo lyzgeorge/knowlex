@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Menu,
   MenuButton,
@@ -7,9 +7,10 @@ import {
   IconButton,
   MenuDivider,
   Text,
-  Box
+  Box,
+  Portal
 } from '@chakra-ui/react'
-import { LiaBarsSolid } from 'react-icons/lia'
+import { HiBars3, HiChevronRight } from 'react-icons/hi2'
 import { useProjectStore } from '@renderer/stores/project'
 import { useConversationStore } from '@renderer/stores/conversation'
 import { formatRelativeTime } from '@shared/utils/time'
@@ -33,11 +34,11 @@ const ConversationMenu: React.FC<Props> = ({
 }) => {
   const projects = useProjectStore((s) => s.projects)
   const move = useConversationStore((s) => s.moveConversationToProject)
+  const [showSubmenu, setShowSubmenu] = useState(false)
+  const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 0 })
 
   return (
     <Box
-      position="relative"
-      minW="80px"
       display="flex"
       justifyContent="flex-end"
       alignItems="center"
@@ -49,7 +50,8 @@ const ConversationMenu: React.FC<Props> = ({
         '.menu-button': {
           opacity: 0,
           pointerEvents: 'none',
-          transition: 'opacity 0.2s'
+          transition: 'opacity 0.2s',
+          position: 'absolute'
         },
         '&:hover': {
           '.timestamp': { opacity: 0 },
@@ -59,13 +61,7 @@ const ConversationMenu: React.FC<Props> = ({
     >
       {/* Timestamp Display */}
       {showTimestamp && updatedAt && (
-        <Text
-          fontSize="xs"
-          color="text.tertiary"
-          className="timestamp"
-          position="absolute"
-          right={0}
-        >
+        <Text fontSize="xs" color="text.tertiary" className="timestamp" whiteSpace="nowrap" mr={2}>
           {formatRelativeTime(updatedAt)}
         </Text>
       )}
@@ -74,38 +70,30 @@ const ConversationMenu: React.FC<Props> = ({
         <MenuButton
           as={IconButton}
           aria-label="Conversation options"
-          icon={<LiaBarsSolid />}
+          icon={<HiBars3 />}
           size="xs"
           variant="ghost"
           className="menu-button"
           onClick={(e) => e.stopPropagation()}
         />
-        <MenuList>
-          <MenuItem isDisabled>Move to</MenuItem>
-          {currentProjectId && (
-            <MenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                move(conversationId, null)
-              }}
-            >
-              Remove from project
-            </MenuItem>
-          )}
-          {projects.filter((p) => p.id !== currentProjectId).length > 0 && <MenuDivider />}
-          {projects
-            .filter((p) => p.id !== currentProjectId)
-            .map((p) => (
-              <MenuItem
-                key={p.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  move(conversationId, p.id)
-                }}
-              >
-                {p.name}
-              </MenuItem>
-            ))}
+        <MenuList minW="120px" maxW="300px">
+          <MenuItem
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              setSubmenuPosition({
+                top: rect.top,
+                left: rect.right
+              })
+              setShowSubmenu(true)
+            }}
+            onMouseLeave={() => setShowSubmenu(false)}
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Text>Move to</Text>
+            <HiChevronRight size={12} />
+          </MenuItem>
           <MenuDivider />
           <MenuItem
             onClick={(e) => {
@@ -126,6 +114,65 @@ const ConversationMenu: React.FC<Props> = ({
           </MenuItem>
         </MenuList>
       </Menu>
+
+      {/* Submenu Portal */}
+      {showSubmenu && (
+        <Portal>
+          <Box
+            position="fixed"
+            top={`${submenuPosition.top}px`}
+            left={`${submenuPosition.left}px`}
+            zIndex={9999}
+            bg="white"
+            _dark={{ bg: 'gray.800', borderColor: 'gray.600' }}
+            border="1px solid"
+            borderColor="gray.200"
+            borderRadius="md"
+            boxShadow="lg"
+            py={2}
+            minW="120px"
+            onMouseEnter={() => setShowSubmenu(true)}
+            onMouseLeave={() => setShowSubmenu(false)}
+          >
+            {currentProjectId && (
+              <Box
+                px={3}
+                py={2}
+                cursor="pointer"
+                _hover={{ bg: 'gray.100', _dark: { bg: 'gray.700' } }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  move(conversationId, null)
+                  setShowSubmenu(false)
+                }}
+              >
+                Remove from project
+              </Box>
+            )}
+            {projects.filter((p) => p.id !== currentProjectId).length > 0 && currentProjectId && (
+              <Box h="1px" bg="gray.200" _dark={{ bg: 'gray.600' }} mx={2} my={1} />
+            )}
+            {projects
+              .filter((p) => p.id !== currentProjectId)
+              .map((p) => (
+                <Box
+                  key={p.id}
+                  px={3}
+                  py={2}
+                  cursor="pointer"
+                  _hover={{ bg: 'gray.100', _dark: { bg: 'gray.700' } }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    move(conversationId, p.id)
+                    setShowSubmenu(false)
+                  }}
+                >
+                  {p.name}
+                </Box>
+              ))}
+          </Box>
+        </Portal>
+      )}
     </Box>
   )
 }

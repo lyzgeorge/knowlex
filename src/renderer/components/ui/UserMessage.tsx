@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, IconButton, Icon } from '@chakra-ui/react'
 import {
-  LiaPenSolid,
-  LiaCopySolid,
-  LiaPaperclipSolid,
-  LiaArrowUpSolid,
-  LiaTimesSolid,
-  LiaChevronLeftSolid,
-  LiaChevronRightSolid
-} from 'react-icons/lia'
+  HiPencil,
+  HiClipboard,
+  HiPaperClip,
+  HiArrowUp,
+  HiXMark,
+  HiChevronLeft,
+  HiChevronRight
+} from 'react-icons/hi2'
 import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
 import MarkdownContent from './MarkdownContent'
@@ -84,7 +84,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
     // Clear file upload state for new attachments
     fileUpload.clearFiles()
-  }, [isEditing, currentBranch.id])
+  }, [isEditing, currentBranch.id, currentBranch.content, fileUpload])
 
   // Build message content from draft and attachments
   const buildMessageContent = useCallback((): MessageContent => {
@@ -234,7 +234,6 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     sendMessage,
     currentBranch.conversationId,
     currentBranch.parentMessageId,
-    currentBranch.id,
     fileUpload,
     notifications
   ])
@@ -407,7 +406,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* File Upload Button */}
             <IconButton
               aria-label="Attach file"
-              icon={<LiaPaperclipSolid />}
+              icon={<HiPaperClip />}
               size="xs"
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
@@ -417,7 +416,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* Cancel Button */}
             <IconButton
               aria-label="Cancel editing"
-              icon={<LiaTimesSolid />}
+              icon={<HiXMark />}
               size="xs"
               variant="ghost"
               onClick={handleCancelEdit}
@@ -426,7 +425,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {/* Send Button */}
             <IconButton
               aria-label="Send message"
-              icon={<LiaArrowUpSolid />}
+              icon={<HiArrowUp />}
               size="xs"
               variant="ghost"
               onClick={handleSendEdit}
@@ -450,7 +449,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Edit */}
                 <IconButton
                   aria-label="Edit message"
-                  icon={<LiaPenSolid />}
+                  icon={<HiPencil />}
                   size="xs"
                   variant="ghost"
                   onClick={handleEdit}
@@ -459,7 +458,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Copy */}
                 <IconButton
                   aria-label="Copy to clipboard"
-                  icon={<LiaCopySolid />}
+                  icon={<HiClipboard />}
                   size="xs"
                   variant="ghost"
                   onClick={handleCopy}
@@ -474,7 +473,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {showBranchSwitcher && (
               <HStack spacing={1} fontSize="xs" color="text.secondary" align="center">
                 <Icon
-                  as={LiaChevronLeftSolid}
+                  as={HiChevronLeft}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
@@ -485,7 +484,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 <Text lineHeight="1">/</Text>
                 <Text lineHeight="1">{branches.length}</Text>
                 <Icon
-                  as={LiaChevronRightSolid}
+                  as={HiChevronRight}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}

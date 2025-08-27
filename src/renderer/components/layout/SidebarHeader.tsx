@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, VStack, Text, InputGroup, InputLeftElement, Input } from '@chakra-ui/react'
-import { LiaPlusSolid, LiaSearchSolid } from 'react-icons/lia'
+import { HiPlus, HiMagnifyingGlass } from 'react-icons/hi2'
 import { Button } from '@renderer/components/ui/Button'
 
 interface SidebarHeaderProps {
@@ -39,7 +39,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 
           {/* New Chat Button */}
           <Button
-            leftIcon={<LiaPlusSolid />}
+            leftIcon={<HiPlus />}
             variant="solid"
             bg="primary.500"
             color="white"
@@ -58,7 +58,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           {/* Global Search */}
           <InputGroup size="sm" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <InputLeftElement>
-              <LiaSearchSolid color="text.secondary" />
+              <HiMagnifyingGlass color="text.secondary" />
             </InputLeftElement>
             <Input
               placeholder="Global Search"
@@ -79,3 +79,5 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
     </>
   )
 }
+
+export default SidebarHeader

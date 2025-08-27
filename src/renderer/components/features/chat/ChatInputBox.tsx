@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { Box, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
-import { LiaArrowUpSolid, LiaPaperclipSolid, LiaRedoSolid } from 'react-icons/lia'
-import { LiaStopSolid } from 'react-icons/lia'
+import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
 import { keyframes } from '@emotion/react'
 import {
   useSendMessage,
@@ -13,6 +12,7 @@ import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId
 } from '@renderer/stores/conversation'
+import { useNavigationActions } from '@renderer/stores/navigation'
 import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
 import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
 import {
@@ -78,6 +78,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const isReasoningStreaming = useIsReasoningStreaming()
   const reasoningStreamingMessageId = useReasoningStreamingMessageId()
   const { currentConversation, currentMessages } = useCurrentConversation()
+  const { openConversation } = useNavigationActions()
   // Resolve branching: always call the hook (hooks must be unconditional)
   const internalBranch = !branching
   const branchingResult = useMessageBranching(currentMessages)
@@ -288,8 +289,47 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
       console.log('handleSend: Sending with options:', sendOptions)
 
-      // Send message through store - works for both variants
-      await sendMessage(content, sendOptions)
+      // For main-entrance variant, we need to listen for the conversation:created event
+      // to navigate to the newly created conversation
+      let navigationTimeout: NodeJS.Timeout | null = null
+      let eventCleanup: (() => void) | null = null
+
+      if (variant === 'main-entrance' && !currentConversation?.id) {
+        // Set up listener for conversation creation
+        const handleConversationCreated = (_event: any, data: { id: string }) => {
+          if (data?.id) {
+            console.log('handleSend: New conversation created, navigating to:', data.id)
+            openConversation(data.id)
+          }
+        }
+
+        // Listen for conversation:created event
+        window.knowlex.events.on('conversation:created', handleConversationCreated)
+
+        // Set cleanup function
+        eventCleanup = () => {
+          window.knowlex.events.off('conversation:created', handleConversationCreated)
+        }
+
+        // Set timeout to cleanup listener after 5 seconds if no event comes
+        navigationTimeout = setTimeout(() => {
+          eventCleanup?.()
+          eventCleanup = null
+        }, 5000)
+      }
+
+      try {
+        // Send message through store - works for both variants
+        await sendMessage(content, sendOptions)
+      } finally {
+        // Clean up navigation timeout and event listener
+        if (navigationTimeout) {
+          clearTimeout(navigationTimeout)
+        }
+        if (eventCleanup) {
+          eventCleanup()
+        }
+      }
     } catch (error) {
       // If error, restore the input and files
       setInput(originalInput)
@@ -364,7 +404,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         bg={bgColor}
         borderRadius="xl"
         p={3}
-        shadow="sm"
+        shadow="button-primary"
         _hover={{ shadow: 'button-hover' }}
         _focusWithin={{
           shadow: 'button-hover'
@@ -411,7 +451,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <>
                 <IconButton
                   aria-label="Attach file"
-                  icon={<LiaPaperclipSolid />}
+                  icon={<HiPaperClip />}
                   size="sm"
                   variant="ghost"
                   borderRadius="full"
@@ -449,10 +489,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 aria-label={isHoveringStreamButton ? 'Stop' : 'Refreshing'}
                 icon={
                   isHoveringStreamButton ? (
-                    <LiaStopSolid />
+                    <HiStop />
                   ) : (
                     <Icon
-                      as={LiaRedoSolid}
+                      as={HiArrowPath}
                       css={{ animation: `${spinAnimation} 1s linear infinite` }}
                     />
                   )
@@ -471,7 +511,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             ) : (
               <IconButton
                 aria-label="Send message"
-                icon={<LiaArrowUpSolid />}
+                icon={<HiArrowUp />}
                 {...(canSend ? { colorScheme: 'primary' } : {})}
                 size="sm"
                 borderRadius="md"

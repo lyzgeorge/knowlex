@@ -46,19 +46,20 @@
 ## src/main/services/conversation.ts
 路径：src/main/services/conversation.ts
 
-一句话：会话管理服务，提供会话的 CRUD、分页和基于内容的标题生成入口。
+一句话：会话管理服务，提供会话的 CRUD、分页、项目关联和标题生成。
 
 | 函数 / 导出 | 参数 | 返回 / 说明 |
 |---|---:|---|
-| createConversation (31) | data: {title?, settings?} | Promise<Conversation>；创建并写入 DB |
-| getConversation (67) | id: string | Promise<Conversation|null>；按 id 获取 |
-| listConversations (87) | - | Promise<Conversation[]>；列出所有 |
-| listConversationsPaginated (103) | limit:number, offset:number | Promise<{conversations, hasMore}>；分页列表 |
-| updateConversation (130) | id:string, data:{title?,settings?} | Promise<Conversation>；校验并更新 |
-| deleteConversation (192) | id:string | Promise<void>；删除会话及其消息（DB 级联） |
-| generateConversationTitle (220) | id:string | Promise<string>；调用 title-generation 生成标题 |
+| createConversation | data: {title?, settings?, projectId?} | Promise<Conversation>；创建并写入 DB，可关联到项目 |
+| getConversation | id: string | Promise<Conversation|null>；按 id 获取 |
+| listConversations | - | Promise<Conversation[]>；列出所有 |
+| listConversationsPaginated | limit:number, offset:number | Promise<{conversations, hasMore}>；分页列表 |
+| updateConversation | id:string, data:{title?,settings?,projectId?} | Promise<Conversation>；校验并更新，支持修改项目归属 |
+| deleteConversation | id:string | Promise<void>；删除会话及其消息（DB 级联） |
+| generateConversationTitle | id:string | Promise<string>；调用 title-generation 生成标题 |
+| moveConversation | conversationId: string, projectId: string | null | Promise<void>；移动会话到指定项目 |
 
-模块逻辑：封装对数据库 queries 的业务校验层（长度、存在性等），并在适当时机触发标题生成服务。
+模块逻辑：封装对数据库 queries 的业务校验层（长度、存在性等），处理会话与项目的关联，并在适当时机触发标题生成服务。
 
 ---
 
@@ -144,23 +145,29 @@
 ## src/main/database/queries.ts
 路径：src/main/database/queries.ts
 
-一句话：数据库 CRUD 查询集合，使用通用 Entity 工具简化 conversations/messages 的数据库操作并提供全文检索 API。
+一句话：数据库 CRUD 查询集合，使用通用 Entity 工具简化 projects/conversations/messages 的数据库操作。
 
 | 函数 / 导出 | 参数 | 返回 / 说明 |
 |---|---:|---|
-| createConversation (32) | conversation | Promise<void>；写入 conversationEntity |
-| getConversation (38) | id:string | Promise<Conversation|null> |
-| listConversations (42) | limit?:number, offset?:number | Promise<Conversation[]> |
-| updateConversation (64) | id:string, updates:Partial | Promise<void> |
-| deleteConversation (71) | id:string | Promise<void> |
-| createMessage (80) | message | Promise<void> |
-| getMessage (86) | id:string | Promise<Message|null> |
-| listMessages (90) | conversationId:string | Promise<Message[]> |
-| updateMessage (98) | id:string, content:MessageContent, reasoning?:string | Promise<void> |
-| deleteMessage (110) | id:string | Promise<void> |
-| searchMessages (125) | query:string, limit?:number | Promise<SearchResultRow[]>；使用 messages_fts 进行 FTS 查询 |
+| createConversation | conversation | Promise<void>；写入 conversationEntity |
+| getConversation | id:string | Promise<Conversation|null> |
+| listConversations | limit?:number, offset?:number | Promise<Conversation[]> |
+| updateConversation | id:string, updates:Partial | Promise<void>；支持更新 title, settings, projectId |
+| deleteConversation | id:string | Promise<void> |
+| createMessage | message | Promise<void> |
+| getMessage | id:string | Promise<Message|null> |
+| listMessages | conversationId:string | Promise<Message[]> |
+| updateMessage | id:string, content:MessageContent, reasoning?:string | Promise<void> |
+| deleteMessage | id:string | Promise<void> |
+| createProject | project | Promise<void>；写入 projectEntity |
+| getProject | id:string | Promise<Project|null> |
+| listProjects | - | Promise<Project[]> |
+| updateProject | id:string, updates:Partial | Promise<void> |
+| deleteProject | id:string | Promise<void> |
+| listConversationsByProject | projectId:string | Promise<Conversation[]>；获取项目下的所有会话 |
+| searchMessages | query:string, limit?:number | Promise<SearchResultRow[]>；使用 messages_fts 进行 FTS 查询 |
 
-模块逻辑：使用 conversationEntity/messageEntity 的通用 CRUD；为 FTS 提供自定义 SQL 查询并映射结果。
+模块逻辑：使用 projectEntity/conversationEntity/messageEntity 的通用 CRUD；为 FTS 提供自定义 SQL 查询并映射结果。
 
 ---
 
@@ -365,14 +372,14 @@
 ## src/renderer/stores/conversation.ts
 路径：src/renderer/stores/conversation.ts
 
-一句话：前端会话状态管理（Zustand），包含消息索引、事件处理、网络调用封装及流式更新逻辑。
+一句话：前端会话状态管理（Zustand），现已集成项目功能。
 
 | 导出 / 钩子 | 说明 |
 |---|---|
-| useConversationStore (default) | 完整 store，含创建/删除/发送/加载消息等方法 |
-| useCurrentConversation / useConversations / useSendMessage / useStopStreaming ... | 常用选择器与钩子，供 UI 使用 |
+| useConversationStore | 完整 store，包含 `sendMessage`, `deleteConversation`, `moveConversationToProject` 等 action |
+| ... | 其他选择器和钩子 |
 
-模块逻辑：维护 conversations 与 messages 的本地副本，使用 _msgIndex 提供 O(1) 查找，订阅 main 通过 window.knowlex 发送的事件以保持同步，并封装对 IPC 的调用与状态处理。
+模块逻辑：核心会话 store。`sendMessage` 现在可以接受 `projectId` 来在特定项目中创建新会话。新增 `moveConversationToProject` action 来处理会话的项目归属变更。通过 IPC 事件监听器与主进程保持数据同步。
 
 ---
 
@@ -991,13 +998,13 @@
 ## src/renderer/components/layout/Sidebar.tsx
 路径：src/renderer/components/layout/Sidebar.tsx
 
-一句话：侧栏组件，列出会话、导航与全局操作（新建/搜索/设置）。
+一句话：应用主侧边栏，组合了项目和会话列表。
 
-| 组件 / 导出 | 参数 | 说明 |
-|---|---:|---|
-| Sidebar | props: {conversations, activeId, onSelect} | 渲染会话列表与操作按钮 |
+| 组件 / 导出 | 说明 |
+|---|---|
+| Sidebar | 包含 `SidebarHeader`, `ProjectsSection`, `ConversationsSection`, `SidebarFooter` 的主布局组件 |
 
-模块逻辑：展示会话摘要并处理创建/删除/切换动作，调用 navigation store 更新活动会话。
+模块逻辑：作为侧边栏的容器，使用 `useConversationManagement` 和 `useNavigationActions` 来处理用户交互，并将逻辑委托给 `ProjectsSection` 和 `ConversationsSection` 子组件。
 
 ---
 
@@ -1145,4 +1152,191 @@
 
 模块逻辑：为主渲染进程之间的消息传递定义统一的序列化格式与事件名类型，减少运行时错误。
 
+---
+**追加模块文档（项目管理功能及相关更新）**
+---
 
+## src/shared/types/project.ts
+路径：src/shared/types/project.ts
+
+一句话：项目相关的 TypeScript 类型定义（Project 实体与数据传输对象）。
+
+| 导出 / 类型 | 说明 |
+|---|---|
+| Project | 核心项目实体类型（id, name, createdAt, updatedAt） |
+| CreateProjectData | 用于创建项目 API 的窄类型 |
+| UpdateProjectData | 用于更新项目 API 的窄类型 |
+
+模块逻辑：为数据库层、IPC 与渲染层提供一致的项目数据结构定义。
+
+---
+
+## src/main/services/project-service.ts
+路径：src/main/services/project-service.ts
+
+一句话：项目管理服务，处理项目 CRUD、校验与级联删除。
+
+| 函数 / 导出 | 参数 | 返回 / 说明 |
+|---|---:|---|
+| createProject | data: {name} | Promise<Project>；创建项目，校验名称唯一性（不区分大小写） |
+| getProjectById | id: string | Promise<Project|null>；按 ID 获取项目 |
+| getAllProjects | - | Promise<Project[]>；获取所有项目 |
+| updateProjectById | id: string, updates: {name?} | Promise<Project>；更新项目，校验名称唯一性 |
+| deleteProjectById | id: string | Promise<void>；删除项目及其下所有会话 |
+| getProjectConversations | projectId: string | Promise<Conversation[]>；获取项目下的所有会话 |
+
+模块逻辑：封装项目相关的业务逻辑，确保数据一致性。例如，创建和更新时会检查项目名称是否已存在，删除项目时会级联删除其包含的所有会话。
+
+---
+
+## src/main/ipc/project.ts
+路径：src/main/ipc/project.ts
+
+一句话：项目相关的 IPC 层，将主进程的项目服务安全地暴露给渲染进程。
+
+| 导出 / 函数 | 参数 | 返回 / 说明 |
+|---|---:|---|
+| registerProjectIPCHandlers | - | void；注册 'project:create', 'project:list', 'project:get', 'project:update', 'project:delete', 'project:conversations' 等 IPC 处理器 |
+| unregisterProjectIPCHandlers | - | void；移除所有项目相关的 IPC 监听器 |
+
+模块逻辑：为每个项目操作（增删改查及获取会话）提供一个 IPC 入口点，使用 `handleIPCCall` 进行统一的错误处理和响应格式化。
+
+---
+
+
+---
+**追加模块文档（前端项目管理功能）**
+---
+
+## src/renderer/stores/project.ts
+路径：src/renderer/stores/project.ts
+
+一句话：前端项目状态管理（Zustand），负责项目的 CRUD、加载状态和 UI 折叠状态。
+
+| 导出 / 钩子 | 说明 |
+|---|---|
+| useProjectStore | 完整 store，包含 `projects`, `expanded`, `isLoading`, `error` 状态及 `fetchProjects`, `addProject`, `editProject`, `removeProject`, `toggle` 等 action |
+
+模块逻辑：通过 `persist` 中间件将项目的展开/折叠状态持久化到 localStorage。封装了对主进程项目 IPC 接口的调用，并管理相关的加载和错误状态。
+
+---
+
+## src/renderer/stores/navigation.ts
+路径：src/renderer/stores/navigation.ts
+
+一句话：应用导航状态管理（Zustand），控制主视图（首页、项目、会话）的切换。
+
+| 导出 / 钩子 | 说明 |
+|---|---|
+| useNavigationStore | 完整 store，包含 `currentView`, `selectedProjectId`, `currentConversationId` 等状态 |
+| useCurrentView | 返回当前视图、项目ID和会话ID的选择器 |
+| useNavigationActions | 返回 `goHome`, `openProject`, `openConversation` 等导航动作的钩子 |
+
+模块逻辑：管理应用的核心视图状态，提供简单的 action 来切换视图。它与 `conversationStore` 交互，以在导航时正确设置或清除当前会话。
+
+---
+
+## src/renderer/hooks/useProjectManagement.ts
+路径：src/renderer/hooks/useProjectManagement.ts
+
+一句话：封装项目管理 UI 逻辑的 React Hook。
+
+| 导出 | 返回 |
+|---|---|
+| useProjectManagement | 包含项目列表、展开状态、以及处理创建、编辑、删除项目的函数 |
+
+模块逻辑：从 `useProjectStore` 获取状态和 action，并管理本地 UI 状态（如创建/编辑表单的可见性和输入值），为 `ProjectsSection` 组件提供所有需要的逻辑。
+
+---
+
+## src/renderer/hooks/useConversationManagement.ts
+路径：src/renderer/hooks/useConversationManagement.ts
+
+一句话：封装会话列表 UI 逻辑的 React Hook。
+
+| 导出 | 返回 |
+|---|---|
+| useConversationManagement | 包含会话列表、删除确认逻辑、以及无限滚动所需的状态和 ref |
+
+模块逻辑：从 `useConversationStore` 获取会话数据，处理删除确认流程，并使用 `IntersectionObserver` 实现会话列表的无限滚动加载。
+
+---
+
+## src/renderer/hooks/useInlineEdit.ts
+路径：src/renderer/hooks/useInlineEdit.ts
+
+一句话：管理行内编辑（如会话标题）UI 状态的 React Hook。
+
+| 导出 | 返回 |
+|---|---|
+| useInlineEdit | { editingConversationId, editingTitle, handleStartEdit, handleConfirmEdit, ... } |
+
+模块逻辑：提供管理行内编辑所需的状态和回调函数，包括启动编辑、取消编辑和确认更改。
+
+---
+
+## src/renderer/components/layout/ProjectsSection.tsx
+路径：src/renderer/components/layout/ProjectsSection.tsx
+
+一句话：在侧边栏中显示项目列表及其嵌套会话的组件。
+
+| 组件 / 导出 | 说明 |
+|---|---|
+| ProjectsSection | 渲染可展开/折叠的项目列表，并处理项目和其中会话的交互 |
+
+模块逻辑：使用 `useProjectManagement` hook 来驱动所有项目相关的 UI 交互，包括创建、重命名和删除项目。它会渲染项目下的会话，并处理会话的选择、重命名和删除。
+
+---
+
+## src/renderer/components/layout/ConversationsSection.tsx
+路径：src/renderer/components/layout/ConversationsSection.tsx
+
+一句话：在侧边栏中显示未分类会话列表的组件。
+
+| 组件 / 导出 | 说明 |
+|---|---|
+| ConversationsSection | 渲染未归档到任何项目中的会话列表 |
+
+模块逻辑：显示一个简单的会话列表，并支持无限滚动、选择、重命名和删除操作。
+
+---
+
+## src/renderer/components/features/projects/ProjectPage.tsx
+路径：src/renderer/components/features/projects/ProjectPage.tsx
+
+一句话：项目详情页面，显示项目名称、项目内会话列表和新建会话的入口。
+
+| 组件 / 导出 | 说明 |
+|---|---|
+| ProjectPage | 单个项目的主视图 |
+| ConversationCard | 在项目页面中显示单个会话的卡片组件 |
+
+模块逻辑：当用户点击侧边栏中的项目时，此页面会显示。它列出了该项目的所有会话，并提供了一个 `ChatInputBox`，允许用户直接在该项目中开始新的对话。
+
+---
+
+## src/renderer/components/ui/DeleteProjectModal.tsx
+路径：src/renderer/components/ui/DeleteProjectModal.tsx
+
+一句话：一个用于确认项目删除操作的模态框。
+
+| 组件 / 导出 | 说明 |
+|---|---|
+| DeleteProjectModal | 显示一个两步确认流程来删除项目 |
+
+模块逻辑：为了防止意外删除，该模态框会显示将要被删除的会话和消息的数量，并要求用户输入项目名称以确认删除。
+
+---
+
+## src/renderer/components/ui/ConversationMenu.tsx
+路径：src/renderer/components/ui/ConversationMenu.tsx
+
+一句话：用于单个会话的操作菜单，现在支持将会话移动到不同项目。
+
+| 组件 / 导出 | 说明 |
+|---|---|
+| ConversationMenu | 提供重命名、删除和移动会话的选项 |
+
+模块逻辑：此菜单现在包含一个“Move to”子菜单，允许用户将会话从一个项目移动到另一个项目，或将其从项目中移除。
+
+---

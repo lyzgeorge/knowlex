@@ -1,7 +1,8 @@
-import React from 'react'
-import { Box, HStack, VStack, Text, Spinner } from '@chakra-ui/react'
-import { ConversationItem } from '@renderer/components/ui/ConversationItem'
-import { useInlineEdit } from '@renderer/hooks/useInlineEdit'
+import React, { useState, useCallback } from 'react'
+import { Box, HStack, VStack, Text, Spinner, Input, IconButton, Tooltip } from '@chakra-ui/react'
+import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import { HiCheck, HiXMark } from 'react-icons/hi2'
+import { useConversationStore } from '@renderer/stores/conversation'
 
 interface ConversationsSectionProps {
   conversations: Array<{
@@ -27,15 +28,37 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
   hasMoreConversations,
   sentinelRef
 }) => {
-  const {
-    editingConversationId,
-    editingTitle,
-    setEditingTitle,
-    handleStartEdit,
-    handleCancelEdit,
-    handleInputBlur,
-    handleConfirmEdit
-  } = useInlineEdit()
+  const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
+
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+
+  const startEdit = useCallback((id: string, title: string) => {
+    setEditingConversationId(id)
+    setEditingTitle(title)
+  }, [])
+
+  const cancelEdit = useCallback(() => {
+    setEditingConversationId(null)
+    setEditingTitle('')
+  }, [])
+
+  const confirmEdit = useCallback(async () => {
+    if (!editingConversationId || !editingTitle.trim()) return
+    try {
+      await updateConversationTitle(editingConversationId, editingTitle.trim())
+    } catch (err) {
+      console.error('Failed to rename conversation:', err)
+    } finally {
+      cancelEdit()
+    }
+  }, [editingConversationId, editingTitle, updateConversationTitle, cancelEdit])
+
+  const handleInputBlur = useCallback(() => {
+    setTimeout(() => {
+      if (editingConversationId) cancelEdit()
+    }, 150)
+  }, [editingConversationId, cancelEdit])
 
   return (
     <Box>
@@ -49,27 +72,126 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
             No uncategorized conversations
           </Text>
         ) : (
-          conversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-              currentConversationId={currentConversationId}
-              onSelectConversation={onSelectConversation}
-              onDeleteConversation={onDeleteConversation}
-              editingConversationId={editingConversationId}
-              editingTitle={editingTitle}
-              setEditingTitle={setEditingTitle}
-              onStartEdit={handleStartEdit}
-              onCancelEdit={handleCancelEdit}
-              onConfirmEdit={handleConfirmEdit}
-              onInputBlur={handleInputBlur}
-              isNested={false}
-              currentProjectId={null}
-            />
-          ))
+          conversations.map((conversation) => {
+            const isCurrent = currentConversationId === conversation.id
+            const isEditing = editingConversationId === conversation.id
+            return (
+              <HStack
+                key={conversation.id}
+                role="listitem"
+                p={2}
+                pl={2}
+                borderRadius="md"
+                cursor="pointer"
+                bg={isCurrent ? 'primary.50' : 'transparent'}
+                borderLeft={isCurrent ? '3px solid' : 'none'}
+                borderColor="primary.500"
+                transition="all 0.2s"
+                _hover={{ bg: isCurrent ? 'primary.100' : 'surface.hover' }}
+                onClick={() => onSelectConversation(conversation.id)}
+                justify="space-between"
+                align="center"
+              >
+                {isEditing ? (
+                  <HStack flex={1} spacing={1}>
+                    <Input
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      fontSize="sm"
+                      fontWeight="medium"
+                      variant="unstyled"
+                      size="sm"
+                      h="24px"
+                      lineHeight="24px"
+                      px={0}
+                      py={0}
+                      bg="transparent"
+                      _focus={{ boxShadow: 'none', bg: 'transparent' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          confirmEdit()
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          cancelEdit()
+                        }
+                      }}
+                      onBlur={handleInputBlur}
+                      autoFocus
+                    />
+                  </HStack>
+                ) : (
+                  <Tooltip
+                    label={conversation.title}
+                    placement="right"
+                    hasArrow
+                    openDelay={600}
+                    closeDelay={200}
+                    bg="surface.primary"
+                    color="text.primary"
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor="border.primary"
+                    shadow="dropdown"
+                    fontSize="sm"
+                    fontWeight="medium"
+                    px={3}
+                    py={2}
+                    maxW="280px"
+                    textAlign="left"
+                    whiteSpace="normal"
+                  >
+                    <Text fontSize="sm" noOfLines={1} flex={1} py={0.5} minW={0}>
+                      {conversation.title}
+                    </Text>
+                  </Tooltip>
+                )}
+
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  {isEditing ? (
+                    <HStack spacing={1}>
+                      <IconButton
+                        aria-label="Confirm rename"
+                        icon={<HiCheck />}
+                        size="xs"
+                        variant="ghost"
+                        color="green.500"
+                        _hover={{ bg: 'green.50', color: 'green.600' }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          confirmEdit()
+                        }}
+                      />
+                      <IconButton
+                        aria-label="Cancel rename"
+                        icon={<HiXMark />}
+                        size="xs"
+                        variant="ghost"
+                        color="gray.500"
+                        _hover={{ bg: 'gray.50', color: 'gray.600' }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cancelEdit()
+                        }}
+                      />
+                    </HStack>
+                  ) : (
+                    <ConversationMenu
+                      conversationId={conversation.id}
+                      currentProjectId={null}
+                      onRename={() => startEdit(conversation.id, conversation.title)}
+                      onDelete={() => onDeleteConversation(conversation.id)}
+                      updatedAt={conversation.updatedAt}
+                    />
+                  )}
+                </Box>
+              </HStack>
+            )
+          })
         )}
 
-        {/* Loading indicator */}
         {isLoadingMore && (
           <HStack justify="center" py={4}>
             <Spinner size="sm" color="primary.500" />
@@ -79,9 +201,10 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
           </HStack>
         )}
 
-        {/* Sentinel element for infinite scroll */}
         {hasMoreConversations && !isLoadingMore && <Box ref={sentinelRef} h="1px" />}
       </VStack>
     </Box>
   )
 }
+
+export default ConversationsSection

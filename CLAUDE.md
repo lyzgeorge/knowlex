@@ -7,26 +7,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Core Development Workflow
 ```bash
 # Start development server
-npm run dev
+pnpm run dev
 
 # Build the application
-npm run build
+pnpm run build
 
 # Run tests
-npm run test
-npm run test:ui      # Vitest UI interface
-npm run test:coverage # Coverage report
+pnpm run test
+pnpm run test:ui      # Vitest UI interface
+pnpm run test:coverage # Coverage report
 
 # Type checking and linting
-npm run typecheck    # TypeScript type checking
-npm run lint         # ESLint with auto-fix
-npm run format       # Prettier formatting
+pnpm run typecheck    # TypeScript type checking
+pnpm run lint         # ESLint with auto-fix
+pnpm run format       # Prettier formatting
 
 # Distribution builds
-npm run dist         # Build distributable
-npm run dist:win     # Windows build
-npm run dist:mac     # macOS build
-npm run dist:linux   # Linux build
+pnpm run dist         # Build distributable
+pnpm run dist:win     # Windows build
+pnpm run dist:mac     # macOS build
+pnpm run dist:linux   # Linux build
 ```
 
 ### Path Aliases
@@ -57,6 +57,7 @@ IPC channels are organized by domain:
 - `message:*` - Message operations  
 - `file:*` - File operations
 - `settings:*` - Settings operations
+- `project:*` - Project operations
 
 ## 2. Overview and Architecture Principles
 
@@ -66,16 +67,18 @@ Knowlex is a cross-platform desktop application built with Electron that serves 
 
 **Current MVP Features:**
 - **Simple Chat Interface**: Direct conversations with AI models with streaming responses
+- **Project Management**: Project-centric workspace with conversation organization
+- **Message Branching**: Advanced conversation branching with tree-like message navigation
 - **Temporary File Upload**: Upload files to individual conversations for context (no persistent storage)
-- **Local Data Storage**: Conversations and messages stored locally using SQLite
+- **Local Data Storage**: Conversations, messages, and projects stored locally using SQLite
 - **Multiple AI Providers**: Support for different AI models through unified interface
 - **Basic Settings Management**: Configure AI providers and application preferences
 
 **Future Planned Features** (not yet implemented):
-- Project-centric workspace with file management
 - Vector search and RAG capabilities  
 - Knowledge accumulation and memory systems
 - Advanced file processing and indexing
+- Persistent file management
 
 ### 2.2 Architecture Design Principles
 
@@ -157,112 +160,50 @@ Proactive stance: flag architectural smells, propose refactors, and ensure desig
 
 ### 2.1 Current Project Structure (MVP Implementation)
 
+The project follows a standard Electron + React + TypeScript structure, organized for clarity and separation of concerns.
+
+```tree
+.
+├── .github/                # CI/CD workflows
+├── docs/                   # Project documentation
+├── prd/                    # Product Requirement Documents
+├── src/
+│   ├── main/               # Main process (Node.js + Electron)
+│   │   ├── database/       # SQLite database layer (schemas, queries, entities)
+│   │   ├── ipc/            # IPC handlers for renderer-main communication
+│   │   ├── services/       # Core business logic (AI, files, projects)
+│   │   ├── utils/          # Main process utilities
+│   │   ├── main.ts         # Application entry point
+│   │   ├── preload.ts      # Preload script for secure IPC
+│   │   └── window.ts       # Window management
+│   │
+│   ├── renderer/           # Renderer process (React UI)
+│   │   ├── components/     # React components (features, layout, UI)
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── lib/            # Test setup and libraries
+│   │   ├── pages/          # Top-level page components
+│   │   ├── stores/         # Zustand state management stores
+│   │   ├── styles/         # Global styles
+│   │   ├── types/          # Renderer-specific types
+│   │   ├── utils/          # Renderer utilities (theming, etc.)
+│   │   ├── App.tsx         # Root React component
+│   │   └── main.tsx        # React application entry point
+│   │
+│   └── shared/             # Code shared between main and renderer
+│       ├── constants/      # Application-wide constants
+│       ├── types/          # Shared type definitions (IPC, data models)
+│       └── utils/          # Shared utility functions
+│
+├── electron.vite.config.ts # Vite configuration for Electron
+├── package.json            # Project dependencies and scripts
+└── tsconfig.json           # TypeScript configuration
+```
+
 **Design Principles:**
 - Single responsibility and clear separation of concerns
 - Modular design for easy testing and maintenance
 - Avoid over-abstraction, keep code simple
 - Prioritize readability and maintainability
-
-```
-knowlex/
-├── src/
-│   ├── main/                     # Main Process (Node.js + Electron)
-│   │   ├── main.ts               # App entry: window creation, lifecycle management
-│   │   ├── preload.ts            # IPC bridge: secure API exposure
-│   │   ├── window.ts             # Window management: creation, theme adaptation
-│   │   ├── menu.ts               # Menu management: application menu, shortcuts
-│   │   ├── database/             # Database module
-│   │   │   ├── index.ts          # Database connection: getDB(), closeDB()
-│   │   │   ├── migrations.ts     # Database migrations: schema versioning
-│   │   │   ├── schemas.ts        # Entity schemas: conversation, message mappings
-│   │   │   ├── queries.ts        # Common queries: predefined query functions
-│   │   │   └── entity.ts         # Entity base class for database operations
-│   │   ├── services/             # Business services
-│   │   │   ├── conversation.ts   # Conversation management: CRUD operations
-│   │   │   ├── message.ts        # Message management: CRUD, streaming
-│   │   │   ├── file-temp.ts      # Temporary file processing: text extraction
-│   │   │   ├── file-parser.ts    # File parsing: content extraction utilities
-│   │   │   ├── settings.ts       # Settings management: config read/write
-│   │   │   ├── assistant-service.ts  # AI service integration
-│   │   │   ├── openai-adapter.ts     # OpenAI API adapter
-│   │   │   └── title-generation.ts  # Auto title generation for conversations
-│   │   ├── ipc/                  # IPC handlers
-│   │   │   ├── common.ts         # Common IPC utilities
-│   │   │   ├── conversation.ts   # Conversation IPC: 'conversation:*' channels
-│   │   │   ├── file.ts           # File IPC: 'file:*' channels  
-│   │   │   └── settings.ts       # Settings IPC: 'settings:*' channels
-│   │   └── utils/                # Utility functions
-│   │       └── cancellation.ts   # Request cancellation utilities
-│   │
-│   ├── renderer/                 # Renderer Process (React + TypeScript)
-│   │   ├── src/
-│   │   │   ├── main.tsx          # React entry: app mounting
-│   │   │   ├── App.tsx           # Main app component: routing, global state
-│   │   │   ├── components/       # UI Components
-│   │   │   │   ├── ui/           # Basic UI components
-│   │   │   │   │   ├── Button.tsx           # Button component
-│   │   │   │   │   ├── Input.tsx            # Input component
-│   │   │   │   │   ├── Modal.tsx            # Modal component
-│   │   │   │   │   ├── Notification.tsx    # Notification system
-│   │   │   │   │   ├── UserMessage.tsx     # User message bubble
-│   │   │   │   │   ├── AssistantMessage.tsx # Assistant message bubble
-│   │   │   │   │   ├── ReasoningBox.tsx    # AI reasoning display
-│   │   │   │   │   └── MessageContentRenderer.tsx # Message content rendering
-│   │   │   │   ├── layout/       # Layout components
-│   │   │   │   │   ├── Sidebar.tsx       # Sidebar: conversation navigation
-│   │   │   │   │   └── MainLayout.tsx    # Main layout: sidebar + content
-│   │   │   │   └── features/     # Feature components
-│   │   │   │       └── chat/
-│   │   │   │           ├── ChatInterface.tsx    # Chat interface: main chat UI
-│   │   │   │           ├── MessageList.tsx      # Message list: conversation display
-│   │   │   │           ├── ChatInputBox.tsx     # Input box: message composition
-│   │   │   │           ├── TempFileCard.tsx     # Temporary file display
-│   │   │   │           ├── MessageActionIcons.tsx # Message actions (edit, delete)
-│   │   │   │           └── MessageEditModal.tsx   # Message editing modal
-│   │   │   ├── stores/           # State management (Zustand)
-│   │   │   │   ├── app.ts        # App state: theme, sidebar visibility
-│   │   │   │   ├── conversation.ts # Conversation state: messages, streaming
-│   │   │   │   ├── navigation.ts # Navigation state: view management
-│   │   │   │   ├── settings.ts   # Settings state: API config, preferences
-│   │   │   │   └── index.ts      # Store exports and composition
-│   │   │   ├── hooks/            # Custom hooks
-│   │   │   │   ├── useFileUpload.ts     # File upload handling
-│   │   │   │   ├── useAutoScroll.ts     # Auto scroll for chat
-│   │   │   │   └── useNotifications.ts  # Notification system
-│   │   │   ├── pages/            # Page components
-│   │   │   │   └── MainApp.tsx   # Main app page: primary UI container
-│   │   │   ├── utils/            # Frontend utilities
-│   │   │   │   ├── markdownComponents.tsx # Markdown rendering components
-│   │   │   │   └── theme/        # Theme system
-│   │   │   │       ├── index.ts      # Theme provider and configuration
-│   │   │   │       ├── colors.ts     # Color definitions
-│   │   │   │       ├── components.ts # Component theme overrides
-│   │   │   │       └── [other theme files]
-│   │   │   └── types/
-│   │   │       └── global.d.ts   # Global type definitions
-│   │   └── index.html            # HTML entry point
-│   │
-│   └── shared/                   # Shared code between processes
-│       ├── types/                # Type definitions
-│       │   ├── conversation.ts   # Conversation types: Conversation, SessionSettings
-│       │   ├── message.ts        # Message types: Message, MessageContent
-│       │   ├── file.ts           # File types: TemporaryFile, FileConstraints
-│       │   ├── ai.ts             # AI types: model configurations
-│       │   ├── ipc.ts            # IPC types: channel definitions
-│       │   └── notification.ts   # Notification types
-│       ├── constants/            # Constants
-│       │   ├── app.ts            # App constants: version, config
-│       │   ├── file.ts           # File constants: supported formats, limits
-│       │   └── ai.ts             # AI constants: model lists, defaults
-│       └── utils/                # Shared utilities
-│           ├── id.ts             # ID generation: UUID, short IDs
-│           ├── time.ts           # Time utilities: formatting, relative time
-│           └── validation.ts     # Validation utilities: data validation
-│
-├── electron.vite.config.ts       # Vite configuration
-├── tsconfig.json                 # TypeScript configuration
-└── package.json                  # Project configuration
-```
 
 ### 2.2 Three-Layer Process Architecture
 
@@ -345,22 +286,47 @@ export const handleIPCCall = async <T>(operation: () => Promise<T>): Promise<IPC
 - Support for PDF, Office docs, plain text, images
 - File content becomes message parts in conversation context
 
+### 3.6 Project Management Architecture
+**Project-Centric Organization**:
+- `@main/services/project-service.ts` - Project CRUD with validation
+- `@main/ipc/project.ts` - Project IPC handlers
+- `@renderer/stores/project.ts` - Project state management with Zustand
+- `@renderer/hooks/useProjectManagement.ts` - Project operations hook
+- Database enforced unique project names (case-insensitive)
+
+### 3.7 Message Branching Architecture
+**Tree-Like Conversation Navigation**:
+- `@renderer/hooks/useMessageBranching.ts` - Advanced branching logic
+- Supports conversation forking at any message
+- Auto-switches to latest messages by default
+- Remembers explicit user branch selections
+- Cascading reset of downstream branches when switching
+
 ## 4. Current Implementation Status
 
-### 3.1 Implemented Features (MVP)
+### 4.1 Implemented Features (Current MVP)
 - ✅ **Chat Interface**: Clean chat UI with message bubbles, user/assistant roles
+- ✅ **Project Management**: Project-centric workspace with conversation organization
+- ✅ **Message Branching**: Tree-like conversation navigation with branch switching
 - ✅ **Conversation Management**: Create, delete, rename conversations via sidebar
 - ✅ **Temporary File Upload**: Upload files to conversations for context (text extraction)
 - ✅ **Streaming Responses**: Real-time AI response streaming with proper UI updates
-- ✅ **Message Actions**: Edit, delete, copy messages with inline controls
+- ✅ **Inline Editing**: Edit project/conversation names with validation
 - ✅ **Settings Panel**: Configure OpenAI API settings, app preferences
-- ✅ **Local Storage**: SQLite database for conversations and messages
+- ✅ **Local Storage**: SQLite database for conversations, messages, and projects
 - ✅ **Theme Support**: Dark/light mode with Chakra UI theming
 - ✅ **Auto Title Generation**: Automatic conversation titles based on content
 - ✅ **Responsive Design**: Desktop-optimized layout with resizable panels
+- ✅ **Enhanced Sidebar**: Organized project and conversation sections
 
-### 4.2 Planned Features (Not Yet Implemented)
-- ❌ **Project Management**: Project-centric workspace (database schema exists)
+### 4.2 Recently Implemented Features
+- ✅ **Project Management**: Project-centric workspace with conversation organization
+- ✅ **Message Branching**: Tree-like conversation navigation with branch switching
+- ✅ **Enhanced UI**: Improved sidebar with project/conversation sections
+- ✅ **Inline Editing**: Edit project and conversation names inline
+- ✅ **Project Pages**: Dedicated pages for project overview and conversation management
+
+### 4.3 Planned Features (Not Yet Implemented)
 - ❌ **Vector Search/RAG**: File indexing and semantic search capabilities  
 - ❌ **Persistent File Management**: Long-term file storage and organization
 - ❌ **Knowledge Accumulation**: Project memory and note-taking systems

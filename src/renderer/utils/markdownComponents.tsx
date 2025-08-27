@@ -18,7 +18,7 @@ import {
   IconButton,
   Tooltip
 } from '@chakra-ui/react'
-import { LiaCopySolid } from 'react-icons/lia'
+import { HiClipboard } from 'react-icons/hi2'
 import type { Components } from 'react-markdown'
 
 // Helper components that can use hooks
@@ -104,7 +104,7 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
       <Tooltip label={copied ? '已复制' : '复制'} placement="top" openDelay={200} hasArrow>
         <IconButton
           aria-label="copy code"
-          icon={<LiaCopySolid />}
+          icon={<HiClipboard />}
           size="xs"
           variant="ghost"
           position="absolute"
