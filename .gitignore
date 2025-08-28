@@ -172,3 +172,4 @@ typings/
 .vscode-test
 
 app.env
+data/knowlex.db
