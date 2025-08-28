@@ -65,41 +65,13 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
   return (
     <Box
       position="relative"
-      as="pre"
-      p={4}
       bg={blockCodeBg}
       borderRadius="md"
-      overflow="auto"
-      fontSize="sm"
-      fontFamily="mono"
       border="1px solid"
       borderColor={codeBorder}
       my={3}
-      sx={{
-        '& .hljs': {
-          background: 'transparent',
-          color: 'text.primary'
-        },
-        '& .hljs-comment': {
-          color: 'gray.500'
-        },
-        '& .hljs-keyword': {
-          color: 'blue.500',
-          fontWeight: 'semibold'
-        },
-        '& .hljs-string': {
-          color: 'green.500'
-        },
-        '& .hljs-number': {
-          color: 'orange.500'
-        },
-        '& .hljs-function': {
-          color: 'purple.500'
-        },
-        '& .hljs-variable': {
-          color: 'cyan.500'
-        }
-      }}
+      width="100%"
+      maxWidth="100%"
     >
       <Tooltip label={copied ? '已复制' : '复制'} placement="top" openDelay={200} hasArrow>
         <IconButton
@@ -114,9 +86,43 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
           bg={copyBg}
           _hover={{ bg: copyBg }}
           fontSize="0.8em"
+          zIndex={1}
         />
       </Tooltip>
-      <code className={className}>{children}</code>
+      <Box
+        as="pre"
+        p={4}
+        overflow="auto"
+        fontSize="sm"
+        fontFamily="mono"
+        sx={{
+          '& .hljs': {
+            background: 'transparent',
+            color: 'text.primary'
+          },
+          '& .hljs-comment': {
+            color: 'gray.500'
+          },
+          '& .hljs-keyword': {
+            color: 'blue.500',
+            fontWeight: 'semibold'
+          },
+          '& .hljs-string': {
+            color: 'green.500'
+          },
+          '& .hljs-number': {
+            color: 'orange.500'
+          },
+          '& .hljs-function': {
+            color: 'purple.500'
+          },
+          '& .hljs-variable': {
+            color: 'cyan.500'
+          }
+        }}
+      >
+        <code className={className}>{children}</code>
+      </Box>
     </Box>
   )
 }
@@ -145,7 +151,7 @@ const TableWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const tableBorder = useColorModeValue('gray.200', 'gray.600')
 
   return (
-    <Box overflowX="auto" my={4}>
+    <Box overflowX="auto" my={4} width="100%" maxWidth="100%">
       <Table variant="simple" size="sm" border="1px solid" borderColor={tableBorder}>
         {children}
       </Table>

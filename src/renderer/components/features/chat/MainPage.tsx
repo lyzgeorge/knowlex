@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { VStack, Text } from '@chakra-ui/react'
 import ChatInputBox from './ChatInputBox'
 import { useI18n } from '@renderer/hooks/useI18n'
+import { useConversationStore } from '@renderer/stores/conversation'
+import { useNavigationActions } from '@renderer/stores/navigation'
 
 export interface MainPageProps {
   /** Additional CSS classes */
@@ -18,6 +20,15 @@ export interface MainPageProps {
  */
 export const MainPage: React.FC<MainPageProps> = ({ className }) => {
   const { t } = useI18n()
+  const currentConversationId = useConversationStore((s) => s.currentConversationId)
+  const { openConversation } = useNavigationActions()
+
+  // 监听新创建的对话并自动导航
+  useEffect(() => {
+    if (currentConversationId) {
+      openConversation(currentConversationId)
+    }
+  }, [currentConversationId, openConversation])
 
   return (
     <VStack

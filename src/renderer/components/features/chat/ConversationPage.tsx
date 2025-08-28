@@ -68,11 +68,18 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
     [filteredMessages]
   )
 
-  // Force scroll when user sends a message (runs after user message is added)
+  // Get the latest assistant message
+  const latestAssistantMessage = useMemo(() => {
+    const assistantMessages = filteredMessages.filter((msg: any) => msg.role === 'assistant')
+    return assistantMessages[assistantMessages.length - 1] || null
+  }, [filteredMessages])
+
+  // Also scroll when user message count increases (additional trigger)
   React.useEffect(() => {
     if (userMessageCount > 0) {
-      // Scroll to bottom; bottom padding ensures last 6rem of user message remains visible
+      // Immediate scroll and delayed scroll for safety
       forceScrollToBottom()
+      setTimeout(() => forceScrollToBottom(), 300)
     }
   }, [userMessageCount, forceScrollToBottom])
 
@@ -94,7 +101,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
         h="100%"
         px={4}
         py={6}
-        pb="6rem"
+        pb="8rem"
         sx={{
           overflowAnchor: 'none', // Disable scroll anchoring to prevent conflicts
           scrollBehavior: 'auto' // Let our hook control scroll behavior
@@ -102,23 +109,37 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
       >
         {/* Message List - Inline rendering with branching */}
         <VStack spacing={4} align="stretch">
-          {filteredMessages.map((message) => (
-            <Box key={message.id} role="listitem">
-              {message.role === 'user' ? (
-                <UserMessage
-                  message={message}
-                  showTimestamp={true}
-                  branchInfo={getBranchInfo(message)}
-                  onBranchChange={(index) => {
-                    const parentKey = message.parentMessageId ?? '__ROOT__'
-                    setBranchIndex(parentKey, index)
-                  }}
-                />
-              ) : (
-                <AssistantMessage message={message} showAvatar={true} showTimestamp={true} />
-              )}
-            </Box>
-          ))}
+          {filteredMessages.map((message) => {
+            const isLatestAssistantMessage =
+              message.role === 'assistant' &&
+              latestAssistantMessage &&
+              message.id === latestAssistantMessage.id
+
+            return (
+              <Box key={message.id} role="listitem">
+                {message.role === 'user' ? (
+                  <UserMessage
+                    message={message}
+                    showTimestamp={true}
+                    branchInfo={getBranchInfo(message)}
+                    onBranchChange={(index) => {
+                      const parentKey = message.parentMessageId ?? '__ROOT__'
+                      setBranchIndex(parentKey, index)
+                    }}
+                  />
+                ) : (
+                  <Box minH={isLatestAssistantMessage ? 'calc(100vh - 16rem)' : 'auto'}>
+                    <AssistantMessage
+                      message={message}
+                      showAvatar={true}
+                      showTimestamp={true}
+                      isLatestAssistantMessage={!!isLatestAssistantMessage}
+                    />
+                  </Box>
+                )}
+              </Box>
+            )
+          })}
         </VStack>
         {/* Bottom anchor for robust sticky auto-scroll */}
         <Box ref={anchorRef} height="1px" visibility="hidden" aria-hidden />

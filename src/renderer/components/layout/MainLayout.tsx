@@ -27,7 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
       <Box flex={1} h="100vh" overflow="hidden" bg="background.primary" position="relative">
         {/* Draggable Top Area */}
         <Box
-          h="2rem"
+          h="4rem"
           w="100%"
           position="absolute"
           top={0}
@@ -39,7 +39,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
         />
 
         {/* Main Content with top padding */}
-        <Box h="100%" pt="2rem" overflow="hidden">
+        <Box h="100%" overflow="hidden">
           {children}
         </Box>
       </Box>

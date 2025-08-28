@@ -33,7 +33,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
       />
 
       {/* Top Section: Logo and New Chat */}
-      <Box p={4} pt="2rem">
+      <Box p={4} pt="3rem">
         <VStack spacing={4} align="stretch">
           {/* Logo */}
           <Text fontSize="xl" fontWeight="bold" color="text.primary">

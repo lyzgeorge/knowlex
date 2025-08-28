@@ -9,7 +9,9 @@
     "globalSearch": "Global Search",
     "projects": "Projects",
     "conversations": "Conversations",
-    "settings": "Settings"
+    "settings": "Settings",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "conversation": {
     "delete": "Delete Conversation",

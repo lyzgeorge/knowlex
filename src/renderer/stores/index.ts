@@ -14,7 +14,6 @@ export {
   default as useAppStore,
   useTheme,
   useLanguage,
-  useSidebar,
   useAppStatus,
   initializeThemeSync,
   cleanupThemeSync

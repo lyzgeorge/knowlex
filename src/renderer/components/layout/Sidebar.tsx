@@ -3,6 +3,8 @@ import {
   Box,
   VStack,
   Divider,
+  IconButton,
+  Tooltip,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -10,6 +12,7 @@ import {
   AlertDialogContent,
   AlertDialogOverlay
 } from '@chakra-ui/react'
+import { HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi2'
 import { Button } from '@renderer/components/ui/Button'
 import { SidebarHeader } from './SidebarHeader'
 import { ProjectsSection } from './ProjectsSection'
@@ -17,25 +20,18 @@ import { ConversationsSection } from './ConversationsSection'
 import { SidebarFooter } from './SidebarFooter'
 import { useConversationManagement } from '@renderer/hooks/useConversationManagement'
 import { useNavigationActions } from '@renderer/stores/navigation'
+import { useSidebarCollapsed, useToggleSidebarCollapse } from '@renderer/stores/app'
 import { useI18n } from '@renderer/hooks/useI18n'
 
 export interface SidebarProps {
   className?: string
 }
 
-/**
- * 侧边栏导航组件 - Task 16
- *
- * 实现要求:
- * - 固定280px宽度，Logo显示，"+ New Chat"按钮
- * - 项目列表：可展开/折叠，文件夹图标，项目名称显示
- * - 会话列表：对话气泡图标，会话标题，时间戳显示
- * - 悬浮操作：项目操作图标（文件管理、复制、更多），会话操作菜单
- * - 虚拟滚动优化和键盘导航支持
- */
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const { t } = useI18n()
   const [searchQuery, setSearchQuery] = useState('')
+  const sidebarCollapsed = useSidebarCollapsed()
+  const toggleSidebarCollapse = useToggleSidebarCollapse()
 
   const {
     conversations,
@@ -100,12 +96,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           break
       }
     },
-    [handleNewChat]
+    [handleNewChat, t]
   )
 
   return (
     <Box
-      w="280px"
+      w={sidebarCollapsed ? '60px' : '280px'}
       h="100vh"
       bg="surface.primary"
       borderRight="1px solid"
@@ -118,43 +114,86 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       role="navigation"
       aria-label="Main navigation sidebar"
       tabIndex={-1}
+      transition="width 0.2s ease-in-out"
     >
-      <SidebarHeader
-        searchQuery={searchQuery}
-        onSearchChange={handleSearch}
-        onNewChat={handleNewChat}
-      />
-
-      <Box flex={1} overflowY="auto" overflowX="hidden">
-        <VStack spacing={0} align="stretch">
-          <Box px={2}>
-            {/* Pass the project select handler so it is used */}
-            <ProjectsSection
-              filteredConversations={conversations}
-              currentConversationId={currentConversationId}
-              onSelectConversation={handleSelectConversation} // only for conversation rows
-              onDeleteConversation={handleDeleteConversation}
-              onSelectProject={handleProjectSelect} // NEW: implement inside ProjectsSection
-            />
-          </Box>
-
-          <Box px={2}>
-            <ConversationsSection
-              conversations={uncategorizedConversations}
-              currentConversationId={currentConversationId}
-              onSelectConversation={handleSelectConversation}
-              onDeleteConversation={handleDeleteConversation}
-              isLoadingMore={isLoadingMore}
-              hasMoreConversations={hasMoreConversations}
-              sentinelRef={sentinelRef}
-            />
-          </Box>
-        </VStack>
+      {/* Collapse/Expand Toggle Button */}
+      <Box position="absolute" right="-12px" top="20px" zIndex={1001} pt="1rem">
+        <Tooltip
+          label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          placement="right"
+        >
+          <IconButton
+            aria-label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+            icon={sidebarCollapsed ? <HiChevronRight /> : <HiChevronLeft />}
+            onClick={toggleSidebarCollapse}
+            size="sm"
+            variant="solid"
+            bg="surface.secondary"
+            color="text.primary"
+            _hover={{
+              bg: 'surface.tertiary'
+            }}
+            borderRadius="full"
+            boxShadow="md"
+          />
+        </Tooltip>
       </Box>
 
-      <Divider />
+      {!sidebarCollapsed ? (
+        <>
+          <SidebarHeader
+            searchQuery={searchQuery}
+            onSearchChange={handleSearch}
+            onNewChat={handleNewChat}
+          />
 
-      <SidebarFooter />
+          <Box flex={1} overflowY="auto" overflowX="hidden">
+            <VStack spacing={0} align="stretch">
+              <Box px={2}>
+                {/* Pass the project select handler so it is used */}
+                <ProjectsSection
+                  filteredConversations={conversations}
+                  currentConversationId={currentConversationId}
+                  onSelectConversation={handleSelectConversation} // only for conversation rows
+                  onDeleteConversation={handleDeleteConversation}
+                  onSelectProject={handleProjectSelect} // NEW: implement inside ProjectsSection
+                />
+              </Box>
+
+              <Box px={2}>
+                <ConversationsSection
+                  conversations={uncategorizedConversations}
+                  currentConversationId={currentConversationId}
+                  onSelectConversation={handleSelectConversation}
+                  onDeleteConversation={handleDeleteConversation}
+                  isLoadingMore={isLoadingMore}
+                  hasMoreConversations={hasMoreConversations}
+                  sentinelRef={sentinelRef}
+                />
+              </Box>
+            </VStack>
+          </Box>
+
+          <Divider />
+
+          <SidebarFooter />
+        </>
+      ) : (
+        // Collapsed sidebar - show minimal UI
+        <Box display="flex" flexDirection="column" alignItems="center" py={4} gap={3} pt="5rem">
+          <Tooltip label={t('sidebar.newChat')} placement="right">
+            <IconButton
+              aria-label={t('sidebar.newChat')}
+              icon={<HiPlus />}
+              onClick={handleNewChat}
+              size="sm"
+              variant="solid"
+              bg="primary.500"
+              borderRadius="lg"
+            />
+          </Tooltip>
+        </Box>
+      )}
 
       {/* Delete Conversation Confirmation Dialog */}
       <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={cancelRef} onClose={onDeleteClose}>

@@ -17,6 +17,7 @@ export interface AppState {
   resolvedTheme: 'light' | 'dark'
   language: Language
   showSidebar: boolean
+  sidebarCollapsed: boolean
   sidebarWidth: number
   isFullscreen: boolean
 
@@ -29,14 +30,13 @@ export interface AppState {
   setTheme: (theme: ColorMode) => void
   setLanguage: (language: Language) => void
   toggleSidebar: () => void
+  toggleSidebarCollapse: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
   setSidebarWidth: (width: number) => void
   setFullscreen: (fullscreen: boolean) => void
   setInitialized: (initialized: boolean) => void
   setOnlineStatus: (online: boolean) => void
   setLastSyncTime: (time: Date) => void
-
-  // Computed getters
-  isSidebarCollapsed: () => boolean
 
   // Utility actions
   reset: () => void
@@ -47,6 +47,7 @@ const initialState = {
   resolvedTheme: 'light' as const,
   language: 'en' as Language,
   showSidebar: true,
+  sidebarCollapsed: false,
   sidebarWidth: 280,
   isFullscreen: false,
   isInitialized: false,
@@ -85,6 +86,18 @@ export const useAppStore = create<AppState>()(
         })
       },
 
+      toggleSidebarCollapse: () => {
+        set((state) => {
+          state.sidebarCollapsed = !state.sidebarCollapsed
+        })
+      },
+
+      setSidebarCollapsed: (collapsed: boolean) => {
+        set((state) => {
+          state.sidebarCollapsed = collapsed
+        })
+      },
+
       setSidebarWidth: (width: number) => {
         set((state) => {
           // Constrain width between 200px and 500px
@@ -120,12 +133,6 @@ export const useAppStore = create<AppState>()(
         })
       },
 
-      // Computed getters
-      isSidebarCollapsed: () => {
-        const state = get()
-        return state.sidebarWidth < 240
-      },
-
       // Reset to defaults
       reset: () => {
         set((state) => {
@@ -141,6 +148,7 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         language: state.language,
         showSidebar: state.showSidebar,
+        sidebarCollapsed: state.sidebarCollapsed,
         sidebarWidth: state.sidebarWidth,
         isFullscreen: state.isFullscreen
       })
@@ -197,14 +205,14 @@ export const useLanguage = () =>
     setLanguage: state.setLanguage
   }))
 
-export const useSidebar = () =>
-  useAppStore((state) => ({
-    showSidebar: state.showSidebar,
-    sidebarWidth: state.sidebarWidth,
-    isSidebarCollapsed: state.isSidebarCollapsed(),
-    toggleSidebar: state.toggleSidebar,
-    setSidebarWidth: state.setSidebarWidth
-  }))
+// Individual sidebar selectors to avoid object recreation issues
+export const useSidebarCollapsed = () => useAppStore((state) => state.sidebarCollapsed)
+export const useSidebarWidth = () => useAppStore((state) => state.sidebarWidth)
+export const useShowSidebar = () => useAppStore((state) => state.showSidebar)
+export const useToggleSidebarCollapse = () => useAppStore((state) => state.toggleSidebarCollapse)
+export const useToggleSidebar = () => useAppStore((state) => state.toggleSidebar)
+export const useSetSidebarCollapsed = () => useAppStore((state) => state.setSidebarCollapsed)
+export const useSetSidebarWidth = () => useAppStore((state) => state.setSidebarWidth)
 
 export const useAppStatus = () =>
   useAppStore((state) => ({

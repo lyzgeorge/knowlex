@@ -85,7 +85,10 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
             currentState.activeIndex >= userChildren.length ||
             currentState.activeIndex < 0 ||
             (!currentState.explicit && userChildren.length > (currentState?.knownLength || 0)) ||
-            previouslySingleChoiceBecomesMulti
+            previouslySingleChoiceBecomesMulti ||
+            // Also auto-switch when there are new messages, even if explicitly chosen before
+            // This ensures that after editing a message and creating a branch, we navigate to the latest branch
+            userChildren.length > (currentState?.knownLength || 0)
 
           if (shouldAutoSwitch) {
             next[parentKey] = {

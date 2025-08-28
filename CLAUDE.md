@@ -1,375 +1,239 @@
-# CLAUDE.md
+# Knowlex Onboarding Guide for Senior Engineers
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This document provides a comprehensive technical overview of the Knowlex application, designed for senior software engineers. It covers the project's architecture, development workflow, key patterns, and module-level details.
 
-## 1. Development Commands
+## 1. Project Vision & Core Principles
 
-### Core Development Workflow
-```bash
-# Start development server
+**Knowlex** is a cross-platform desktop AI chat application built with **Electron**, **React**, and **TypeScript**. The current MVP focuses on providing a simple, robust chat interface with local data persistence via SQLite.
+
+### 1.1. Key Features (MVP)
+
+- **Project-Centric Workflow**: Organize conversations within distinct projects.
+- **Simple Chat Interface**: Clean UI with streaming AI responses.
+- **Message Branching**: Navigate complex conversation trees.
+- **Temporary File Uploads**: Provide contextual files for individual conversations.
+- **Local-First Storage**: All data (projects, conversations, messages) is stored locally in a SQLite database.
+- **Multi-Provider Support**: Integrates with various AI models (OpenAI, Anthropic, Google).
+
+### 1.2. Architectural Principles
+
+- **Three-Layer Architecture**: Strict separation of concerns between the **Main** (Node.js), **Renderer** (React), and **Shared** processes.
+- **Local-First**: Data resides primarily on the user's machine, ensuring privacy and offline capability.
+- **Secure & Type-Safe IPC**: All communication between processes is strictly typed and follows a standardized `IPCResult<T>` pattern.
+- **Modular Service Layer**: Business logic is organized into domain-specific services (e.g., `ProjectService`, `ConversationService`).
+- **Lightweight State Management**: Zustand is used for efficient and persistent state management in the Renderer process.
+
+## 2. Getting Started: Development Workflow
+
+### 2.1. Core Commands
+
+Use `pnpm` for all package management and script execution.
+
+```
+# Install dependencies
+pnpm install
+
+# Start the development server with hot-reloading
 pnpm run dev
 
-# Build the application
+# Build the application for production
 pnpm run build
 
-# Run tests
-pnpm run test
-pnpm run test:ui      # Vitest UI interface
-pnpm run test:coverage # Coverage report
-
-# Type checking and linting
-pnpm run typecheck    # TypeScript type checking
-pnpm run lint         # ESLint with auto-fix
-pnpm run format       # Prettier formatting
-
-# Distribution builds
-pnpm run dist         # Build distributable
-pnpm run dist:win     # Windows build
-pnpm run dist:mac     # macOS build
-pnpm run dist:linux   # Linux build
+# Run linters and formatters
+pnpm run lint   # ESLint with auto-fix
+pnpm run format # Prettier formatting
+pnpm run typecheck # TypeScript type checking
 ```
 
-### Path Aliases
-The project uses TypeScript path mapping:
-- `@shared/*` - Shared code between main and renderer processes
-- `@main/*` - Main process code (Node.js + Electron)
-- `@renderer/*` - Renderer process code (React)
-- `@preload/*` - Preload script code
+### 2.2. Path Aliases
 
-### Database Operations
-- Database files are stored in user data directory
-- Migrations run automatically on application start
-- Use database queries from `@main/database/queries.ts`
-- Entity operations through `@main/database/entity.ts`
+The project uses TypeScript path aliases for clean imports:
 
-### IPC Communication Pattern
-All IPC follows the `IPCResult<T>` pattern:
-```typescript
-interface IPCResult<T = unknown> {
-  success: boolean
-  data?: T
-  error?: string
-}
+- `@main/*`: Main process code (Node.js/Electron).
+- `@renderer/*`: Renderer process code (React).
+- `@preload/*`: Preload script for secure IPC.
+- `@shared/*`: Code shared between processes.
+
+## 3. System Architecture
+
+### 3.1. Project Structure
+
+The codebase is organized into three primary directories within `src/`:
+
 ```
-
-IPC channels are organized by domain:
-- `conversation:*` - Conversation operations
-- `message:*` - Message operations  
-- `file:*` - File operations
-- `settings:*` - Settings operations
-- `project:*` - Project operations
-
-## 2. Overview and Architecture Principles
-
-### 1.1 Project Vision
-
-Knowlex is a cross-platform desktop application built with Electron that serves as a simple AI chat interface. The current MVP focuses on core conversation functionality with local data storage.
-
-**Current MVP Features:**
-- **Simple Chat Interface**: Direct conversations with AI models with streaming responses
-- **Project Management**: Project-centric workspace with conversation organization
-- **Message Branching**: Advanced conversation branching with tree-like message navigation
-- **Temporary File Upload**: Upload files to individual conversations for context (no persistent storage)
-- **Local Data Storage**: Conversations, messages, and projects stored locally using SQLite
-- **Multiple AI Providers**: Support for different AI models through unified interface
-- **Basic Settings Management**: Configure AI providers and application preferences
-
-**Future Planned Features** (not yet implemented):
-- Vector search and RAG capabilities  
-- Knowledge accumulation and memory systems
-- Advanced file processing and indexing
-- Persistent file management
-
-### 2.2 Architecture Design Principles
-
-**Three-Layer Electron Architecture**:
-```
-┌─────────────────────────────────────┐
-│        Renderer Process             │
-│    React + TypeScript + Zustand    │
-│         UI and Interactions         │
-├─────────────────────────────────────┤
-│        Main Process                 │
-│   Node.js + Electron + libsql      │
-│     System Services & Data          │
-├─────────────────────────────────────┤
-│        Shared Code                  │
-│   AI Model System + Core Types     │
-│        Cross-Process Logic          │
-└─────────────────────────────────────┘
-```
-
-**Core Design Principles:**
-- **Simple AI Chat Interface**: Clean, focused chat experience with streaming responses
-- **Zustand State Management**: Lightweight state management with persistence
-- **Secure IPC Communication**: Type-safe communication between main and renderer processes
-- **Local-First Architecture**: All data stored locally with SQLite database
-- **Modular Service Layer**: Separated concerns for different functionality areas
-
-### 1.3 IMPORTANT NOTICE
-
-Your role:
-
-```mark
-name: electron-react-architect
-description: Agent for Electron + React + Node.js architecture, code reviews, and implementation guidance for Electron apps.
-
-----
-
-You are an expert Electron + React + Node.js architect. Optimize for clean, maintainable, scalable structure.
-
-Use when: designing features/modules, reviewing React/Electron code, or planning IPC/main–renderer integration.
-
-Core principles:
-- Readable, intention-revealing code
-- Single Responsibility at module/component/function level
-- Prefer simple, explicit implementations
-- Keep files reasonably small (≈ <300 lines when practical)
-- Understand current status through `docs/README.md`
-- Document each module in `docs/` with purpose, usage, key decisions
-
-Expertise:
-- Electron main/renderer architecture & IPC
-- React components, hooks, state management
-- Node.js services, FS ops, API design
-- TS/JS patterns, tooling, build & release for Electron
-
-Working method:
-1) Analyze requirements → small, focused modules  
-2) Design first → outline components/modules & boundaries  
-3) Implement cleanly → self-documenting names, minimal complexity  
-4) Validate architecture → cohesion, clear contracts, IPC boundaries  
-5) Document decisions → brief rationale + examples
-
-Code standards:
-- Descriptive names; small functions (~20–30 lines)
-- Clear separation: UI vs business vs data access
-- Graceful error handling with actionable messages
-- Testable, debuggable structure (DI where helpful)
-
-Communication:
-- Use English for code/docs/comments
-- Explain architectural choices succinctly
-- Suggest improvements and viable alternatives
-- Call out risks, trade-offs, and how to avoid issues
-
-Proactive stance: flag architectural smells, propose refactors, and ensure designs scale with app growth.
-```
-
-## 2. System Architecture
-
-### 2.1 Current Project Structure (MVP Implementation)
-
-The project follows a standard Electron + React + TypeScript structure, organized for clarity and separation of concerns.
-
-```tree
-.
-├── .github/                # CI/CD workflows
-├── docs/                   # Project documentation
-├── prd/                    # Product Requirement Documents
-├── src/
-│   ├── main/               # Main process (Node.js + Electron)
-│   │   ├── database/       # SQLite database layer (schemas, queries, entities)
-│   │   ├── ipc/            # IPC handlers for renderer-main communication
-│   │   ├── services/       # Core business logic (AI, files, projects)
-│   │   ├── utils/          # Main process utilities
-│   │   ├── main.ts         # Application entry point
-│   │   ├── preload.ts      # Preload script for secure IPC
-│   │   └── window.ts       # Window management
-│   │
-│   ├── renderer/           # Renderer process (React UI)
-│   │   ├── components/     # React components (features, layout, UI)
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/            # Test setup and libraries
-│   │   ├── pages/          # Top-level page components
-│   │   ├── stores/         # Zustand state management stores
-│   │   ├── styles/         # Global styles
-│   │   ├── types/          # Renderer-specific types
-│   │   ├── utils/          # Renderer utilities (theming, etc.)
-│   │   ├── App.tsx         # Root React component
-│   │   └── main.tsx        # React application entry point
-│   │
-│   └── shared/             # Code shared between main and renderer
-│       ├── constants/      # Application-wide constants
-│       ├── types/          # Shared type definitions (IPC, data models)
-│       └── utils/          # Shared utility functions
+src/
+├── main/       # Main Process (Node.js + Electron)
+│   ├── database/ # SQLite layer (schemas, queries, migrations)
+│   ├── ipc/      # IPC handlers for renderer communication
+│   └── services/ # Core business logic (AI, files, projects)
 │
-├── electron.vite.config.ts # Vite configuration for Electron
-├── package.json            # Project dependencies and scripts
-└── tsconfig.json           # TypeScript configuration
+├── renderer/   # Renderer Process (React UI)
+│   ├── components/ # React components
+│   ├── hooks/      # Custom React hooks
+│   ├── pages/      # Top-level page components
+│   └── stores/     # Zustand state management stores
+│
+└── shared/     # Shared Code (Types, Constants, Utils)
+    ├── types/      # Shared type definitions (IPC, data models)
+    └── i1n/       # Internationalization config and locales
 ```
 
-**Design Principles:**
-- Single responsibility and clear separation of concerns
-- Modular design for easy testing and maintenance
-- Avoid over-abstraction, keep code simple
-- Prioritize readability and maintainability
+### 3.2. Technology Stack
 
-### 2.2 Three-Layer Process Architecture
+|
 
-**Main Process (`src/main/`)**
-- Application lifecycle management (windows, menus, system tray)
-- SQLite database for local data storage (conversations, messages, settings)
-- File processing for temporary uploads (text extraction, validation)
-- AI service integration (OpenAI adapter, conversation management)
-- Secure IPC communication bridge between processes
+| **Category**         | **Technology**                       | **Purpose**                                 |
+| -------------------- | ------------------------------------ | ------------------------------------------- |
+| **Framework**        | Electron, React, Node.js, TypeScript | Core application structure                  |
+| **State Management** | Zustand                              | Lightweight, persistent state for React     |
+| **UI Components**    | Chakra UI                            | Theming and component library               |
+| **Database**         | SQLite (`@libsql/client`)            | Local data storage                          |
+| **AI Integration**   | AI SDK (`ai` package)                | Unified interface for AI provider streaming |
+| **Build Tool**       | Vite (via `electron-vite`)           | Fast development and build process          |
+| **Testing**          | Vitest, React Testing Library        | Unit, integration, and component testing    |
 
-**Renderer Process (`src/renderer/`)**
-- React user interface (chat interface, settings)
-- Zustand state management (lightweight, with persistence)
-- Chakra UI component library for consistent styling
-- Real-time streaming response handling and display
+## 4. Key Architectural Patterns
 
-**Shared Code (`src/shared/`)**
-- Type definitions for cross-process communication
-- Core data types (messages, conversations, files)
-- Common utility functions and validation
-- Constants and configuration values
+### 4.1. IPC Communication
 
-### 2.3 Current Technology Stack (MVP)
+All inter-process communication follows a standardized, type-safe pattern to ensure reliability and maintainability.
 
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| **Application Framework** | Electron 28 | Cross-platform desktop application |
-| **Frontend Framework** | React 18 + TypeScript | User interface development |
-| **State Management** | Zustand 5.0 | Lightweight state management with persistence |
-| **UI Component System** | Chakra UI 2.8 | Complete component library with theming |
-| **Data Storage** | SQLite (@libsql/client) | Local database for conversations and messages |
-| **AI Integration** | AI SDK (ai 5.0) | Unified AI provider integration with streaming |
-| **AI Providers** | OpenAI, Anthropic, Google | Multiple AI model support |
-| **File Processing** | Custom parsers (pdf-parse, officeparser) | Text extraction from common file formats |
-| **Build Tool** | Vite (electron-vite) | Development and build tooling |
-| **Testing** | Vitest + Testing Library | Unit and integration testing |
+- **Pattern**: `IPCResult<T> = { success: boolean; data?: T; error?: string; }`
+- **Implementation**: A generic `handleIPCCall` wrapper in `@main/ipc/common.ts` provides consistent error handling for all IPC channels.
+- **Channels**: IPC channels are namespaced by domain (e.g., `project:*`, `conversation:*`, `file:*`).
 
-## 3. Key Architectural Patterns
+### 4.2. Database Layer
 
-### 3.1 IPC Communication Architecture
-The application uses a structured IPC pattern with standardized error handling:
+The database architecture is designed for maintainability and directness, avoiding complex ORMs.
 
-**Main Process Service → IPC Handler → Renderer**
-```typescript
-// IPC handlers use handleIPCCall wrapper for consistent error handling
-export const handleIPCCall = async <T>(operation: () => Promise<T>): Promise<IPCResult<T>>
+- **Generic Entity Class**: A `DatabaseEntity` class in `@main/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`).
+- **Schemas**: Entity schemas in `@main/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields.
+- **Queries**: Optimized, raw SQL queries are centralized in `@main/database/queries.ts`. Services use these query functions rather than accessing the `DatabaseEntity` directly.
+- **Migrations**: Schema changes are managed through versioned SQL migration files in `@main/migrations.ts`.
 
-// Services are domain-specific (conversation, message, file, settings)
-// Each service module exports business logic functions
-// IPC handlers are thin wrappers that validate input and call services
-```
+### 4.3. State Management (Zustand)
 
-### 3.2 Database Layer Architecture
-**Entity-Based CRUD with Generic Operations**:
-- `@main/database/entity.ts` - Generic CRUD base class
-- `@main/database/schemas.ts` - Entity schemas and mappings
-- `@main/database/queries.ts` - Optimized query functions
-- Services use database queries, not direct entity access
+State in the renderer is managed through domain-specific Zustand stores.
 
-### 3.3 AI Integration Architecture
-**Unified AI Provider System**:
-- `@main/services/openai-adapter.ts` - AI SDK integration
-- `@main/services/assistant-service.ts` - Unified streaming logic
-- Supports cancellation tokens for request management
-- Real-time event emission to renderer during streaming
+- **Location**: `@renderer/stores/`
+- **Pattern**: Each store manages a specific slice of state (e.g., `projectStore`, `conversationStore`).
+- **Persistence**: Stores that require it (e.g., UI state like expanded sidebars) use Zustand's `persist` middleware to save to `localStorage`.
+- **Communication**: Stores can be composed or imported directly to interact with other stores.
 
-### 3.4 State Management Architecture
-**Zustand Store Pattern**:
-```typescript
-// Stores are domain-specific and composable
-// Located in @renderer/src/stores/
-// Each store handles its own persistence
-// Cross-store communication via direct imports
-```
+### 4.4. AI Integration
 
-### 3.5 File Processing Architecture
-**Temporary File System**:
-- Files uploaded per-conversation (not globally stored)
-- Text extraction via `@main/services/file-parser.ts`
-- Support for PDF, Office docs, plain text, images
-- File content becomes message parts in conversation context
+The system uses an adapter pattern to provide a unified interface for multiple AI providers.
 
-### 3.6 Project Management Architecture
-**Project-Centric Organization**:
-- `@main/services/project-service.ts` - Project CRUD with validation
-- `@main/ipc/project.ts` - Project IPC handlers
-- `@renderer/stores/project.ts` - Project state management with Zustand
-- `@renderer/hooks/useProjectManagement.ts` - Project operations hook
-- Database enforced unique project names (case-insensitive)
+- **Adapter**: `@main/services/openai-adapter.ts` integrates with the Vercel AI SDK.
+- **Service**: `@main/services/assistant-service.ts` manages the core logic for streaming responses, handling events, and managing cancellation.
+- **Cancellation**: A `CancellationManager` (`@main/utils/cancellation.ts`) provides robust cancellation tokens for long-running AI requests.
 
-### 3.7 Message Branching Architecture
-**Tree-Like Conversation Navigation**:
-- `@renderer/hooks/useMessageBranching.ts` - Advanced branching logic
-- Supports conversation forking at any message
-- Auto-switches to latest messages by default
-- Remembers explicit user branch selections
-- Cascading reset of downstream branches when switching
+## 5. Architectural & Code Guidelines
 
-## 4. Current Implementation Status
+- **Single Responsibility**: Modules, components, and functions should have a single, clear purpose.
+- **File Size**: Keep files under 300 lines where practical.
+- **Naming**: Use descriptive, intention-revealing names for variables, functions, and files.
+- **Error Handling**: Use the `handleIPCCall` wrapper for all IPC. Services should throw meaningful, contextual errors. UI components must handle loading and error states gracefully.
+- **Security**: Never expose sensitive Node.js APIs to the renderer. Use the `preload.ts` script to expose a limited, secure API. Validate all data at IPC boundaries.
 
-### 4.1 Implemented Features (Current MVP)
-- ✅ **Chat Interface**: Clean chat UI with message bubbles, user/assistant roles
-- ✅ **Project Management**: Project-centric workspace with conversation organization
-- ✅ **Message Branching**: Tree-like conversation navigation with branch switching
-- ✅ **Conversation Management**: Create, delete, rename conversations via sidebar
-- ✅ **Temporary File Upload**: Upload files to conversations for context (text extraction)
-- ✅ **Streaming Responses**: Real-time AI response streaming with proper UI updates
-- ✅ **Inline Editing**: Edit project/conversation names with validation
-- ✅ **Settings Panel**: Configure OpenAI API settings, app preferences
-- ✅ **Local Storage**: SQLite database for conversations, messages, and projects
-- ✅ **Theme Support**: Dark/light mode with Chakra UI theming
-- ✅ **Auto Title Generation**: Automatic conversation titles based on content
-- ✅ **Responsive Design**: Desktop-optimized layout with resizable panels
-- ✅ **Enhanced Sidebar**: Organized project and conversation sections
+## 6. Module Documentation
 
-### 4.2 Recently Implemented Features
-- ✅ **Project Management**: Project-centric workspace with conversation organization
-- ✅ **Message Branching**: Tree-like conversation navigation with branch switching
-- ✅ **Enhanced UI**: Improved sidebar with project/conversation sections
-- ✅ **Inline Editing**: Edit project and conversation names inline
-- ✅ **Project Pages**: Dedicated pages for project overview and conversation management
+This section provides a high-level summary of key modules in the `src/` directory.
 
-### 4.3 Planned Features (Not Yet Implemented)
-- ❌ **Vector Search/RAG**: File indexing and semantic search capabilities  
-- ❌ **Persistent File Management**: Long-term file storage and organization
-- ❌ **Knowledge Accumulation**: Project memory and note-taking systems
-- ❌ **Full-Text Search**: Search across conversations and content
-- ❌ **Export/Import**: Data portability features
+### 6.1. Main Process (`src/main`)
 
-## 5. Important Architectural Guidelines
+#### Services (`@main/services`)
 
-### 5.1 Code Organization
-- Keep files under 300 lines when practical
-- Use descriptive, intention-revealing names
-- Separate UI, business logic, and data access concerns
-- Prefer composition over inheritance
-- Single responsibility at module/component/function level
+Core business logic resides here. Services are self-contained and handle a specific domain.
 
-### 5.2 Error Handling
-- All IPC operations must use `handleIPCCall` wrapper
-- Services should throw meaningful errors with context
-- UI components should handle loading/error states
-- Use cancellation tokens for long-running operations
+| **Module**             | **Description**                                              |
+| ---------------------- | ------------------------------------------------------------ |
+| `project-service.ts`   | Manages project CRUD operations, ensuring name uniqueness and handling cascade deletes of conversations. |
+| `conversation.ts`      | Handles conversation CRUD, pagination, and project associations. |
+| `message.ts`           | Manages message CRUD, including support for multi-part content (text, files, images, citations). |
+| `assistant-service.ts` | Orchestrates AI response generation, streaming, event emission, and cancellation. |
+| `file-temp.ts`         | Processes temporary file uploads, performing validation and text extraction. |
+| `file-parser.ts`       | A factory for parsing various file types (PDF, Office documents, plain text). |
+| `title-generation.ts`  | Automatically generates conversation titles by calling an AI service after the first turn. |
+| `settings.ts`          | Manages application configuration loaded from environment variables. |
+| `openai-adapter.ts`    | Adapts the application's message format to the AI SDK and handles streaming logic. |
 
-### 5.3 Testing Strategy
-- Unit tests for services and utilities using Vitest
-- Integration tests for IPC communication
-- Component tests for React components using Testing Library
-- Mock Electron APIs in tests using vi.mock()
+#### Database (`@main/database`)
 
-### 5.4 Performance Considerations
-- Streaming responses for AI interactions
-- Pagination for large data sets (conversations, messages)
-- Lazy loading for components and modules
-- Cancellation support for all async operations
+The data persistence layer.
 
-### 5.5 Security Guidelines
-- Never expose sensitive data through IPC
-- Validate all input at IPC boundaries
-- Use preload script for secure API exposure
-- Store sensitive data (API keys) in encrypted settings
-- src/shared/i18n/config.ts - Main i18n configuration
-  - src/shared/i18n/types.ts - Type definitions
-  - src/shared/i18n/init.ts - Initialization logic
-  - src/shared/i18n/locales/en.json - English translations
-  - src/shared/i18n/locales/zh.json - Chinese translations
-  - src/renderer/hooks/useI18n.ts - React hook for i18n
-  - src/renderer/components/ui/LanguageSelector.tsx - Language picker component
-  - src/renderer/hooks/useLanguage.ts - Dedicated language management hook
+| **Module**      | **Description**                                              |
+| --------------- | ------------------------------------------------------------ |
+| `index.ts`      | Manages the `libsql` client connection and provides transaction helpers. |
+| `entity.ts`     | A generic class providing base CRUD operations for database entities. |
+| `queries.ts`    | A collection of specific, optimized SQL queries for all entities. |
+| `schemas.ts`    | Defines the mapping between TypeScript models and database table schemas. |
+| `migrations.ts` | Manages versioned database schema migrations with `up` and `down` SQL scripts. |
+
+#### IPC (`@main/ipc`)
+
+The communication bridge to the renderer process.
+
+| **Module**        | **Description**                                              |
+| ----------------- | ------------------------------------------------------------ |
+| `project.ts`      | Exposes `project-service` functions securely to the renderer. |
+| `conversation.ts` | Exposes `conversation-service` and `message-service` functions. |
+| `file.ts`         | Exposes `file-temp-service` functions.                       |
+| `common.ts`       | Provides the `handleIPCCall` wrapper and common validation utilities. |
+
+### 6.2. Renderer Process (`src/renderer`)
+
+#### Stores (`@renderer/stores`)
+
+Zustand stores for managing frontend state.
+
+| **Module**        | **Description**                                              |
+| ----------------- | ------------------------------------------------------------ |
+| `project.ts`      | Manages project data, UI state (e.g., expanded folders), and interactions with the project IPC. |
+| `conversation.ts` | Manages the active conversation, message list, streaming state, and interactions with conversation IPC. |
+| `navigation.ts`   | Controls the current view (e.g., active project or conversation page). |
+| `settings.ts`     | Caches application settings fetched from the main process.   |
+| `app.ts`          | Manages global application state, such as initialization status (`isLoading`, `isReady`). |
+
+#### Hooks (`@renderer/hooks`)
+
+Reusable UI logic encapsulated in custom React hooks.
+
+| **Module**                     | **Description**                                              |
+| ------------------------------ | ------------------------------------------------------------ |
+| `useProjectManagement.ts`      | Encapsulates all UI logic for creating, renaming, and deleting projects in the sidebar. |
+| `useConversationManagement.ts` | Manages the logic for the conversation list, including infinite scroll and delete confirmations. |
+| `useMessageBranching.ts`       | Handles the complex state and logic for navigating and managing conversation branches. |
+| `useFileUpload.ts`             | Manages client-side file validation, reading file contents, and calling the file processing IPC. |
+| `useInlineEdit.ts`             | Provides state and handlers for inline editing of project and conversation titles. |
+| `useAutoScroll.ts`             | Implements smart scrolling for the chat view, with options to follow streaming responses. |
+
+#### Components (`@renderer/components`)
+
+The UI is built from a combination of feature-specific, layout, and general-purpose UI components.
+
+| **Category**      | **Path**    | **Description**                                              |
+| ----------------- | ----------- | ------------------------------------------------------------ |
+| **Feature Pages** | `features/` | Top-level components like `ProjectPage` and `ConversationPage`. |
+| **Layout**        | `layout/`   | Structural components like `MainLayout`, `Sidebar`, and `ProjectsSection`. |
+| **UI Primitives** | `ui/`       | Reusable components like `Button`, `Modal`, and `MarkdownContent`. |
+
+##### Component Development Guidelines
+
+Frontend engineers should adhere to the following principles when developing components:
+
+- **Utilize the Design System**: Build UIs using the established **Chakra UI** component library and `react-icons/hi2` for icons. Avoid creating custom one-off components where a themed primitive exists.
+- **Follow Theme Configuration**: All colors, fonts, spacing, and shadows should use tokens defined in the theme configuration (`@renderer/utils/theme/`). This ensures visual consistency across the application and simplifies theme updates.
+- **Prioritize Accessibility**: Ensure all interactive components are fully accessible via keyboard navigation and screen readers. Use semantic HTML and provide appropriate ARIA attributes where necessary.
+- **Ensure Responsiveness**: While the application is desktop-first, components should be designed to gracefully adapt to different window sizes and panel configurations.
+
+### 6.3. Shared Code (`src/shared`)
+
+Code used by both the Main and Renderer processes.
+
+| **Module**   | **Description**                                              |
+| ------------ | ------------------------------------------------------------ |
+| `types/`     | Contains all shared TypeScript type definitions for data models and IPC payloads. |
+| `i18n/`      | Handles internationalization setup, configuration, and translation files (JSON). |
+| `utils/`     | Shared utility functions for tasks like ID generation and validation. |
+| `constants/` | Application-wide constants for file constraints, AI defaults, etc. |

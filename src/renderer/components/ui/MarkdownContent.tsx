@@ -28,7 +28,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
   const displayText = text.replace(/\u200B/g, '')
 
   return (
-    <Box as="div" display="inline-block" className="markdown-content">
+    <Box as="div" display="inline-block" className="markdown-content" width="100%" maxWidth="100%">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}

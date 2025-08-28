@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon, IconButton } from '@chakra-ui/react'
-import { HiSparkles, HiClipboard } from 'react-icons/hi2'
+import { HiSparkles, HiClipboard, HiArrowPath } from 'react-icons/hi2'
 import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
@@ -10,7 +10,8 @@ import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId,
   useIsTextStreaming,
-  useTextStreamingMessageId
+  useTextStreamingMessageId,
+  useRegenerateMessage
 } from '@renderer/stores/conversation'
 
 export interface AssistantMessageProps {
@@ -20,6 +21,8 @@ export interface AssistantMessageProps {
   showAvatar?: boolean
   /** Whether to show the timestamp */
   showTimestamp?: boolean
+  /** Whether this is the latest assistant message (for regenerate permission) */
+  isLatestAssistantMessage?: boolean
 }
 
 /**
@@ -28,10 +31,12 @@ export interface AssistantMessageProps {
 export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   message,
   showAvatar = true,
-  showTimestamp = true
+  showTimestamp = true,
+  isLatestAssistantMessage = false
 }) => {
   const [isHovered, setIsHovered] = useState(false)
   const notifications = useNotifications()
+  const regenerateMessage = useRegenerateMessage()
 
   // Reasoning streaming state
   const isReasoningStreaming = useIsReasoningStreaming()
@@ -96,6 +101,25 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
     }
   }
 
+  // Handle regenerate
+  const handleRegenerate = async () => {
+    try {
+      await regenerateMessage(message.id)
+      notifications.success({
+        title: 'Regenerating',
+        description: 'Message is being regenerated',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Failed to regenerate message:', error)
+      notifications.error({
+        title: 'Regeneration failed',
+        description: 'Failed to regenerate message',
+        duration: 3000
+      })
+    }
+  }
+
   return (
     <HStack align="flex-start" spacing={3} width="100%" justify="flex-start" mb={4}>
       {/* Avatar */}
@@ -139,6 +163,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             py={0}
             borderRadius="lg"
             alignSelf="flex-start"
+            width="100%"
+            maxWidth="100%"
+            overflow="hidden"
           >
             <MarkdownContent
               text={textContent}
@@ -176,7 +203,18 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <Box display={isHovered ? 'flex' : 'none'}>
+          <HStack spacing={1} display={isHovered ? 'flex' : 'none'}>
+            {/* Only show regenerate button for the latest assistant message */}
+            {isLatestAssistantMessage && (
+              <IconButton
+                aria-label="Regenerate message"
+                icon={<HiArrowPath />}
+                size="xs"
+                variant="ghost"
+                onClick={handleRegenerate}
+                _hover={{ bg: 'surface.hover' }}
+              />
+            )}
             <IconButton
               aria-label="Copy to clipboard"
               icon={<HiClipboard />}
@@ -185,7 +223,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
               onClick={handleCopy}
               _hover={{ bg: 'surface.hover' }}
             />
-          </Box>
+          </HStack>
           <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
             <Text variant="timestamp">{formatTime(message.updatedAt)}</Text>
           </Box>

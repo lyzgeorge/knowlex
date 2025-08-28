@@ -1,7 +1,7 @@
 export const FILE_CONSTRAINTS = {
   TEMPORARY: {
-    maxFileSize: 1024 * 1024, // 1MB
-    maxTotalSize: 10 * 1024 * 1024, // 10MB
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    maxTotalSize: 100 * 1024 * 1024, // 100MB
     maxFileCount: 10
   },
   PROJECT: {

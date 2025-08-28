@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { Box, VStack, HStack, Text, useColorModeValue, IconButton, Icon } from '@chakra-ui/react'
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { Box, VStack, HStack, useColorModeValue, IconButton, Text, Icon } from '@chakra-ui/react'
 import {
   HiPencil,
   HiClipboard,
@@ -9,20 +9,20 @@ import {
   HiChevronLeft,
   HiChevronRight
 } from 'react-icons/hi2'
-import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
+import type { Message, MessageContentPart } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
+import { buildUserMessageBranchSendOptions } from '@shared/utils/message-branching'
 import MarkdownContent from './MarkdownContent'
-import TempFileCard, { toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
+import { TempFileCard, toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
 import AutoResizeTextarea from './AutoResizeTextarea'
 import { useNotifications } from '@renderer/components/ui'
 import { useSendMessage, useIsSending } from '@renderer/stores/conversation'
-import { useFileUpload, ProcessedFile, getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import { useMessageBranch, BranchInfo } from '@renderer/hooks/useMessageBranch'
+import { useEditableMessage } from '@renderer/hooks/useEditableMessage'
+import { useMessageContentDiff } from '@renderer/hooks/useMessageContentDiff'
+import { getFileAcceptString } from '@renderer/hooks/useFileUpload'
 
-export interface BranchInfo {
-  branches: Message[]
-  currentIndex: number
-  totalCount: number
-}
+export type { BranchInfo } from '@renderer/hooks/useMessageBranch'
 
 export interface UserMessageProps {
   /** Message data */
@@ -46,46 +46,32 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [draftText, setDraftText] = useState('')
-  const [existingAttachments, setExistingAttachments] = useState<MessageContentPart[]>([])
 
   const notifications = useNotifications()
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileUpload = useFileUpload()
 
   // Theme colors
   const userBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)')
   const userTextColor = useColorModeValue('text.primary', 'text.primary')
 
-  // Use branch info from props or fall back to single message
-  const branches = branchInfo?.branches || [message]
-  const activeBranchIndex = branchInfo?.currentIndex || 0
-  const currentBranch = branches[activeBranchIndex] || message
-  const showBranchSwitcher = branches.length > 1
+  // Branch management
+  const branch = useMessageBranch(message, branchInfo, onBranchChange)
+
+  // Editable message state
+  const editableMessage = useEditableMessage()
+
+  // Content diffing
+  const contentDiff = useMessageContentDiff(branch.currentBranch.content)
 
   // Initialize editing state when entering edit mode or switching branch while editing
   useEffect(() => {
-    if (!isEditing) return
-
-    // Extract text content from the current branch
-    const textContent = currentBranch.content
-      .filter((part: MessageContentPart) => part.type === 'text')
-      .map((part: MessageContentPart) => part.text || '')
-      .join('\n')
-    setDraftText(textContent)
-
-    // Extract existing attachments
-    const attachments = currentBranch.content.filter(
-      (part: MessageContentPart) => part.type === 'temporary-file' || part.type === 'image'
-    )
-    setExistingAttachments(attachments)
-
-    // Clear file upload state for new attachments
-    fileUpload.clearFiles()
-  }, [isEditing, currentBranch.id])
+    if (isEditing) {
+      editableMessage.initialize(branch.currentBranch)
+    }
+  }, [isEditing, branch.currentBranch.id, editableMessage.initialize])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {
@@ -99,98 +85,34 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     }
   }, [isEditing])
 
-  // Build message content from draft and attachments
-  const buildMessageContent = useCallback((): MessageContent => {
-    const content: MessageContent = []
-
-    // Add text content if present
-    const trimmedText = draftText.trim()
-    if (trimmedText) {
-      content.push({
-        type: 'text',
-        text: trimmedText
-      })
-    }
-
-    // Add existing attachments that weren't removed
-    existingAttachments.forEach((attachment) => {
-      content.push(attachment)
-    })
-
-    // Add new attachments from useFileUpload
-    const processedFiles = fileUpload.state.processedFiles
-    processedFiles.forEach((file: ProcessedFile) => {
-      if (file.error) return
-
-      if (file.isImage) {
-        content.push({
-          type: 'image',
-          image: {
-            image: file.content,
-            mediaType: file.mimeType,
-            filename: file.filename
-          }
-        })
-      } else {
-        content.push({
-          type: 'temporary-file',
-          temporaryFile: {
-            filename: file.filename,
-            content: file.content,
-            size: file.size,
-            mimeType: file.mimeType
-          }
-        })
-      }
-    })
-
-    return content
-  }, [draftText, existingAttachments, fileUpload.state.processedFiles])
-
   // Check if content has changed
   const hasContentChanged = useCallback((): boolean => {
-    const newContent = buildMessageContent()
-    const originalContent = currentBranch.content
-
-    // Simple comparison - could be more sophisticated
-    return JSON.stringify(newContent) !== JSON.stringify(originalContent)
-  }, [buildMessageContent, currentBranch.content])
-
-  // Check if content is valid for sending
-  const isContentValid = useCallback((): boolean => {
-    const content = buildMessageContent()
-    return content.some(
-      (part) =>
-        (part.type === 'text' && part.text?.trim()) ||
-        (part.type === 'temporary-file' && part.temporaryFile) ||
-        (part.type === 'image' && part.image)
-    )
-  }, [buildMessageContent])
+    const newContent = editableMessage.buildContent()
+    return contentDiff.compare(newContent)
+  }, [editableMessage, contentDiff])
 
   const handleMouseEnter = useCallback(() => {
-    setIsHovered((prev) => (prev ? prev : true))
+    setIsHovered(true)
   }, [])
 
   const handleMouseLeave = useCallback(() => {
-    setIsHovered((prev) => (prev ? false : prev))
+    setIsHovered(false)
   }, [])
 
-  // (copy uses currentBranch directly)
+  // Derived values
+  const fileParts = useMemo(() => {
+    return branch.currentBranch.content.filter(
+      (part) => part.type === 'temporary-file' || part.type === 'image'
+    )
+  }, [branch.currentBranch.content])
 
-  // Render file content part (temporary files and images)
-  const renderFileContent = (part: MessageContentPart, index: number) => {
-    const messageFile = toMessageFileLikeFromMessagePart(part)
-    return messageFile ? (
-      <TempFileCard key={`filepart-${index}`} variant="compact" messageFile={messageFile} />
-    ) : null
-  }
+  const textParts = useMemo(() => {
+    return branch.currentBranch.content.filter((part) => part.type === 'text')
+  }, [branch.currentBranch.content])
 
-  // Get file parts and text parts from the active branch
-  const fileParts = currentBranch.content.filter(
-    (part: MessageContentPart) => part.type === 'temporary-file' || part.type === 'image'
-  )
-  const textParts = currentBranch.content.filter((part: MessageContentPart) => part.type === 'text')
-  const textContent = textParts.map((part: MessageContentPart) => part.text || '').join('\n')
+  const textContent = useMemo(() => {
+    return textParts.map((part) => part.text || '').join('\n')
+  }, [textParts])
 
   // Handle edit message
   const handleEdit = useCallback(() => {
@@ -200,35 +122,24 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   // Handle cancel editing
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false)
-    setDraftText('')
-    setExistingAttachments([])
-    fileUpload.clearFiles()
-  }, [fileUpload])
+    editableMessage.reset()
+  }, [editableMessage])
 
   // Handle send edited message
   const handleSendEdit = useCallback(async () => {
-    if (!isContentValid() || !hasContentChanged() || isSending) {
+    if (!editableMessage.isValid() || !hasContentChanged() || isSending) {
       return
     }
 
     try {
-      const content = buildMessageContent()
+      const content = editableMessage.buildContent()
+      const sendOptions = buildUserMessageBranchSendOptions(branch.currentBranch)
 
-      // 分支父节点逻辑修正：
-      //  - 如果当前用户消息有 parentMessageId（其父是一个 assistant 消息），则新分支应继续以那个父 assistant 为 parent（兄弟分支）
-      //  - 如果当前用户消息是顶层(root，parentMessageId === null)，则新分支应成为新的顶层用户消息（不传 parentMessageId）
-      const parentIdForNewBranch = currentBranch.parentMessageId || undefined
-
-      await sendMessage(content, {
-        conversationId: currentBranch.conversationId,
-        ...(parentIdForNewBranch ? { parentMessageId: parentIdForNewBranch } : {})
-      })
+      await sendMessage(content, sendOptions)
 
       // Exit editing mode
       setIsEditing(false)
-      setDraftText('')
-      setExistingAttachments([])
-      fileUpload.clearFiles()
+      editableMessage.reset()
 
       // Note: New branch auto-switch handled by the message branching hook
     } catch (error) {
@@ -240,28 +151,20 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       })
     }
   }, [
-    isContentValid,
+    editableMessage,
     hasContentChanged,
     isSending,
-    buildMessageContent,
     sendMessage,
-    currentBranch.conversationId,
-    currentBranch.parentMessageId,
-    fileUpload,
+    branch.currentBranch,
     notifications
   ])
-
-  // Handle removing existing attachment
-  const handleRemoveExistingAttachment = useCallback((index: number) => {
-    setExistingAttachments((prev) => prev.filter((_, i) => i !== index))
-  }, [])
 
   // Handle file upload
   const handleFileUpload = useCallback(
     (files: FileList) => {
-      fileUpload.addFiles(files)
+      editableMessage.addFiles(files)
     },
-    [fileUpload]
+    [editableMessage]
   )
 
   // Handle keyboard shortcuts
@@ -278,24 +181,13 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     [handleCancelEdit, handleSendEdit]
   )
 
-  // Handle branch switching
-  const handlePreviousBranch = useCallback(() => {
-    const newIndex = Math.max(0, activeBranchIndex - 1)
-    onBranchChange?.(newIndex)
-  }, [activeBranchIndex, onBranchChange])
-
-  const handleNextBranch = useCallback(() => {
-    const newIndex = Math.min(branches.length - 1, activeBranchIndex + 1)
-    onBranchChange?.(newIndex)
-  }, [activeBranchIndex, branches.length, onBranchChange])
-
   // Handle copy
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     try {
       // Copy visible text from the currently selected branch
-      const content = currentBranch.content
-        .filter((part: MessageContentPart) => part.type === 'text')
-        .map((part: MessageContentPart) => part.text || '')
+      const content = branch.currentBranch.content
+        .filter((part) => part.type === 'text')
+        .map((part) => part.text || '')
         .join('\n')
       await navigator.clipboard.writeText(content)
       notifications.success({
@@ -311,55 +203,63 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         duration: 3000
       })
     }
-  }
+  }, [branch.currentBranch.content, notifications])
 
   // Determine if send button should be enabled
   const canSend =
-    isContentValid() && hasContentChanged() && !isSending && !fileUpload.state.isProcessing
+    editableMessage.isValid() && hasContentChanged() && !isSending && !editableMessage.isProcessing
 
   return (
     <HStack align="flex-start" spacing={2} width="100%" justify="flex-end" mb={2}>
-      <VStack
-        align="stretch"
-        spacing={2}
-        flex={1}
-        width="100%"
-        maxWidth={isEditing ? '70%' : '70%'}
-      >
+      <VStack align="stretch" spacing={2} flex={1} width="100%" maxWidth="70%">
         {/* File parts - render first with horizontal layout */}
         {isEditing
-          ? /* EDITING MODE - Existing Attachments */
-            (existingAttachments.length > 0 || fileUpload.state.files.length > 0) && (
+          ? /* EDITING MODE - Attachments */
+            editableMessage.attachments.length > 0 && (
               <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {existingAttachments.map((attachment, index) => {
-                  const messageFile = toMessageFileLikeFromMessagePart(attachment)
-                  return messageFile ? (
-                    <TempFileCard
-                      key={`existing-${index}`}
-                      variant="compact"
-                      messageFile={messageFile}
-                      onRemove={() => handleRemoveExistingAttachment(index)}
-                    />
-                  ) : null
-                })}
+                {editableMessage.attachments.map((attachment) => {
+                  if (attachment.kind === 'existing' && attachment.originalPart) {
+                    const messageFile = toMessageFileLikeFromMessagePart(attachment.originalPart)
+                    return messageFile ? (
+                      <TempFileCard
+                        key={attachment.id}
+                        variant="compact"
+                        messageFile={messageFile}
+                        onRemove={() => editableMessage.removeAttachment(attachment.id)}
+                      />
+                    ) : null
+                  }
 
-                {/* New Attachments from useFileUpload */}
-                {fileUpload.state.files.map((fileItem) => (
-                  <TempFileCard
-                    key={fileItem.id}
-                    file={fileItem.file}
-                    onRemove={() => fileUpload.removeFile(fileItem.file)}
-                    variant="compact"
-                  />
-                ))}
+                  // For new attachments, create a messageFile object with actual size
+                  const messageFile = {
+                    filename: attachment.filename,
+                    size: attachment.size || 0,
+                    mimeType: attachment.mimeType
+                  }
+                  return (
+                    <TempFileCard
+                      key={attachment.id}
+                      messageFile={messageFile}
+                      onRemove={() => editableMessage.removeAttachment(attachment.id)}
+                      variant="compact"
+                    />
+                  )
+                })}
               </TempFileCardList>
             )
           : /* NORMAL VIEW MODE - File parts */
             fileParts.length > 0 && (
               <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {fileParts.map((part: MessageContentPart, index: number) =>
-                  renderFileContent(part, index)
-                )}
+                {fileParts.map((part: MessageContentPart, index: number) => {
+                  const messageFile = toMessageFileLikeFromMessagePart(part)
+                  return messageFile ? (
+                    <TempFileCard
+                      key={`filepart-${index}`}
+                      variant="compact"
+                      messageFile={messageFile}
+                    />
+                  ) : null
+                })}
               </TempFileCardList>
             )}
 
@@ -381,8 +281,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Text Editor */}
                 <AutoResizeTextarea
                   ref={textareaRef}
-                  value={draftText}
-                  onChange={(e) => setDraftText(e.target.value)}
+                  value={editableMessage.draftText}
+                  onChange={(e) => editableMessage.setDraftText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Edit your message..."
                   maxRows={3}
@@ -424,7 +324,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               size="xs"
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
-              isDisabled={fileUpload.state.isProcessing || isSending}
+              isDisabled={editableMessage.isProcessing || isSending}
               _hover={{ bg: 'surface.hover' }}
             />
             {/* Cancel Button */}
@@ -481,29 +381,29 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               </HStack>
             </Box>
             <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-              <Text variant="timestamp">{formatTime(currentBranch.updatedAt)}</Text>
+              <Text variant="timestamp">{formatTime(branch.currentBranch.updatedAt)}</Text>
             </Box>
             {/* Branch Switcher - always show when multiple branches exist */}
-            {showBranchSwitcher && (
+            {branch.branches.length > 1 && (
               <HStack spacing={1} fontSize="xs" color="text.secondary" align="center">
                 <Icon
                   as={HiChevronLeft}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
-                  onClick={handlePreviousBranch}
-                  opacity={activeBranchIndex > 0 ? 1 : 0.5}
+                  onClick={branch.goToPrevious}
+                  opacity={branch.canGoPrevious ? 1 : 0.5}
                 />
-                <Text lineHeight="1">{activeBranchIndex + 1}</Text>
+                <Text lineHeight="1">{branch.activeIndex + 1}</Text>
                 <Text lineHeight="1">/</Text>
-                <Text lineHeight="1">{branches.length}</Text>
+                <Text lineHeight="1">{branch.branches.length}</Text>
                 <Icon
                   as={HiChevronRight}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
-                  onClick={handleNextBranch}
-                  opacity={activeBranchIndex < branches.length - 1 ? 1 : 0.5}
+                  onClick={branch.goToNext}
+                  opacity={branch.canGoNext ? 1 : 0.5}
                 />
               </HStack>
             )}
