@@ -482,13 +482,13 @@
 ## src/renderer/components/ui/AssistantMessage.tsx
 路径：src/renderer/components/ui/AssistantMessage.tsx
 
-一句话：Assistant 消息 UI，显示 avatar、reasoning 区块、流式指示与操作图标。
+一句话：Assistant 消息 UI，显示 avatar、reasoning 区块、流式指示与重新生成功能。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| AssistantMessage | props: {message:Message, isStreaming?:boolean, showAvatar?:boolean, showTimestamp?:boolean} | 渲染助理消息包含推理区块与内容渲染器 |
+| AssistantMessage | props: {message:Message, isStreaming?:boolean, showAvatar?:boolean, showTimestamp?:boolean} | 渲染助理消息包含推理区块、内容渲染器和重新生成按钮 |
 
-模块逻辑：结合 store 的流式标志（文本/推理）显示实时指示，使用 MessageContentRenderer 渲染多类型内容并在 hover 时显示 MessageActionIcons。
+模块逻辑：结合 store 的流式标志（文本/推理）显示实时指示，使用 MessageContentRenderer 渲染多类型内容。新增重新生成功能，允许用户对最后一条助理消息重新请求响应，提高对话探索的灵活性。
 
 ---
 
@@ -568,12 +568,12 @@
 
 | 导出 | 说明 |
 |---|---|
-| FILE_CONSTRAINTS | object；包含 maxFiles, maxFileBytes, maxTotalBytes 等约束 |
+| FILE_CONSTRAINTS | object；包含 maxFiles, maxFileBytes (10MB), maxTotalBytes (100MB) 等约束 |
 | SUPPORTED_FILE_TYPES | Record<string,string[]>；按类别列出允许的扩展名 |
 | MIME_TYPES | Record<string,string>；扩展名到 mime-type 的映射 |
 | CHUNK_SIZE / CHUNK_OVERLAP | number；用于向量化时的分片大小/重叠设置 |
 
-模块逻辑：集中定义客户端与主进程共享的文件策略（例如大小限制、允许的扩展名与 MIME 推断），并为解析/向量化流程提供分片常量。
+模块逻辑：集中定义客户端与主进程共享的文件策略（例如单文件 10MB、总大小 100MB 的限制、允许的扩展名与 MIME 推断），并为解析/向量化流程提供分片常量。
 
 ---
 
@@ -677,13 +677,13 @@
 ## src/renderer/components/ui/UserMessage.tsx
 路径：src/renderer/components/ui/UserMessage.tsx
 
-一句话：渲染用户消息的 UI 组件（气泡、时间、文件附件预览）。
+一句话：渲染用户消息的 UI 组件（气泡、时间、文件附件预览、内联编辑）。
 
 | 组件 / 导出 | 参数 | 说明 |
 |---|---:|---|
-| UserMessage | props: {message, showTimestamp?, className?} | 渲染用户角色的消息及其内容段落 |
+| UserMessage | props: {message, showTimestamp?, className?} | 渲染用户角色的消息及其内容段落，集成编辑功能 |
 
-模块逻辑：渲染用户消息气泡，优先展示文本并附带 TempFileCard 预览，支持简短动作（编辑/删除）。
+模块逻辑：渲染用户消息气泡，集成 useEditableMessage hook 提供流畅的内联编辑体验，支持文本编辑、文件附件管理和消息分支创建。经过重构简化了组件逻辑，提高了可维护性。
 
 ---
 
@@ -834,13 +834,13 @@
 ## src/renderer/stores/app.ts
 路径：src/renderer/stores/app.ts
 
-一句话：应用级 store（就绪状态、全局错误/启动流程）。
+一句话：应用级 store（就绪状态、侧边栏折叠状态、全局错误/启动流程）。
 
 | 导出 / 函数 | 参数 | 返回 / 说明 |
 |---|---:|---|
-| useAppStore | - | {isReady, isLoading, initApp(), setError()} |
+| useAppStore | - | {isReady, isLoading, sidebarCollapsed, initApp(), setError(), toggleSidebar()} |
 
-模块逻辑：管理全局初始化流程状态，用于 App 顶层显示加载或错误视图。
+模块逻辑：管理全局初始化流程状态、侧边栏可折叠状态（提供更专注的工作空间），用于 App 顶层显示加载或错误视图及控制 UI 布局。
 
 ---
 
@@ -1325,6 +1325,131 @@
 | DeleteProjectModal | 显示一个两步确认流程来删除项目 |
 
 模块逻辑：为了防止意外删除，该模态框会显示将要被删除的会话和消息的数量，并要求用户输入项目名称以确认删除。
+
+---
+
+## src/renderer/hooks/useEditableMessage.ts
+路径：src/renderer/hooks/useEditableMessage.ts
+
+一句话：管理可编辑消息状态的 React Hook（文本内容、文件附件、编辑模式）。
+
+| 导出 | 参数 | 返回 |
+|---|---:|---|
+| useEditableMessage | message: Message, options? | {isEditing, editedText, attachedFiles, startEdit(), saveEdit(), cancelEdit(), updateText(), addFiles(), removeFile()} |
+
+模块逻辑：封装消息编辑的完整状态管理，包括文本编辑、文件附件修改、编辑模式切换，与消息分支系统集成，提供流畅的用户编辑体验。支持撤销更改、实时预览和内容对比。
+
+---
+
+## src/renderer/hooks/useMessageBranch.ts
+路径：src/renderer/hooks/useMessageBranch.ts
+
+一句话：简化消息分支导航逻辑的 React Hook。
+
+| 导出 | 参数 | 返回 |
+|---|---:|---|
+| useMessageBranch | conversationId: string | {currentBranch, availableBranches, switchToBranch(), createBranch(), canNavigate} |
+
+模块逻辑：提供简洁的 API 用于在消息分支之间导航，自动处理分支切换时的状态同步，与 useMessageBranching 协作但提供更高层的抽象接口。
+
+---
+
+## src/renderer/hooks/useMessageContentDiff.ts
+路径：src/renderer/hooks/useMessageContentDiff.ts
+
+一句话：高效比较消息内容变更的 React Hook。
+
+| 导出 | 参数 | 返回 |
+|---|---:|---|
+| useMessageContentDiff | originalMessage: Message, editedMessage: Message | {hasChanges, textChanges, fileChanges, diffSummary} |
+
+模块逻辑：使用算法对比消息的文本内容和文件附件变更，提供详细的差异报告，用于编辑预览、变更确认和分支创建决策，优化性能避免不必要的重计算。
+
+---
+
+## src/renderer/hooks/useI18n.ts
+路径：src/renderer/hooks/useI18n.ts
+
+一句话：提供国际化功能的 React Hook（翻译、语言切换）。
+
+| 导出 | 参数 | 返回 |
+|---|---:|---|
+| useI18n | - | {t(key, params?), currentLanguage, changeLanguage(lang), availableLanguages} |
+
+模块逻辑：封装 i18n 系统的 React 接口，提供翻译函数、语言状态管理和切换功能，支持参数插值和复数形式，与设置 store 同步语言偏好。
+
+---
+
+## src/shared/utils/message-branching.ts
+路径：src/shared/utils/message-branching.ts
+
+一句话：消息分支操作的共享工具函数（分支创建、合并、导航算法）。
+
+| 函数 / 导出 | 参数 | 返回 / 说明 |
+|---|---:|---|
+| createMessageBranch | parentMessageId: string, newContent: MessageContent | BranchInfo；创建新的消息分支 |
+| mergeBranches | sourceBranch: BranchInfo, targetBranch: BranchInfo | MergeResult；合并两个分支 |
+| findBranchPath | fromBranch: string, toBranch: string, branches: BranchInfo[] | BranchPath[]；计算分支间的导航路径 |
+
+模块逻辑：提供消息分支系统的核心算法，处理分支树的构建、遍历和操作，确保分支关系的一致性和导航的正确性。被前端 hooks 和后端服务共同使用。
+
+---
+
+## src/shared/i18n/config.ts
+路径：src/shared/i18n/config.ts
+
+一句话：国际化系统配置（支持的语言、默认语言、回退策略）。
+
+| 导出 | 说明 |
+|---|---|
+| SUPPORTED_LANGUAGES | 支持的语言列表（en, zh） |
+| DEFAULT_LANGUAGE | 默认语言设置 |
+| FALLBACK_LANGUAGE | 翻译缺失时的回退语言 |
+
+模块逻辑：集中定义 i18n 系统的配置常量，为前后端提供统一的语言支持标准。
+
+---
+
+## src/shared/i18n/init.ts
+路径：src/shared/i18n/init.ts
+
+一句话：国际化系统初始化逻辑（加载翻译文件、设置语言环境）。
+
+| 函数 / 导出 | 参数 | 返回 / 说明 |
+|---|---:|---|
+| initializeI18n | initialLanguage?: string | Promise<void>；初始化 i18n 系统 |
+| loadTranslations | language: string | Promise<TranslationData>；动态加载语言文件 |
+
+模块逻辑：处理 i18n 系统的启动流程，包括翻译文件的异步加载、语言检测和环境设置，提供错误处理和回退机制。
+
+---
+
+## src/shared/i18n/types.ts
+路径：src/shared/i18n/types.ts
+
+一句话：国际化相关的 TypeScript 类型定义。
+
+| 导出 / 类型 | 说明 |
+|---|---|
+| Language | 支持的语言类型联合 |
+| TranslationKey | 翻译键的字符串字面量类型 |
+| TranslationParams | 翻译参数类型 |
+| I18nConfig | i18n 配置接口 |
+
+模块逻辑：为 i18n 系统提供完整的类型安全保障，确保翻译键的正确性和参数的类型匹配。
+
+---
+
+## src/renderer/components/ui/LanguageSelector.tsx
+路径：src/renderer/components/ui/LanguageSelector.tsx
+
+一句话：语言选择器组件，支持动态切换界面语言。
+
+| 组件 / 导出 | 参数 | 说明 |
+|---|---:|---|
+| LanguageSelector | props?: {compact?: boolean} | 下拉选择器显示可用语言并处理切换 |
+
+模块逻辑：提供用户友好的语言切换界面，集成 useI18n hook，支持紧凑和标准两种显示模式，实时更新界面语言并持久化用户偏好。
 
 ---
 

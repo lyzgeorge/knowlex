@@ -9,11 +9,13 @@ This document provides a comprehensive technical overview of the Knowlex applica
 ### 1.1. Key Features (MVP)
 
 - **Project-Centric Workflow**: Organize conversations within distinct projects.
-- **Simple Chat Interface**: Clean UI with streaming AI responses.
-- **Message Branching**: Navigate complex conversation trees.
-- **Temporary File Uploads**: Provide contextual files for individual conversations.
+- **Simple Chat Interface**: Clean UI with streaming AI responses and collapsible sidebar for focused work.
+- **Message Branching & Regeneration**: Navigate complex conversation trees and regenerate AI responses for better exploration.
+- **Message Editing**: Edit user messages with advanced branching and content comparison capabilities.
+- **Temporary File Uploads**: Provide contextual files for individual conversations (10MB per file, 100MB total).
 - **Local-First Storage**: All data (projects, conversations, messages) is stored locally in a SQLite database.
 - **Multi-Provider Support**: Integrates with various AI models (OpenAI, Anthropic, Google).
+- **Internationalization**: Full i18n support with English and Chinese locales.
 
 ### 1.2. Architectural Principles
 
@@ -54,6 +56,30 @@ The project uses TypeScript path aliases for clean imports:
 - `@preload/*`: Preload script for secure IPC.
 - `@shared/*`: Code shared between processes.
 
+### 2.3. Development Best Practices
+
+When working with this codebase, follow these established patterns:
+
+#### Main Process Development
+- Use the `handleIPCCall` wrapper for all IPC handlers to ensure consistent error handling.
+- Implement business logic in services (`@main/services/`) before exposing via IPC.
+- Validate all inputs at IPC boundaries using `ValidationPatterns` and type guards.
+- Use `DatabaseEntity` for standard CRUD operations and custom queries for complex operations.
+- Implement proper cancellation for long-running operations using `CancellationManager`.
+
+#### Renderer Development
+- Encapsulate complex UI logic in custom hooks rather than components.
+- Use Zustand stores for state management with `persist` middleware for UI preferences.
+- Leverage the established component hierarchy: `features/` → `layout/` → `ui/`.
+- Implement proper loading and error states for all async operations.
+- Use `useFileUpload` for file handling with built-in validation and processing.
+
+#### Testing Approach
+- Write unit tests for services with mocked dependencies and sample fixtures.
+- Test IPC communication end-to-end with mocked environments.
+- Use global mocks for `window.knowlex` API in component tests.
+- Ensure cross-layer integration testing for data flow validation.
+
 ## 3. System Architecture
 
 ### 3.1. Project Structure
@@ -69,13 +95,14 @@ src/
 │
 ├── renderer/   # Renderer Process (React UI)
 │   ├── components/ # React components
-│   ├── hooks/      # Custom React hooks
+│   ├── hooks/      # Custom React hooks (including message editing, branching)
 │   ├── pages/      # Top-level page components
 │   └── stores/     # Zustand state management stores
 │
 └── shared/     # Shared Code (Types, Constants, Utils)
     ├── types/      # Shared type definitions (IPC, data models)
-    └── i1n/       # Internationalization config and locales
+    ├── i18n/       # Internationalization config and locales
+    └── utils/      # Shared utilities including message branching
 ```
 
 ### 3.2. Technology Stack
@@ -87,8 +114,10 @@ src/
 | **Framework**        | Electron, React, Node.js, TypeScript | Core application structure                  |
 | **State Management** | Zustand                              | Lightweight, persistent state for React     |
 | **UI Components**    | Chakra UI                            | Theming and component library               |
+| **Icons**            | Heroicons v2 (`react-icons/hi2`)    | Consistent icon system                      |
 | **Database**         | SQLite (`@libsql/client`)            | Local data storage                          |
 | **AI Integration**   | AI SDK (`ai` package)                | Unified interface for AI provider streaming |
+| **Internationalization** | Custom i18n system               | Multi-language support (EN/ZH)             |
 | **Build Tool**       | Vite (via `electron-vite`)           | Fast development and build process          |
 | **Testing**          | Vitest, React Testing Library        | Unit, integration, and component testing    |
 
@@ -100,16 +129,22 @@ All inter-process communication follows a standardized, type-safe pattern to ens
 
 - **Pattern**: `IPCResult<T> = { success: boolean; data?: T; error?: string; }`
 - **Implementation**: A generic `handleIPCCall` wrapper in `@main/ipc/common.ts` provides consistent error handling for all IPC channels.
-- **Channels**: IPC channels are namespaced by domain (e.g., `project:*`, `conversation:*`, `file:*`).
+- **Channels**: IPC channels are namespaced by domain (e.g., `project:create`, `project:list`, `conversation:*`, `message:*`, `file:*`).
+- **Event Broadcasting**: Real-time synchronization via `sendConversationEvent` and `sendMessageEvent` functions that broadcast to all windows.
+- **Validation**: Comprehensive request validation using type guards and predefined `ValidationPatterns` for IDs, roles, and content.
+- **Security**: Minimal API exposure through `preload.ts` with a whitelisted `window.knowlex` interface.
 
 ### 4.2. Database Layer
 
 The database architecture is designed for maintainability and directness, avoiding complex ORMs.
 
 - **Generic Entity Class**: A `DatabaseEntity` class in `@main/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`).
+- **Field Mapping System**: Uses `createFieldMapping` for property-to-column translation with automatic JSON serialization and camelCase to snake_case conversion.
 - **Schemas**: Entity schemas in `@main/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields.
 - **Queries**: Optimized, raw SQL queries are centralized in `@main/database/queries.ts`. Services use these query functions rather than accessing the `DatabaseEntity` directly.
-- **Migrations**: Schema changes are managed through versioned SQL migration files in `@main/migrations.ts`.
+- **Migrations**: Schema changes are managed through versioned SQL migration files with both `up` and `down` scripts, tracked in `schema_version` table.
+- **Transactions**: Atomic multi-query operations via `executeTransaction` with automatic rollback on failure.
+- **Full-Text Search**: Integrated FTS with `messages_fts` table for conversation search capabilities.
 
 ### 4.3. State Management (Zustand)
 
@@ -119,14 +154,40 @@ State in the renderer is managed through domain-specific Zustand stores.
 - **Pattern**: Each store manages a specific slice of state (e.g., `projectStore`, `conversationStore`).
 - **Persistence**: Stores that require it (e.g., UI state like expanded sidebars) use Zustand's `persist` middleware to save to `localStorage`.
 - **Communication**: Stores can be composed or imported directly to interact with other stores.
+- **Event Synchronization**: Stores listen to IPC events for real-time synchronization with the main process.
+- **Loading State Management**: Centralized loading states with error handling across all stores.
+- **Single Task Management**: Only one task should be `in_progress` at a time for optimal performance.
 
 ### 4.4. AI Integration
 
 The system uses an adapter pattern to provide a unified interface for multiple AI providers.
 
-- **Adapter**: `@main/services/openai-adapter.ts` integrates with the Vercel AI SDK.
+- **Adapter**: `@main/services/openai-adapter.ts` integrates with the Vercel AI SDK and handles message format transformation.
 - **Service**: `@main/services/assistant-service.ts` manages the core logic for streaming responses, handling events, and managing cancellation.
-- **Cancellation**: A `CancellationManager` (`@main/utils/cancellation.ts`) provides robust cancellation tokens for long-running AI requests.
+- **Cancellation**: A `CancellationManager` (`@main/utils/cancellation.ts`) provides robust cancellation tokens with registration, cleanup, and active task tracking.
+- **Streaming Architecture**: Real-time streaming with `TEXT` and `REASONING` chunk events sent via IPC for live updates.
+- **Auto-Title Generation**: Automatic conversation titling triggered after first user-assistant exchange.
+- **Error Enhancement**: AI errors are enhanced with user-friendly context and debugging information.
+
+### 4.5. File Processing System
+
+Comprehensive file handling with validation, parsing, and security measures.
+
+- **Multi-Format Support**: `FileParserFactory` supports PDF, Office documents, and plain text with extensible parser architecture.
+- **Validation Pipeline**: Client and server-side validation for file constraints (10MB per file, 100MB total, supported extensions).
+- **Binary vs Text Processing**: Automatic detection and appropriate handling of binary vs text files.
+- **Image Optimization**: Special handling for images with data URL conversion and base64 encoding for embedding.
+- **Temporary File Lifecycle**: Complete workflow from upload → validation → parsing → cleanup with comprehensive error handling.
+
+### 4.6. Message System Architecture
+
+Advanced message handling with multi-part content and branching capabilities.
+
+- **Multi-Part Content**: Support for text, temporary-file, citation, tool-call, and image content parts within a single message.
+- **Message Branching**: Complete conversation tree navigation with branch creation, merging, switching, and deletion.
+- **Content Validation**: Strict validation ensuring at least one meaningful content part per message.
+- **Citation System**: Support for file references with similarity scores, page numbers, and contextual metadata.
+- **Edit Integration**: Seamless conversion between temporary files and message content parts during editing.
 
 ## 5. Architectural & Code Guidelines
 
@@ -135,6 +196,19 @@ The system uses an adapter pattern to provide a unified interface for multiple A
 - **Naming**: Use descriptive, intention-revealing names for variables, functions, and files.
 - **Error Handling**: Use the `handleIPCCall` wrapper for all IPC. Services should throw meaningful, contextual errors. UI components must handle loading and error states gracefully.
 - **Security**: Never expose sensitive Node.js APIs to the renderer. Use the `preload.ts` script to expose a limited, secure API. Validate all data at IPC boundaries.
+
+### 5.1. Development Patterns
+
+- **Hook Composition**: Complex UI logic is encapsulated in custom React hooks for reusability and testability.
+- **Performance Optimization**: Debounced operations (100ms for file uploads), content diffing, and smart re-rendering patterns.
+- **Type Safety**: Comprehensive TypeScript types with string literal unions for translation keys and validation patterns.
+- **Testing Strategy**: End-to-end IPC testing, service unit tests with mocked dependencies, and component testing with global mocks.
+
+### 5.2. Code Organization
+
+- **Component Hierarchy**: Strict separation between `features/` (domain-specific), `layout/` (structural), and `ui/` (reusable primitives).
+- **Service Layer**: Domain-specific services that encapsulate business logic and validation before database operations.
+- **Shared Utilities**: Common functionality in `@shared/utils/` for ID generation, validation, time formatting, and message branching algorithms.
 
 ## 6. Module Documentation
 
@@ -148,75 +222,82 @@ Core business logic resides here. Services are self-contained and handle a speci
 
 | **Module**             | **Description**                                              |
 | ---------------------- | ------------------------------------------------------------ |
-| `project-service.ts`   | Manages project CRUD operations, ensuring name uniqueness and handling cascade deletes of conversations. |
-| `conversation.ts`      | Handles conversation CRUD, pagination, and project associations. |
-| `message.ts`           | Manages message CRUD, including support for multi-part content (text, files, images, citations). |
-| `assistant-service.ts` | Orchestrates AI response generation, streaming, event emission, and cancellation. |
-| `file-temp.ts`         | Processes temporary file uploads, performing validation and text extraction. |
-| `file-parser.ts`       | A factory for parsing various file types (PDF, Office documents, plain text). |
-| `title-generation.ts`  | Automatically generates conversation titles by calling an AI service after the first turn. |
-| `settings.ts`          | Manages application configuration loaded from environment variables. |
-| `openai-adapter.ts`    | Adapts the application's message format to the AI SDK and handles streaming logic. |
+| `project-service.ts`   | Manages project CRUD operations with case-insensitive name uniqueness validation and cascade deletes of conversations. |
+| `conversation.ts`      | Handles conversation CRUD, pagination, project associations, and auto-title generation triggers. |
+| `message.ts`           | Manages message CRUD with multi-part content support (text, files, images, citations), content validation, and temporary file integration. |
+| `assistant-service.ts` | Orchestrates AI response generation with streaming events, cancellation management, and real-time IPC broadcasting. |
+| `file-temp.ts`         | Processes temporary file uploads with comprehensive validation, text extraction, and image optimization (data URLs). |
+| `file-parser.ts`       | Factory pattern for parsing multiple file types (PDF, Office, plain text) with encoding detection and metadata extraction. |
+| `title-generation.ts`  | Automatically generates conversation titles using AI after detecting first user-assistant exchange. |
+| `settings.ts`          | Manages application configuration from `app.env` with provider-specific settings and runtime updates. |
+| `openai-adapter.ts`    | Adapts application message format to AI SDK with streaming support, error enhancement, and configuration validation. |
 
 #### Database (`@main/database`)
 
-The data persistence layer.
+The data persistence layer with advanced ORM-like functionality.
 
 | **Module**      | **Description**                                              |
 | --------------- | ------------------------------------------------------------ |
-| `index.ts`      | Manages the `libsql` client connection and provides transaction helpers. |
-| `entity.ts`     | A generic class providing base CRUD operations for database entities. |
-| `queries.ts`    | A collection of specific, optimized SQL queries for all entities. |
-| `schemas.ts`    | Defines the mapping between TypeScript models and database table schemas. |
-| `migrations.ts` | Manages versioned database schema migrations with `up` and `down` SQL scripts. |
+| `index.ts`      | Manages the `libsql` client connection, transaction helpers, and query execution with error handling. |
+| `entity.ts`     | Generic `DatabaseEntity` class with field mapping, JSON serialization, and automatic timestamp management. |
+| `queries.ts`    | Optimized SQL queries for all entities, including FTS search and pagination support. |
+| `schemas.ts`    | Entity-to-table mapping with `createFieldMapping` for property translation and JSON field configuration. |
+| `migrations.ts` | Versioned schema migrations with bidirectional `up`/`down` scripts and rollback capabilities. |
 
 #### IPC (`@main/ipc`)
 
-The communication bridge to the renderer process.
+The communication bridge to the renderer process with comprehensive validation.
 
 | **Module**        | **Description**                                              |
 | ----------------- | ------------------------------------------------------------ |
-| `project.ts`      | Exposes `project-service` functions securely to the renderer. |
-| `conversation.ts` | Exposes `conversation-service` and `message-service` functions. |
-| `file.ts`         | Exposes `file-temp-service` functions.                       |
-| `common.ts`       | Provides the `handleIPCCall` wrapper and common validation utilities. |
+| `project.ts`      | Exposes project service functions with validation and error handling for all project operations. |
+| `conversation.ts` | Exposes conversation and message services with event broadcasting and real-time synchronization. |
+| `file.ts`         | Exposes temporary file processing with content and path-based handling modes. |
+| `settings.ts`     | Exposes settings service with read/update capabilities for configuration management. |
+| `common.ts`       | Provides `handleIPCCall` wrapper, validation patterns, and type guard utilities for secure IPC communication. |
 
 ### 6.2. Renderer Process (`src/renderer`)
 
 #### Stores (`@renderer/stores`)
 
-Zustand stores for managing frontend state.
+Zustand stores for managing frontend state with persistence and real-time synchronization.
 
 | **Module**        | **Description**                                              |
 | ----------------- | ------------------------------------------------------------ |
-| `project.ts`      | Manages project data, UI state (e.g., expanded folders), and interactions with the project IPC. |
-| `conversation.ts` | Manages the active conversation, message list, streaming state, and interactions with conversation IPC. |
-| `navigation.ts`   | Controls the current view (e.g., active project or conversation page). |
-| `settings.ts`     | Caches application settings fetched from the main process.   |
-| `app.ts`          | Manages global application state, such as initialization status (`isLoading`, `isReady`). |
+| `project.ts`      | Manages project data with persistent expand/collapse state via localStorage, loading states, and project IPC interactions. |
+| `conversation.ts` | Manages active conversation, message lists, streaming state, and real-time message events with IPC synchronization. |
+| `navigation.ts`   | Controls application views (home, project, conversation) with coordinated state transitions and current selection tracking. |
+| `settings.ts`     | Caches application settings, language preferences, and AI provider configurations with main process synchronization. |
+| `app.ts`          | Manages global initialization status, sidebar collapse state (persistent), and application-wide UI preferences. |
 
 #### Hooks (`@renderer/hooks`)
 
-Reusable UI logic encapsulated in custom React hooks.
+Reusable UI logic encapsulated in custom React hooks with sophisticated state management.
 
 | **Module**                     | **Description**                                              |
 | ------------------------------ | ------------------------------------------------------------ |
-| `useProjectManagement.ts`      | Encapsulates all UI logic for creating, renaming, and deleting projects in the sidebar. |
-| `useConversationManagement.ts` | Manages the logic for the conversation list, including infinite scroll and delete confirmations. |
-| `useMessageBranching.ts`       | Handles the complex state and logic for navigating and managing conversation branches. |
-| `useFileUpload.ts`             | Manages client-side file validation, reading file contents, and calling the file processing IPC. |
-| `useInlineEdit.ts`             | Provides state and handlers for inline editing of project and conversation titles. |
-| `useAutoScroll.ts`             | Implements smart scrolling for the chat view, with options to follow streaming responses. |
+| `useProjectManagement.ts`      | Encapsulates project UI logic with form state management, validation, and local UI state for create/edit/delete operations. |
+| `useConversationManagement.ts` | Manages conversation list with infinite scroll using `IntersectionObserver`, delete confirmations, and loading states. |
+| `useMessageBranching.ts`       | Handles complex conversation tree navigation with branch creation, switching, merging, and deletion with state synchronization. |
+| `useEditableMessage.ts`        | Manages editable message state with text editing, file attachment modification, undo/redo, and branch creation integration. |
+| `useMessageBranch.ts`          | Simplified API for message branch navigation with automatic state sync and higher-level abstractions. |
+| `useMessageContentDiff.ts`     | Efficient content comparison with text and file change detection, memoized for performance optimization. |
+| `useFileUpload.ts`             | Client-side file validation with debouncing (100ms), base64 encoding for binary files, and IPC integration for processing. |
+| `useInlineEdit.ts`             | Inline editing state management for titles with start/cancel/confirm workflows and validation. |
+| `useAutoScroll.ts`             | Smart scrolling with streaming follow control, user override detection, and smooth scroll animations. |
+| `useI18n.ts`                   | Internationalization with dynamic translation loading, parameter interpolation, and language preference persistence. |
+| `useNotifications.ts`          | Application notification queue management with auto-dismiss, different severity levels, and action button support. |
 
 #### Components (`@renderer/components`)
 
-The UI is built from a combination of feature-specific, layout, and general-purpose UI components.
+The UI is built from a combination of feature-specific, layout, and general-purpose UI components with sophisticated interaction patterns.
 
-| **Category**      | **Path**    | **Description**                                              |
-| ----------------- | ----------- | ------------------------------------------------------------ |
-| **Feature Pages** | `features/` | Top-level components like `ProjectPage` and `ConversationPage`. |
-| **Layout**        | `layout/`   | Structural components like `MainLayout`, `Sidebar`, and `ProjectsSection`. |
-| **UI Primitives** | `ui/`       | Reusable components like `Button`, `Modal`, and `MarkdownContent`. |
+| **Category**      | **Path**                | **Key Components**                                           |
+| ----------------- | ----------------------- | ------------------------------------------------------------ |
+| **Feature Pages** | `features/chat/`        | `ConversationPage` (message flow, branching), `ChatInputBox` (file upload, auto-resize), `MainPage` (layout orchestration) |
+| **Feature Pages** | `features/projects/`    | `ProjectPage` (project details, conversation cards)          |
+| **Layout**        | `layout/`               | `MainLayout`, `Sidebar`, `ProjectsSection` (expandable projects), `ConversationsSection` (infinite scroll) |
+| **UI Primitives** | `ui/`                   | `Button`, `Modal`, `MarkdownContent`, `TempFileCard`, `AssistantMessage`, `UserMessage`, `ReasoningBox` |
 
 ##### Component Development Guidelines
 
@@ -226,14 +307,108 @@ Frontend engineers should adhere to the following principles when developing com
 - **Follow Theme Configuration**: All colors, fonts, spacing, and shadows should use tokens defined in the theme configuration (`@renderer/utils/theme/`). This ensures visual consistency across the application and simplifies theme updates.
 - **Prioritize Accessibility**: Ensure all interactive components are fully accessible via keyboard navigation and screen readers. Use semantic HTML and provide appropriate ARIA attributes where necessary.
 - **Ensure Responsiveness**: While the application is desktop-first, components should be designed to gracefully adapt to different window sizes and panel configurations.
+- **Hook Integration**: Leverage custom hooks for complex state management (editing, branching, file uploads) rather than implementing logic directly in components.
+- **Performance Patterns**: Use content diffing, memoization, and debouncing where appropriate to optimize rendering and user interactions.
 
 ### 6.3. Shared Code (`src/shared`)
 
-Code used by both the Main and Renderer processes.
+Code used by both the Main and Renderer processes with comprehensive type safety and utilities.
 
 | **Module**   | **Description**                                              |
 | ------------ | ------------------------------------------------------------ |
-| `types/`     | Contains all shared TypeScript type definitions for data models and IPC payloads. |
-| `i18n/`      | Handles internationalization setup, configuration, and translation files (JSON). |
-| `utils/`     | Shared utility functions for tasks like ID generation and validation. |
-| `constants/` | Application-wide constants for file constraints, AI defaults, etc. |
+| `types/`     | Complete TypeScript type definitions for data models, IPC payloads, message content parts, AI configurations, and i18n types with string literal unions. |
+| `i18n/`      | Comprehensive internationalization system with dynamic loading, type-safe translation keys, parameter interpolation, and fallback strategies (EN/ZH). |
+| `utils/`     | Shared utility functions including ID generation (UUID, short IDs), validation (email, file types), time formatting, and message branching algorithms. |
+| `constants/` | Application-wide constants for file constraints (10MB per file, 100MB total), AI defaults, supported file types with MIME mappings, and chunk sizes. |
+
+## 7. Advanced Features & Patterns
+
+### 7.1. Message Branching System
+
+The application implements a sophisticated conversation tree system:
+
+- **Branch Navigation**: Users can create alternative conversation paths at any message point.
+- **Tree Visualization**: Visual representation of conversation branches with navigation controls.
+- **Branch Operations**: Create, switch, merge, and delete branches with state preservation.
+- **Content Comparison**: Diff algorithms for comparing different branch versions.
+- **Shared Utilities**: Common branching logic in `@shared/utils/message-branching.ts` used by both processes.
+
+### 7.2. Real-Time Streaming Architecture
+
+Advanced streaming implementation for AI responses:
+
+- **Chunk-Based Streaming**: Separate handling of `TEXT` and `REASONING` chunks for progressive display.
+- **Cancellation Management**: Robust cancellation with token registration, cleanup, and active task tracking.
+- **Event Broadcasting**: Real-time updates across all application windows via IPC events.
+- **Error Recovery**: Graceful fallback and error handling during streaming with user feedback.
+
+### 7.3. File Processing Pipeline
+
+Enterprise-grade file handling:
+
+- **Multi-Stage Validation**: Client-side pre-validation followed by server-side processing and constraint checking.
+- **Format Detection**: Automatic binary vs text detection with appropriate processing strategies.
+- **Parser Extensibility**: Factory pattern for easy addition of new file format support.
+- **Memory Management**: Efficient handling of large files with streaming and temporary file cleanup.
+
+### 7.4. Testing Strategy
+
+Comprehensive testing approach:
+
+- **IPC Testing**: End-to-end testing of IPC communication with mocked environments.
+- **Service Testing**: Unit tests with dependency injection and sample file fixtures.
+- **Component Testing**: Global mock setup for secure API testing with `window.knowlex` mocks.
+- **Integration Testing**: Cross-layer testing to ensure proper data flow and state synchronization.
+
+## 8. Development Workflow & Debugging
+
+### 8.1. Common Development Tasks
+
+#### Adding New Features
+1. Start with type definitions in `@shared/types/`
+2. Implement service logic in `@main/services/` with proper validation
+3. Add IPC handlers in `@main/ipc/` using `handleIPCCall` wrapper
+4. Create or update Zustand stores in `@renderer/stores/`
+5. Build UI components following the `features/` → `layout/` → `ui/` hierarchy
+6. Add tests for all layers with appropriate mocking strategies
+
+#### File Processing Extensions
+1. Add new file type to `SUPPORTED_FILE_TYPES` in `@shared/constants/file.ts`
+2. Create parser class extending `FileParser` in `@main/services/file-parser.ts`
+3. Register parser in `FileParserFactory.createParser()`
+4. Update validation logic in `file-temp.ts` if needed
+5. Test with sample files in `@main/services/__tests__/`
+
+#### Adding IPC Channels
+1. Define types in `@shared/types/ipc.ts`
+2. Implement service functions with proper error handling
+3. Create IPC handlers using `handleIPCCall` and validation patterns
+4. Register handlers in main process initialization
+5. Add corresponding store actions and state management
+6. Write end-to-end IPC tests
+
+### 8.2. Debugging Guidelines
+
+#### IPC Communication Issues
+- Check `handleIPCCall` wrapper logs for error details
+- Verify type definitions match between main and renderer
+- Ensure proper registration/unregistration of IPC handlers
+- Monitor event broadcasting for real-time synchronization issues
+
+#### Database Problems
+- Use `getCurrentDatabasePath()` to verify database location
+- Check migration status with `getMigrationHistory()`
+- Review entity schemas for field mapping issues
+- Monitor transaction rollbacks in `executeTransaction`
+
+#### File Processing Errors
+- Verify file constraints in `FILE_CONSTRAINTS`
+- Check parser support with `FileParserFactory.isSupported()`
+- Monitor temporary file cleanup and memory usage
+- Review encoding detection for text files
+
+#### State Management Issues
+- Verify store persistence configuration
+- Check IPC event listeners for synchronization
+- Monitor loading states and error propagation
+- Review cross-store communication patterns
