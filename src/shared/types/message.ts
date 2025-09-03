@@ -4,6 +4,8 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: MessageContent
   reasoning?: string
+  // Optional transient property set by sender to indicate chosen reasoning effort
+  reasoningEffort?: import('./models').ReasoningEffort
   createdAt: string
   updatedAt: string
   parentMessageId?: string

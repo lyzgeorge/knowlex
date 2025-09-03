@@ -18,12 +18,18 @@ export interface CreateConversationData {
   title?: string
   settings?: SessionSettings
   projectId?: string | null
+  modelConfigId?: string | null
 }
 
 export interface UpdateConversationData {
   title?: string
   settings?: SessionSettings
   projectId?: string | null
+}
+
+// Allow updating the modelConfigId for a conversation
+export interface UpdateConversationDataWithModel extends UpdateConversationData {
+  modelConfigId?: string | null
 }
 
 /**
@@ -44,7 +50,8 @@ export async function createConversation(data: CreateConversationData): Promise<
     title: data.title?.trim() || 'New Chat',
     createdAt: now,
     updatedAt: now,
-    projectId: data.projectId ?? null
+    projectId: data.projectId ?? null,
+    modelConfigId: data.modelConfigId ?? null
   }
 
   if (data.settings) {
@@ -132,7 +139,7 @@ export async function listConversationsPaginated(
  */
 export async function updateConversation(
   id: string,
-  data: UpdateConversationData
+  data: UpdateConversationDataWithModel
 ): Promise<Conversation> {
   if (!id || id.trim().length === 0) {
     throw new Error('Conversation ID is required')
@@ -156,7 +163,8 @@ export async function updateConversation(
   }
 
   // Prepare update data
-  const updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId'>> = {}
+  const updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId' | 'modelConfigId'>> =
+    {}
   if (data.title !== undefined) {
     updates.title = data.title.trim()
   }
@@ -165,6 +173,10 @@ export async function updateConversation(
   }
   if (data.projectId !== undefined) {
     updates.projectId = data.projectId
+  }
+  if ((data as any).modelConfigId !== undefined) {
+    // Allow null to unset the model config, or a string id to set it
+    updates.modelConfigId = (data as any).modelConfigId
   }
 
   // Only proceed if there are actual changes

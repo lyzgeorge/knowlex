@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { markdownComponents } from '@renderer/utils/markdownComponents'
+import { shadows } from '@renderer/utils/theme/shadows'
 
 export interface ReasoningBoxProps {
   /** Reasoning content to display */
@@ -32,15 +33,14 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   // Start expanded if reasoning is streaming or has content, otherwise collapsed
   const [isExpanded, setIsExpanded] = useState(isReasoningStreaming || showWhenEmpty)
 
-  // Theme colors
-  const bgColor = useColorModeValue('rgba(168, 85, 247, 0.05)', 'rgba(168, 85, 247, 0.1)')
-  const borderColor = useColorModeValue('rgba(168, 85, 247, 0.2)', 'rgba(168, 85, 247, 0.3)')
-  const iconColor = useColorModeValue('purple.600', 'purple.400')
+  // Theme colors (use predefined palette from theme/colors.ts)
+  const bgColor = useColorModeValue('accent.50', 'accent.900')
+  const iconColor = useColorModeValue('accent.600', 'accent.400')
   const textColor = useColorModeValue('gray.700', 'gray.300')
-  const headerTextColor = useColorModeValue('purple.700', 'purple.300')
+  const headerTextColor = useColorModeValue('accent.700', 'accent.300')
   const inlineCodeBg = useColorModeValue('gray.100', 'gray.700')
   const blockCodeBg = useColorModeValue('gray.50', 'gray.800')
-  const hoverBg = useColorModeValue('rgba(168, 85, 247, 0.08)', 'rgba(168, 85, 247, 0.15)')
+  const hoverBg = useColorModeValue('accent.100', 'accent.800')
 
   // Track previous streaming states to detect changes
   const prevIsReasoningStreamingRef = useRef(isReasoningStreaming)
@@ -130,7 +130,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
           <Icon
             as={HiLightBulb}
             boxSize={3}
-            color="purple.400"
+            color="accent.400"
             ml={1}
             display="inline"
             verticalAlign="baseline"
@@ -150,10 +150,11 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   return (
     <Box
       bg={bgColor}
-      border="1px solid"
-      borderColor={borderColor}
       borderRadius="md"
       overflow="hidden"
+      boxShadow={isThinking ? shadows['reasoning-box-thinking'] : shadows['reasoning-box']}
+      _hover={{ boxShadow: shadows['reasoning-box-hover'] }}
+      transition="box-shadow 0.2s ease-in-out"
     >
       {/* Header with expand/collapse button */}
       <HStack

@@ -89,10 +89,9 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
 
   return (
     <HStack
-      border="1px solid"
-      borderColor="border.secondary"
       borderRadius="md"
       p={3}
+      bg="surface.primary"
       _hover={{ bg: 'surface.hover' }}
       cursor="pointer"
       onClick={() => !isEditing && onOpen(conversation.id)}
@@ -133,8 +132,6 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
             bg="surface.primary"
             color="text.primary"
             borderRadius="md"
-            border="1px solid"
-            borderColor="border.primary"
             shadow="dropdown"
             fontSize="sm"
             fontWeight="medium"

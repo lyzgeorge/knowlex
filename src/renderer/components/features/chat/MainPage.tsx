@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
-import { VStack, Text } from '@chakra-ui/react'
+import { VStack, Text, Box } from '@chakra-ui/react'
 import ChatInputBox from './ChatInputBox'
+import { ModelSelector } from '@renderer/components/features/models/ModelSelector'
 import { useI18n } from '@renderer/hooks/useI18n'
 import { useConversationStore } from '@renderer/stores/conversation'
 import { useNavigationActions } from '@renderer/stores/navigation'
@@ -31,24 +32,31 @@ export const MainPage: React.FC<MainPageProps> = ({ className }) => {
   }, [currentConversationId, openConversation])
 
   return (
-    <VStack
-      spacing={8}
-      textAlign="center"
-      w="full"
-      h="full"
-      justify="center"
-      align="center"
-      px={8}
-      className={className}
-    >
-      {/* Welcome Message */}
-      <Text fontSize="3xl" fontWeight="medium" color="text.primary">
-        {t('chat.greeting')}
-      </Text>
+    <Box position="relative" w="full" h="full" className={className}>
+      {/* Model Selector - Top Left */}
+      <Box position="absolute" top={4} left={4} zIndex={10}>
+        <ModelSelector />
+      </Box>
 
-      {/* Main Entrance Input - Uses main-entrance variant */}
-      <ChatInputBox variant="main-entrance" showFileAttachment={true} />
-    </VStack>
+      {/* Main Content - Centered */}
+      <VStack
+        spacing={8}
+        textAlign="center"
+        w="full"
+        h="full"
+        justify="center"
+        align="center"
+        px={8}
+      >
+        {/* Welcome Message */}
+        <Text fontSize="3xl" fontWeight="medium" color="text.primary">
+          {t('chat.greeting')}
+        </Text>
+
+        {/* Main Entrance Input - Uses main-entrance variant */}
+        <ChatInputBox variant="main-entrance" showFileAttachment={true} />
+      </VStack>
+    </Box>
   )
 }
 

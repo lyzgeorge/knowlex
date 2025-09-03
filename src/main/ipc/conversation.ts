@@ -61,7 +61,8 @@ function validateConversationUpdateData(data: unknown): data is {
     ValidationPatterns.conversationId(request.id) &&
     validateStringProperty(request, 'title', false) &&
     (request.settings === undefined ||
-      (typeof request.settings === 'object' && request.settings !== null))
+      (typeof request.settings === 'object' && request.settings !== null)) &&
+    (request.modelConfigId === undefined || ValidationPatterns.modelConfigId(request.modelConfigId))
   )
 }
 
@@ -160,6 +161,8 @@ export function registerConversationIPCHandlers(): void {
         const updateData: UpdateConversationData = {}
         if (requestData.title !== undefined) updateData.title = requestData.title
         if (requestData.settings !== undefined) updateData.settings = requestData.settings
+        if ((requestData as any).modelConfigId !== undefined)
+          (updateData as any).modelConfigId = (requestData as any).modelConfigId
 
         return await updateConversation(requestData.id, updateData)
       })
@@ -351,6 +354,14 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message content')
       }
 
+      // Validate optional reasoningEffort if provided
+      if (request.reasoningEffort !== undefined) {
+        const val = request.reasoningEffort
+        if (!(val === 'low' || val === 'medium' || val === 'high')) {
+          throw new Error('Invalid reasoningEffort value')
+        }
+      }
+
       const providedConversationId: string | undefined =
         typeof request.conversationId === 'string' && request.conversationId.trim().length > 0
           ? request.conversationId.trim()
@@ -366,12 +377,18 @@ export function registerConversationIPCHandlers(): void {
           ? request.projectId.trim()
           : undefined
 
+      const modelConfigIdForNew: string | undefined =
+        typeof request.modelConfigId === 'string' && request.modelConfigId.trim().length > 0
+          ? request.modelConfigId.trim()
+          : undefined
+
       // Determine conversation - create if needed
       let actualConversationId = providedConversationId
       if (!actualConversationId) {
         const newConv = await createConversation({
           title: 'New Chat',
-          projectId: projectIdForNew ?? null
+          projectId: projectIdForNew ?? null,
+          modelConfigId: modelConfigIdForNew ?? null
         })
         actualConversationId = newConv.id
 
@@ -386,7 +403,14 @@ export function registerConversationIPCHandlers(): void {
         content: request.content as any,
         ...(parentMessageId && { parentMessageId })
       })
-      sendMessageEvent(MESSAGE_EVENTS.ADDED, userMessage)
+
+      // Include transient reasoningEffort in the event payload (not persisted)
+      const transientUserMessage = {
+        ...userMessage,
+        reasoningEffort: request.reasoningEffort as 'low' | 'medium' | 'high' | undefined
+      }
+
+      sendMessageEvent(MESSAGE_EVENTS.ADDED, transientUserMessage)
 
       // Small delay to ensure different timestamp ordering
       await new Promise((r) => setTimeout(r, 1))
@@ -401,7 +425,14 @@ export function registerConversationIPCHandlers(): void {
 
       // Use assistant service for unified streaming logic
       const { generateReplyForNewMessage } = await import('@main/services/assistant-service')
-      await generateReplyForNewMessage(assistantMessage.id, actualConversationId)
+      // Pass reasoningEffort if provided to the assistant generation pipeline
+      const reasoningEffort: 'low' | 'medium' | 'high' | undefined =
+        typeof request.reasoningEffort === 'string' && request.reasoningEffort.trim().length > 0
+          ? (request.reasoningEffort as 'low' | 'medium' | 'high')
+          : undefined
+
+      // Attach reasoning metadata to the assistant generation (transient)
+      await generateReplyForNewMessage(assistantMessage.id, actualConversationId, reasoningEffort)
 
       // Return empty list (UI updates via events)
       return []
@@ -563,6 +594,7 @@ export const MESSAGE_EVENTS = {
   ADDED: 'added',
   UPDATED: 'updated',
   DELETED: 'deleted',
+  START: 'start',
   STREAMING_START: 'streaming_start',
   STREAMING_CHUNK: 'streaming_chunk',
   STREAMING_END: 'streaming_end',

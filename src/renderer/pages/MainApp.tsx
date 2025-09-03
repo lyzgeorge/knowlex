@@ -2,8 +2,9 @@ import { Box } from '@chakra-ui/react'
 import { MainLayout } from '@renderer/components/layout/MainLayout'
 import MainPage from '@renderer/components/features/chat/MainPage'
 import ConversationPage from '@renderer/components/features/chat/ConversationPage'
-import { useCurrentView } from '@renderer/stores/navigation'
+import { useCurrentView, useSettingsModal, useNavigationActions } from '@renderer/stores/navigation'
 import ProjectPage from '@renderer/components/features/projects/ProjectPage'
+import { SettingsModal } from '@renderer/components/features/settings'
 import { NotificationProvider } from '@renderer/components/ui'
 
 /**
@@ -16,6 +17,8 @@ import { NotificationProvider } from '@renderer/components/ui'
  */
 function MainApp(): JSX.Element {
   const { currentView, selectedProjectId } = useCurrentView()
+  const { isSettingsOpen, settingsDefaultTab } = useSettingsModal()
+  const { closeSettings } = useNavigationActions()
 
   return (
     <NotificationProvider>
@@ -42,6 +45,13 @@ function MainApp(): JSX.Element {
             })()}
           </Box>
         </Box>
+
+        {/* Settings Modal */}
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={closeSettings}
+          defaultTab={settingsDefaultTab}
+        />
       </MainLayout>
     </NotificationProvider>
   )

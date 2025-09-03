@@ -9,6 +9,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '@renderer/components/ui'
 import type { TemporaryFileResult } from '@shared/types/file'
+import { FILE_CONSTRAINTS, SUPPORTED_FILE_TYPES } from '@shared/constants/file'
+import { formatBytes } from '@shared/utils/validation'
 
 export interface ProcessedFile extends TemporaryFileResult {
   isImage?: boolean
@@ -43,35 +45,14 @@ export interface FileUploadHook {
   }
 }
 
-// File constraints matching backend
-const MAX_FILES = 10
-const MAX_FILE_SIZE = 1024 * 1024 // 1MB
-const MAX_TOTAL_SIZE = 10 * 1024 * 1024 // 10MB
-const ALLOWED_TYPES = [
-  '.txt',
-  '.md',
-  '.csv',
-  '.json',
-  '.xml',
-  '.html',
-  '.pdf',
-  '.docx',
-  '.pptx',
-  '.xlsx',
-  '.odt',
-  '.odp',
-  '.ods',
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.gif',
-  '.bmp',
-  '.webp',
-  '.svg'
-]
+// File constraints sourced from shared constants
+const MAX_FILES = FILE_CONSTRAINTS.TEMPORARY.maxFileCount
+const MAX_FILE_SIZE = FILE_CONSTRAINTS.TEMPORARY.maxFileSize
+const MAX_TOTAL_SIZE = FILE_CONSTRAINTS.TEMPORARY.maxTotalSize
+const ALLOWED_TYPES = SUPPORTED_FILE_TYPES.TEMPORARY as readonly string[]
 
 // Export for use in file input accept attribute
-export const getFileAcceptString = (): string => ALLOWED_TYPES.join(',')
+export const getFileAcceptString = (): string => (ALLOWED_TYPES as string[]).join(',')
 
 // Export file constraints for use in components
 export const getFileConstraints = () => ({
@@ -104,11 +85,15 @@ const isBinaryExt = (ext: string): boolean =>
 const isImageMime = (mime?: string): boolean => Boolean(mime && mime.startsWith('image/'))
 
 const validateSingleFile = (file: File): string | null => {
-  if (file.size > MAX_FILE_SIZE) return `File "${file.name}" is too large. Maximum size is 1MB.`
+  if (file.size > MAX_FILE_SIZE)
+    return `File "${file.name}" is too large. Maximum size is ${formatBytes(MAX_FILE_SIZE)}.`
   const ext = getExtension(file.name)
-  if (!ALLOWED_TYPES.includes(ext)) {
+  if (!(ALLOWED_TYPES as string[]).includes(ext)) {
     return (
-      'File "' + file.name + '" is not supported. Supported formats: ' + ALLOWED_TYPES.join(', ')
+      'File "' +
+      file.name +
+      '" is not supported. Supported formats: ' +
+      (ALLOWED_TYPES as string[]).join(', ')
     )
   }
   return null
@@ -234,7 +219,9 @@ export const useFileUpload = (): FileUploadHook => {
           continue
         }
         if (total + file.size > MAX_TOTAL_SIZE) {
-          errors.push(`Adding "${file.name}" would exceed the 10MB total size limit.`)
+          errors.push(
+            `Adding "${file.name}" would exceed the total size limit of ${formatBytes(MAX_TOTAL_SIZE)}.`
+          )
           continue
         }
         total += file.size

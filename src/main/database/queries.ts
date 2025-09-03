@@ -1,7 +1,8 @@
 import { executeQuery } from './index'
 import type { Conversation } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
-import { conversationEntity, messageEntity, projectEntity } from './schemas'
+import type { ModelConfig } from '@shared/types/models'
+import { conversationEntity, messageEntity, projectEntity, modelConfigEntity } from './schemas'
 import type { Project } from '@shared/types/project'
 
 /**
@@ -64,7 +65,7 @@ export async function listConversations(limit?: number, offset?: number): Promis
 
 export async function updateConversation(
   id: string,
-  updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId'>>
+  updates: Partial<Pick<Conversation, 'title' | 'settings' | 'projectId' | 'modelConfigId'>>
 ): Promise<void> {
   await conversationEntity.update(id, updates)
 }
@@ -181,4 +182,34 @@ export async function searchMessages(query: string, limit = 20): Promise<SearchR
     console.error('Full-text search failed:', error)
     return []
   }
+}
+
+// ============================================================================
+// Model Config Queries (Using Generic CRUD)
+// ============================================================================
+
+export async function createModelConfig(modelConfig: ModelConfig): Promise<void> {
+  await modelConfigEntity.create(modelConfig)
+}
+
+export async function getModelConfig(id: string): Promise<ModelConfig | null> {
+  return await modelConfigEntity.get(id)
+}
+
+export async function listModelConfigs(): Promise<ModelConfig[]> {
+  return await modelConfigEntity.list({
+    orderBy: 'created_at',
+    direction: 'ASC'
+  })
+}
+
+export async function updateModelConfig(
+  id: string,
+  updates: Partial<Omit<ModelConfig, 'id' | 'createdAt' | 'updatedAt'>>
+): Promise<void> {
+  await modelConfigEntity.update(id, updates)
+}
+
+export async function deleteModelConfig(id: string): Promise<void> {
+  await modelConfigEntity.delete(id)
 }

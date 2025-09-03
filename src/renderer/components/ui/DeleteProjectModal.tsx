@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
-import { Box, Text, Button as ChakraButton, VStack, HStack, Badge } from '@chakra-ui/react'
+import { Box, Text, Button as ChakraButton, VStack, HStack, Badge, Icon } from '@chakra-ui/react'
+import { HiMiniCheck } from 'react-icons/hi2'
 import Modal from './Modal'
 
 interface Props {
@@ -74,16 +75,21 @@ const DeleteProjectModal: React.FC<Props> = ({
           <Box
             as="input"
             value={input}
-            onChange={(e: any) => setInput(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
             placeholder={projectName}
-            border="1px solid"
-            borderColor={matches ? 'green.400' : 'red.400'}
             borderRadius="md"
             p={2}
           />
-          <Text fontSize="sm" color={matches ? 'green.500' : 'red.500'}>
-            {matches ? '✓ Names match' : "Names don't match"}
-          </Text>
+          {matches ? (
+            <HStack spacing={1} color="green.500">
+              <Icon as={HiMiniCheck} boxSize={4} />
+              <Text fontSize="sm">Names match</Text>
+            </HStack>
+          ) : (
+            <Text fontSize="sm" color="red.500">
+              Names don&apos;t match
+            </Text>
+          )}
         </VStack>
       )}
     </Modal>

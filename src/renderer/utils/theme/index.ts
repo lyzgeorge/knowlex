@@ -30,7 +30,7 @@ const themeOverrides: ThemeOverride = {
 
   // Global styles
   styles: {
-    global: (props: any) => ({
+    global: (props: { colorMode: string }) => ({
       body: {
         bg: props.colorMode === 'dark' ? '#0F1211' : '#FFFDF3', // Warm backgrounds
         color: props.colorMode === 'dark' ? '#B8C0BB' : '#1A1A1A', // Better contrast
@@ -51,56 +51,56 @@ const themeOverrides: ThemeOverride = {
   // Semantic tokens for consistent theming
   semanticTokens: {
     colors: {
-      // Background colors - warm tones for comfort
+      // Background colors - lightweight and airy
       'background.primary': {
-        default: 'white', // Keep content areas pure white for text clarity
-        _dark: '#0F1211' // Softer than pure black
+        default: '#FAF9F8',
+        _dark: '#0F1211'
       },
       'background.secondary': {
-        default: '#FFFDF3', // Extremely light warm yellow for canvas
+        default: '#F5F3F1',
         _dark: '#1A1F1D'
       },
       'background.tertiary': {
-        default: '#FAFAF7', // Neutral micro-warm
+        default: '#EDEAE8',
         _dark: '#1F2523'
       },
 
-      // Surface colors - warm neutral palette
+      // Surface colors - lighter weight for floating elements
       'surface.primary': {
-        default: 'white', // Keep content surfaces white
-        _dark: '#1A1F1D'
+        default: '#FFFFFF', // Pure white for clean look
+        _dark: '#161A18'
       },
       'surface.secondary': {
-        default: '#FAFAF7', // Neutral micro-warm
-        _dark: '#1F2523'
+        default: '#FAF9F8', // Match background.primary for seamless feel
+        _dark: '#1A1F1D'
       },
       'surface.hover': {
-        default: '#F4F4EF', // Warm hover state
-        _dark: '#252A28'
+        default: '#F7F6F5', // Very subtle hover
+        _dark: '#232826'
       },
 
-      // Border colors - warm grays instead of cold
+      // Border colors - lighter and more subtle
       'border.primary': {
-        default: '#E7E2D9', // Warm gray border
-        _dark: 'gray.600'
+        default: '#EDEAE8', // Light and unobtrusive
+        _dark: '#2A302D'
       },
       'border.secondary': {
-        default: '#F0ECE4', // Lighter warm gray
-        _dark: 'gray.700'
+        default: '#F5F3F1', // Nearly invisible for subtle divisions
+        _dark: '#232826'
       },
 
-      // Text colors - non-pure black for reduced fatigue
+      // Text colors - softer for comfortable reading
       'text.primary': {
-        default: '#1A1A1A', // Non-pure black, charcoal
-        _dark: '#B8C0BB' // Soft readable color in dark mode
+        default: '#2C2C2C', // Softer than pure black
+        _dark: '#E8EEEA'
       },
       'text.secondary': {
-        default: '#4A4A4A', // Ensures ≥4.5:1 contrast with warm backgrounds
-        _dark: '#9CA3A0'
+        default: '#5A5A5A', // Medium gray for hierarchy
+        _dark: '#B8C0BB'
       },
       'text.tertiary': {
-        default: '#6B6B6B', // Only for meta information
-        _dark: '#7A817E'
+        default: '#8A8A8A', // Light gray for metadata
+        _dark: '#9CA3A0'
       },
 
       // Brand colors - updated with designer feedback

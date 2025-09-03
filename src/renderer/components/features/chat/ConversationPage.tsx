@@ -4,6 +4,7 @@ import { useCurrentConversation } from '@renderer/stores/conversation'
 import ChatInputBox from './ChatInputBox'
 import UserMessage from '@renderer/components/ui/UserMessage'
 import AssistantMessage from '@renderer/components/ui/AssistantMessage'
+import { ConversationHeader } from './ConversationHeader'
 import { useAutoScroll } from '@renderer/hooks/useAutoScroll'
 import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
 import { HiArrowDown } from 'react-icons/hi2'
@@ -92,6 +93,9 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
       className={className}
       position="relative"
     >
+      {/* Conversation Header */}
+      <ConversationHeader />
+
       {/* Messages Area - Full height with floating input */}
       <Box
         ref={scrollRef}
@@ -128,7 +132,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
                     }}
                   />
                 ) : (
-                  <Box minH={isLatestAssistantMessage ? 'calc(100vh - 16rem)' : 'auto'}>
+                  <Box minH={isLatestAssistantMessage ? 'calc(100vh - 20rem)' : 'auto'}>
                     <AssistantMessage
                       message={message}
                       showAvatar={true}

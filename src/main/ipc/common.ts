@@ -119,7 +119,12 @@ export const ValidationPatterns = {
    */
   messageContent: (content: unknown): content is Array<any> => {
     return Array.isArray(content) && content.length > 0
-  }
+  },
+
+  /**
+   * Validates model config ID parameter
+   */
+  modelConfigId: (id: unknown): id is string => validateId(id)
 }
 
 /**

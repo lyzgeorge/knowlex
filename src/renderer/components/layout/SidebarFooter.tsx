@@ -1,20 +1,16 @@
 import React from 'react'
 import { Box, HStack, VStack, Text, IconButton, Avatar, Divider } from '@chakra-ui/react'
 import { HiCog6Tooth } from 'react-icons/hi2'
-import { LanguageSelector } from '@renderer/components/ui/LanguageSelector'
 import { useI18n } from '@renderer/hooks/useI18n'
+import { useNavigationActions } from '@renderer/stores/navigation'
 
 export const SidebarFooter: React.FC = () => {
   const { t } = useI18n()
+  const { openSettings } = useNavigationActions()
 
   return (
     <Box p={4}>
       <VStack spacing={3} align="stretch">
-        {/* Language Selector */}
-        <Box px={1}>
-          <LanguageSelector variant="compact" size="xs" />
-        </Box>
-
         <Divider />
 
         {/* User Info and Settings */}
@@ -30,9 +26,7 @@ export const SidebarFooter: React.FC = () => {
             icon={<HiCog6Tooth />}
             size="sm"
             variant="ghost"
-            onClick={() => {
-              console.log('Open settings')
-            }}
+            onClick={() => openSettings()}
           />
         </HStack>
       </VStack>

@@ -68,8 +68,6 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               bg="surface.secondary"
-              border="1px solid"
-              borderColor="border.secondary"
               _focus={{
                 borderColor: 'primary.500',
                 boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'

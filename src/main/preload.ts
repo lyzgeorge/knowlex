@@ -8,6 +8,7 @@ import type {
   SettingsUpdateRequest
 } from '@shared/types/ipc'
 import type { MessageContent } from '@shared/types/message'
+import type { ReasoningEffort } from '@shared/types/models'
 
 // Define the API interface that will be exposed to the renderer
 export interface KnowlexAPI {
@@ -47,6 +48,7 @@ export interface KnowlexAPI {
       conversationId?: string
       parentMessageId?: string
       content: MessageContent
+      reasoningEffort?: ReasoningEffort
     }) => Promise<IPCResult>
     stop: (messageId: string) => Promise<IPCResult>
     list: (conversationId: string) => Promise<IPCResult>
@@ -91,6 +93,30 @@ export interface KnowlexAPI {
   ai: {
     testConnection: (config: any) => Promise<IPCResult>
   }
+
+  // Model Configuration IPC
+  modelConfig: {
+    list: (options?: { includeApiKeys?: boolean }) => Promise<IPCResult>
+    get: (id: string, options?: { includeApiKey?: boolean }) => Promise<IPCResult>
+    create: (input: any) => Promise<IPCResult>
+    update: (id: string, updates: any) => Promise<IPCResult>
+    delete: (id: string) => Promise<IPCResult>
+    test: (id: string) => Promise<IPCResult>
+    getDefault: () => Promise<IPCResult>
+    setDefault: (id: string) => Promise<IPCResult>
+  }
+
+  // Model config event listeners
+  onModelConfigChanged?: (
+    callback: (payload: {
+      version: number
+      changedAt: string
+      events: Array<{ type: string; model?: any; id?: string }>
+    }) => void
+  ) => void
+
+  // Legacy Migration IPC
+  // (removed)
 
   // Event listeners
   events: {
@@ -202,6 +228,26 @@ const knowlexAPI: KnowlexAPI = {
   ai: {
     testConnection: (config) => ipcRenderer.invoke('ai:test-connection', config)
   },
+
+  // Model Configuration IPC
+  modelConfig: {
+    list: (options?: { includeApiKeys?: boolean }) =>
+      ipcRenderer.invoke('model-config:list', options),
+    get: (id: string, options?: { includeApiKey?: boolean }) =>
+      ipcRenderer.invoke('model-config:get', id, options),
+    create: (input) => ipcRenderer.invoke('model-config:create', input),
+    update: (id, updates) => ipcRenderer.invoke('model-config:update', id, updates),
+    delete: (id) => ipcRenderer.invoke('model-config:delete', id),
+    test: (id) => ipcRenderer.invoke('model-config:test', id),
+    getDefault: () => ipcRenderer.invoke('model-config:get-default'),
+    setDefault: (id: string) => ipcRenderer.invoke('model-config:set-default', id)
+  },
+
+  onModelConfigChanged: (callback) => {
+    ipcRenderer.on('model-config:changed', (_, payload) => callback(payload))
+  },
+
+  // (legacy migration API removed)
 
   // Event listeners
   events: {

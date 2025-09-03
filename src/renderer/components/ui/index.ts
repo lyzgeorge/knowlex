@@ -13,3 +13,6 @@ export { default as AutoResizeTextarea } from './AutoResizeTextarea'
 
 // Language selection
 export { LanguageSelector } from './LanguageSelector'
+
+// Modal
+export { default as Modal } from './Modal'

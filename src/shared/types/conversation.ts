@@ -5,19 +5,12 @@ export interface Conversation {
   updatedAt: string
   // Optional project association; null means uncategorized
   projectId?: string | null
+  // Reference to selected model configuration
+  modelConfigId?: string | null
   settings?: SessionSettings
 }
 
 export interface SessionSettings {
   systemPrompt?: string
-  modelConfig?: ModelConfig
   temperature?: number
-}
-
-export interface ModelConfig {
-  provider: string
-  model: string
-  apiKey?: string
-  baseURL?: string
-  maxTokens?: number
 }

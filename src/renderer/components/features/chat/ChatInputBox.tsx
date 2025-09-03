@@ -15,6 +15,8 @@ import {
 } from '@renderer/stores/conversation'
 import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
 import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
+import { ReasoningEffortSelector } from '../models/ReasoningEffortSelector'
+import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
 import {
   useFileUpload,
   FileUploadItem,
@@ -23,6 +25,7 @@ import {
   getFileConstraints
 } from '@renderer/hooks/useFileUpload'
 import type { Message, MessageContent } from '@shared/types/message'
+import type { ReasoningEffort } from '@shared/types/models'
 
 // Animation for refresh icon
 const spinAnimation = keyframes`
@@ -70,6 +73,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const { t } = useI18n()
   const [input, setInput] = useState('')
   const [isHoveringStreamButton, setIsHoveringStreamButton] = useState(false)
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort | undefined>(undefined)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
@@ -79,6 +83,17 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const isReasoningStreaming = useIsReasoningStreaming()
   const reasoningStreamingMessageId = useReasoningStreamingMessageId()
   const { currentConversation, currentMessages } = useCurrentConversation()
+  // Use centralized capability detection
+  const { capabilities: activeModelCapabilities, modelConfig: activeModel } =
+    useActiveModelCapabilities(currentConversation?.modelConfigId)
+  const reasoningSupported = activeModelCapabilities.supportsReasoning
+
+  // Reset reasoning effort when model doesn't support reasoning
+  React.useEffect(() => {
+    if (!reasoningSupported && reasoningEffort !== undefined) {
+      setReasoningEffort(undefined)
+    }
+  }, [reasoningSupported, reasoningEffort])
   // Resolve branching: always call the hook (hooks must be unconditional)
   const internalBranch = !branching
   const branchingResult = useMessageBranching(currentMessages)
@@ -271,19 +286,38 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         .find((msg) => msg.role === 'assistant')
 
       // Determine routing for the message based on variant/context
-      const sendOptions: { conversationId?: string; parentMessageId?: string; projectId?: string } =
-        {}
+      const sendOptions: {
+        conversationId?: string
+        parentMessageId?: string
+        projectId?: string
+        reasoningEffort?: ReasoningEffort
+        modelConfigId?: string
+      } = {}
 
       if (variant === 'project-entrance' && projectId) {
         // Always create a new conversation under this project.
         // Do not thread into any previously selected conversation.
         sendOptions.projectId = projectId
         // Intentionally avoid setting parentMessageId to start a fresh thread
+        if (reasoningEffort !== undefined) {
+          sendOptions.reasoningEffort = reasoningEffort
+        }
       } else if (currentConversation?.id) {
         // Normal behavior: send to currently selected conversation
         sendOptions.conversationId = currentConversation.id
         if (lastAssistantMessage?.id) {
           sendOptions.parentMessageId = lastAssistantMessage.id
+        }
+        if (reasoningEffort !== undefined) {
+          sendOptions.reasoningEffort = reasoningEffort
+        }
+      } else if (variant === 'main-entrance') {
+        // Main entrance: create new conversation with reasoning effort and active model
+        if (reasoningEffort !== undefined) {
+          sendOptions.reasoningEffort = reasoningEffort
+        }
+        if (activeModel?.id) {
+          sendOptions.modelConfigId = activeModel.id
         }
       }
 
@@ -317,7 +351,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     currentConversation,
     filteredMessages,
     variant,
-    projectId
+    projectId,
+    reasoningEffort,
+    activeModel
   ])
 
   // Handle keyboard shortcuts
@@ -397,7 +433,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         {/* Two-row layout */}
         <Box display="flex" flexDirection="column">
           {/* First row: Text Input */}
-          <Box px="0.5rem" py="0.25rem">
+          <Box px="0.5rem" mt="0.25rem" mb="0.5rem">
             <AutoResizeTextarea
               value={input}
               onChange={handleInputChange}
@@ -409,44 +445,53 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             />
           </Box>
 
-          {/* Second row: File Upload (left) and Send Button (right) */}
+          {/* Second row: File Upload (left), Reasoning Effort (left-center) and Send Button (right) */}
           <Box display="flex" justifyContent="space-between" alignItems="center" h="2rem">
-            {/* File Upload Button - Bottom Left */}
-            {showFileAttachment && (
-              <>
-                <IconButton
-                  aria-label={t('chat.attachFile')}
-                  icon={<HiPaperClip />}
-                  size="sm"
-                  variant="ghost"
-                  borderRadius="full"
-                  isDisabled={
-                    disabled ||
-                    fileUpload.state.files.length >= MAX_FILES ||
-                    fileUpload.state.isProcessing
-                  }
-                  onClick={() => fileInputRef.current?.click()}
-                />
-
-                {/* Hidden File Input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={getFileAcceptString()}
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      handleFileUpload(e.target.files)
+            {/* Left side controls */}
+            <Box display="flex" alignItems="center" gap={1}>
+              {/* File Upload Button */}
+              {showFileAttachment && (
+                <>
+                  <IconButton
+                    aria-label={t('chat.attachFile')}
+                    icon={<HiPaperClip />}
+                    size="sm"
+                    variant="ghost"
+                    isDisabled={
+                      disabled ||
+                      fileUpload.state.files.length >= MAX_FILES ||
+                      fileUpload.state.isProcessing
                     }
-                    e.target.value = ''
-                  }}
-                />
-              </>
-            )}
+                    onClick={() => fileInputRef.current?.click()}
+                  />
 
-            {/* Spacer for when file attachment is hidden */}
-            {!showFileAttachment && <Box />}
+                  {/* Hidden File Input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={getFileAcceptString()}
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleFileUpload(e.target.files)
+                      }
+                      e.target.value = ''
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Reasoning Effort Selector (icon trigger) */}
+              {(variant === 'conversation' || variant === 'main-entrance') && (
+                <ReasoningEffortSelector
+                  value={reasoningEffort}
+                  onChange={setReasoningEffort}
+                  variant="icon"
+                  isDisabled={!reasoningSupported}
+                />
+              )}
+            </Box>
 
             {/* Send / Refreshing-Stop Button - Bottom Right */}
             {isRefreshing ? (

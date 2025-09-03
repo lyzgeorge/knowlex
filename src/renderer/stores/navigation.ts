@@ -19,6 +19,10 @@ export interface NavigationState {
   // Current conversation ID
   currentConversationId: string | null
 
+  // Settings modal state
+  isSettingsOpen: boolean
+  settingsDefaultTab: number
+
   // Navigation stack for back navigation
   navigationHistory: Array<{
     view: MainView
@@ -31,6 +35,8 @@ export interface NavigationState {
   goHome: () => void
   openProject: (projectId: string) => void
   openConversation: (conversationId: string, projectId?: string | null) => void
+  openSettings: (defaultTab?: number) => void
+  closeSettings: () => void
   navigateBack: () => void
   clearHistory: () => void
 
@@ -43,6 +49,8 @@ const initialState = {
   currentView: 'home' as MainView,
   selectedProjectId: null,
   currentConversationId: null,
+  isSettingsOpen: false,
+  settingsDefaultTab: 0,
   navigationHistory: []
 }
 
@@ -161,6 +169,20 @@ export const useNavigationStore = create<NavigationState>()(
       useConversationStore.getState().setCurrentConversation(conversationId)
     },
 
+    openSettings: (defaultTab = 0) => {
+      set((state) => {
+        state.isSettingsOpen = true
+        state.settingsDefaultTab = defaultTab
+      })
+    },
+
+    closeSettings: () => {
+      set((state) => {
+        state.isSettingsOpen = false
+        state.settingsDefaultTab = 0
+      })
+    },
+
     navigateBack: () => {
       set((state) => {
         if (state.navigationHistory.length > 0) {
@@ -217,10 +239,18 @@ export const useCurrentView = () => {
   return { currentView, selectedProjectId, currentConversationId }
 }
 
+export const useSettingsModal = () => {
+  const isSettingsOpen = useNavigationStore((state) => state.isSettingsOpen)
+  const settingsDefaultTab = useNavigationStore((state) => state.settingsDefaultTab)
+  return { isSettingsOpen, settingsDefaultTab }
+}
+
 export const useNavigationActions = () => {
   const goHome = useNavigationStore((state) => state.goHome)
   const openProject = useNavigationStore((state) => state.openProject)
   const openConversation = useNavigationStore((state) => state.openConversation)
+  const openSettings = useNavigationStore((state) => state.openSettings)
+  const closeSettings = useNavigationStore((state) => state.closeSettings)
   const navigateBack = useNavigationStore((state) => state.navigateBack)
   const canGoBack = useNavigationStore((state) => state.canGoBack)
   const getPreviousView = useNavigationStore((state) => state.getPreviousView)
@@ -229,9 +259,12 @@ export const useNavigationActions = () => {
     goHome,
     openProject,
     openConversation,
+    openSettings,
+    closeSettings,
     navigateBack,
     canGoBack,
-    getPreviousView
+    getPreviousView,
+    openModelsSettings: () => openSettings(0) // Models tab is first tab
   }
 }
 

@@ -102,21 +102,21 @@ export const colors = {
     900: '#102a43'
   },
 
-  // Extended gray scale for better UI hierarchy
+  // Extended gray scale with warm undertones to match background
   gray: {
-    25: '#fcfcfd',
-    50: '#f9fafb',
-    100: '#f3f4f6',
-    200: '#e5e7eb',
-    300: '#d1d5db',
-    400: '#9ca3af',
-    500: '#6b7280',
-    600: '#4b5563',
-    700: '#374151',
-    800: '#1f2937',
-    850: '#1a202c',
-    900: '#111827',
-    950: '#0d1117'
+    25: '#fcfcfb',
+    50: '#faf9f8',
+    100: '#f5f3f1',
+    200: '#edeae8',
+    300: '#d6d3d1',
+    400: '#a8a5a3',
+    500: '#78746f',
+    600: '#57534e',
+    700: '#3f3b37',
+    800: '#292524',
+    850: '#1c1917',
+    900: '#141312',
+    950: '#0f1211'
   },
 
   // Chat message colors
@@ -127,22 +127,22 @@ export const colors = {
     },
     assistant: {
       bg: {
-        light: 'gray.100',
-        dark: 'gray.700'
+        light: 'gray.50', // Warmer, lighter background
+        dark: 'gray.800' // Deeper warm dark
       },
       text: {
-        light: 'gray.900',
+        light: 'gray.800', // Softer contrast with warm background
         dark: 'gray.100'
       }
     },
     system: {
       bg: {
-        light: 'blue.50',
-        dark: 'blue.900'
+        light: 'secondary.50', // Use muted blue instead of bright blue
+        dark: 'secondary.900'
       },
       text: {
-        light: 'blue.800',
-        dark: 'blue.200'
+        light: 'secondary.700',
+        dark: 'secondary.200'
       }
     }
   },

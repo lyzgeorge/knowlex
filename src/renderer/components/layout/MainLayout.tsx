@@ -25,20 +25,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
 
       {/* Main Content Area - Flexible width */}
       <Box flex={1} h="100vh" overflow="hidden" bg="background.primary" position="relative">
-        {/* Draggable Top Area */}
-        <Box
-          h="4rem"
-          w="100%"
-          position="absolute"
-          top={0}
-          left={0}
-          zIndex={1000}
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-          bg="transparent"
-          pointerEvents="all"
-        />
-
-        {/* Main Content with top padding */}
+        {/* Main Content */}
         <Box h="100%" overflow="hidden">
           {children}
         </Box>

@@ -29,6 +29,7 @@ export interface AppSettings {
   defaultProvider: string
   logLevel: string
   nodeEnv: string
+  defaultModelId?: string | null
 }
 
 class SettingsService {
@@ -168,6 +169,20 @@ class SettingsService {
   }
 
   /**
+   * Update settings (runtime changes)
+   */
+  updateSettings(updates: Partial<AppSettings>) {
+    if (!this.settings) {
+      this.getSettings()
+    }
+
+    if (this.settings) {
+      Object.assign(this.settings, updates)
+      console.log('Settings updated:', updates)
+    }
+  }
+
+  /**
    * Reload settings from environment
    */
   reload() {
@@ -180,6 +195,11 @@ class SettingsService {
 
 // Export singleton instance
 export const settingsService = new SettingsService()
+
+// Export convenience functions
+export const getSettings = () => settingsService.getSettings()
+export const updateSettings = (updates: Partial<AppSettings>) =>
+  settingsService.updateSettings(updates)
 
 // Export for tests
 export { SettingsService }

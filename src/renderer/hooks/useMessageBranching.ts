@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { Message } from '@shared/types/message'
 
 // Sentinel key for top-level roots (messages with parentMessageId === null)
@@ -54,7 +54,7 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
   }, [messages])
 
   // Initialize default branch states and handle new message auto-switching
-  useMemo(() => {
+  useEffect(() => {
     setBranchStates((prev) => {
       const next: Record<string, BranchState> = { ...prev }
       let changed = false

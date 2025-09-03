@@ -9,6 +9,8 @@ import { useNotifications } from '@renderer/components/ui'
 import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId,
+  useIsStartStreaming,
+  useStartStreamingMessageId,
   useIsTextStreaming,
   useTextStreamingMessageId,
   useRegenerateMessage
@@ -44,17 +46,15 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const isReasoningStreamingForMessage =
     isReasoningStreaming && reasoningStreamingMessageId === message.id
 
+  // Start streaming state
+  const isStartStreaming = useIsStartStreaming()
+  const startStreamingMessageId = useStartStreamingMessageId()
+  const isStartStreamingForMessage = isStartStreaming && startStreamingMessageId === message.id
+
   // Text streaming state
   const isTextStreaming = useIsTextStreaming()
   const textStreamingMessageId = useTextStreamingMessageId()
   const isTextStreamingForMessage = isTextStreaming && textStreamingMessageId === message.id
-
-  // Debug logging for streaming states
-  if (message.id && (isTextStreamingForMessage || isReasoningStreamingForMessage)) {
-    console.log(
-      `[AssistantMessage] ${message.id}: text=${isTextStreamingForMessage}, reasoning=${isReasoningStreamingForMessage}, showIcon=${isTextStreamingForMessage && !isReasoningStreamingForMessage}`
-    )
-  }
 
   // Color mode values
   const avatarBg = useColorModeValue('gray.100', 'gray.700')
@@ -80,6 +80,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
 
   // Get text content for rendering
   const textContent = getTextContent()
+
+  // Calculate visible text (remove zero-width space placeholder)
+  const visibleText = textContent.replace(/\u200B/g, '').trim()
 
   // Handle copy
   const handleCopy = async () => {
@@ -155,7 +158,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         )}
 
         {/* Text content */}
-        {(textContent.trim() || isTextStreamingForMessage) && (
+        {(visibleText || isTextStreamingForMessage) && (
           <Box
             bg="transparent"
             color={assistantTextColor}
@@ -168,7 +171,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             overflow="hidden"
           >
             <MarkdownContent
-              text={textContent}
+              text={visibleText}
               isStreaming={isTextStreamingForMessage}
               // External streaming indicator is shown below; hide inline cursor
               showCursor={false}
@@ -176,8 +179,8 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
           </Box>
         )}
 
-        {/* Text streaming indicator (blinking HiSparkles) when text is streaming */}
-        {isTextStreamingForMessage && (
+        {/* Streaming indicator (blinking HiSparkles) when streaming starts */}
+        {isStartStreamingForMessage && (
           <HStack spacing={2} px={2} align="center" alignSelf="flex-start">
             <Icon
               as={HiSparkles}

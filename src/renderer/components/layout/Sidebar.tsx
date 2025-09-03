@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react'
 import {
   Box,
   VStack,
-  Divider,
   IconButton,
   Tooltip,
   AlertDialog,
@@ -103,9 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     <Box
       w={sidebarCollapsed ? '60px' : '280px'}
       h="100vh"
-      bg="surface.primary"
-      borderRight="1px solid"
-      borderColor="border.primary"
+      bg="background.tertiary"
       display="flex"
       flexDirection="column"
       className={className}
@@ -117,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       transition="width 0.2s ease-in-out"
     >
       {/* Collapse/Expand Toggle Button */}
-      <Box position="absolute" right="-12px" top="20px" zIndex={1001} pt="1rem">
+      <Box position="absolute" right="-12px" top="16px" zIndex={1001} pt="2rem">
         <Tooltip
           label={sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           placement="right"
@@ -174,13 +171,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             </VStack>
           </Box>
 
-          <Divider />
-
           <SidebarFooter />
         </>
       ) : (
         // Collapsed sidebar - show minimal UI
-        <Box display="flex" flexDirection="column" alignItems="center" py={4} gap={3} pt="5rem">
+        <Box display="flex" flexDirection="column" alignItems="center" py={4} gap={3} pt="6rem">
           <Tooltip label={t('sidebar.newChat')} placement="right">
             <IconButton
               aria-label={t('sidebar.newChat')}

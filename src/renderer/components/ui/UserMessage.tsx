@@ -7,7 +7,8 @@ import {
   HiArrowUp,
   HiXMark,
   HiChevronLeft,
-  HiChevronRight
+  HiChevronRight,
+  HiLightBulb
 } from 'react-icons/hi2'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
@@ -71,7 +72,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     if (isEditing) {
       editableMessage.initialize(branch.currentBranch)
     }
-  }, [isEditing, branch.currentBranch.id, editableMessage.initialize])
+  }, [isEditing, branch.currentBranch.id, branch.activeIndex, editableMessage.initialize])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {
@@ -89,7 +90,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const hasContentChanged = useCallback((): boolean => {
     const newContent = editableMessage.buildContent()
     return contentDiff.compare(newContent)
-  }, [editableMessage, contentDiff])
+  }, [editableMessage.buildContent, contentDiff.compare])
 
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true)
@@ -123,7 +124,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false)
     editableMessage.reset()
-  }, [editableMessage])
+  }, [editableMessage.reset])
 
   // Handle send edited message
   const handleSendEdit = useCallback(async () => {
@@ -151,7 +152,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       })
     }
   }, [
-    editableMessage,
+    editableMessage.isValid,
+    editableMessage.buildContent,
+    editableMessage.reset,
     hasContentChanged,
     isSending,
     sendMessage,
@@ -164,7 +167,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     (files: FileList) => {
       editableMessage.addFiles(files)
     },
-    [editableMessage]
+    [editableMessage.addFiles]
   )
 
   // Handle keyboard shortcuts
@@ -271,8 +274,6 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             px={3}
             py={2}
             borderRadius="lg"
-            border="1px solid"
-            borderColor="rgba(74, 124, 74, 0.2)"
             maxWidth="100%"
             {...(isEditing ? { w: '100%' } : { w: 'fit-content', ml: 'auto' })}
           >
@@ -308,7 +309,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 />
               </>
             ) : (
-              <MarkdownContent text={textContent} />
+              <>
+                <MarkdownContent text={textContent} />
+                {/* Reasoning badge: show transient per-message reasoning selection if available */}
+                {branch.currentBranch?.reasoningEffort && (
+                  <HStack spacing={1} justify="flex-end" mt={1} color="gray.500">
+                    <Icon as={HiLightBulb} boxSize={3} />
+                    <Text fontSize="xs">Reasoning: {branch.currentBranch.reasoningEffort}</Text>
+                  </HStack>
+                )}
+              </>
             )}
           </Box>
         )}

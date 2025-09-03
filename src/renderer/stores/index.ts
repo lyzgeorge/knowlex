@@ -34,34 +34,13 @@ export {
   useOnStreamingUpdate,
   useSetStreamingState
 } from './conversation'
-export {
-  default as useSettingsStore,
-  useAPIProviders,
-  useGeneralSettings,
-  useShortcutSettings,
-  useAdvancedSettings,
-  useLoadSettings,
-  useSaveSettings,
-  useResetToDefaults,
-  useValidateSettings,
-  useHasUnsavedChanges,
-  useSettingsLoading,
-  useSettingsSaving,
-  useSettingsError,
-  useClearSettingsError
-} from './settings'
+export { default as useSettingsStore, useDefaultModel } from './settings'
 
 // Type exports
 export type { Theme, AppState } from './app'
 export type { Language } from '@shared/i18n/types'
 export type { ConversationState } from './conversation'
-export type {
-  SettingsState,
-  APIProvider,
-  GeneralSettings,
-  ShortcutSettings,
-  AdvancedSettings
-} from './settings'
+// Settings types are trimmed; no public re-exports needed
 
 // Flag to prevent duplicate store initialization in React.StrictMode
 let storesInitialized = false

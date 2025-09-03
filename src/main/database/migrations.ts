@@ -307,6 +307,107 @@ const migrations: Migration[] = [
       // For simplicity, we'll leave the column (which is acceptable for optional fields)
       'UPDATE messages SET reasoning = NULL'
     ]
+  },
+
+  {
+    version: 6,
+    name: 'add_model_configs',
+    up: [
+      // Create model configurations table
+      `CREATE TABLE IF NOT EXISTS model_configs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        api_endpoint TEXT NOT NULL,
+        api_key TEXT NULL,
+        model_id TEXT NOT NULL,
+        temperature REAL NULL,
+        top_p REAL NULL,
+        frequency_penalty REAL NULL,
+        presence_penalty REAL NULL,
+        supports_reasoning INTEGER NOT NULL DEFAULT 0,
+        supports_vision INTEGER NOT NULL DEFAULT 0,
+        supports_tool_use INTEGER NOT NULL DEFAULT 0,
+        supports_web_search INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+
+      // Add unique constraint on model name (case-insensitive)
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_model_configs_name_lower ON model_configs (LOWER(name))',
+
+      // Add model_config_id to conversations table
+      'ALTER TABLE conversations ADD COLUMN model_config_id TEXT NULL REFERENCES model_configs(id) ON DELETE SET NULL',
+
+      // Create index for conversations.model_config_id
+      'CREATE INDEX IF NOT EXISTS idx_conversations_model_config_id ON conversations(model_config_id)'
+    ],
+    down: [
+      // Drop index and column from conversations
+      'DROP INDEX IF EXISTS idx_conversations_model_config_id',
+
+      // SQLite doesn't support DROP COLUMN, so we'll recreate the conversations table
+      `CREATE TABLE conversations_backup AS SELECT 
+        id, project_id, title, created_at, updated_at, settings 
+        FROM conversations`,
+
+      'DROP TABLE conversations',
+
+      `CREATE TABLE conversations (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        title TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        settings TEXT,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE SET NULL
+      )`,
+
+      'INSERT INTO conversations SELECT * FROM conversations_backup',
+      'DROP TABLE conversations_backup',
+
+      // Recreate indexes for conversations
+      'CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations (project_id)',
+      'CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations (updated_at DESC)',
+
+      // Drop model_configs table and its indexes
+      'DROP INDEX IF EXISTS idx_model_configs_name_lower',
+      'DROP TABLE IF EXISTS model_configs'
+    ]
+  },
+
+  {
+    version: 7,
+    name: 'enhance_database_constraints',
+    up: [
+      // Add missing indexes for model_configs
+      'CREATE INDEX IF NOT EXISTS idx_model_configs_created_at ON model_configs(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_model_configs_updated_at ON model_configs(updated_at)',
+
+      // Add missing indexes for better performance
+      'CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role)',
+      'CREATE INDEX IF NOT EXISTS idx_messages_parent_id ON messages(parent_message_id)',
+      'CREATE INDEX IF NOT EXISTS idx_messages_updated_at ON messages(updated_at DESC)',
+
+      // Add app_settings index for key lookups
+      'CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key)',
+
+      // Add project name index for searches
+      'CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)',
+      'CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC)',
+
+      // Validate existing foreign key constraints are working
+      'PRAGMA foreign_keys=ON'
+    ],
+    down: [
+      'DROP INDEX IF EXISTS idx_projects_updated_at',
+      'DROP INDEX IF EXISTS idx_projects_name',
+      'DROP INDEX IF EXISTS idx_app_settings_key',
+      'DROP INDEX IF EXISTS idx_messages_updated_at',
+      'DROP INDEX IF EXISTS idx_messages_parent_id',
+      'DROP INDEX IF EXISTS idx_messages_role',
+      'DROP INDEX IF EXISTS idx_model_configs_updated_at',
+      'DROP INDEX IF EXISTS idx_model_configs_created_at'
+    ]
   }
 ]
 

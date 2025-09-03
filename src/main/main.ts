@@ -12,6 +12,10 @@ import {
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
+import {
+  registerModelConfigIPCHandlers,
+  unregisterModelConfigIPCHandlers
+} from './ipc/model-config'
 import { cancellationManager } from '@main/utils/cancellation'
 // TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
@@ -43,6 +47,7 @@ class Application {
       registerProjectIPCHandlers()
       registerFileIPCHandlers()
       registerSettingsIPCHandlers()
+      registerModelConfigIPCHandlers()
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -119,6 +124,7 @@ app.on('before-quit', async () => {
     unregisterProjectIPCHandlers()
     unregisterFileIPCHandlers()
     unregisterSettingsIPCHandlers()
+    unregisterModelConfigIPCHandlers()
 
     // Close database connections
     const { closeDB } = await import('./database/index')

@@ -13,10 +13,13 @@
  */
 
 import type { Message, MessageContent } from '@shared/types/message'
+import type { ReasoningEffort } from '@shared/types/models'
 import { streamAIResponse } from '@main/services/openai-adapter'
 import { updateMessage, getMessage } from '@main/services/message'
 import { cancellationManager } from '@main/utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '@main/ipc/conversation'
+import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
+import { modelConfigService } from './model-config-service'
 
 /**
  * Configuration for assistant message generation
@@ -28,6 +31,12 @@ export interface AssistantGenConfig {
   conversationId: string
   /** Messages to use as context for AI generation */
   contextMessages: Message[]
+  /** Optional model configuration ID to use (overrides conversation default) */
+  modelConfigId?: string | undefined
+  /** Optional reasoning effort for this message */
+  reasoningEffort?: ReasoningEffort | undefined
+  /** Optional user default model ID for resolution */
+  userDefaultModelId?: string | undefined
   /** Optional callback for when generation completes successfully */
   onSuccess?: (updatedMessage: Message) => Promise<void>
   /** Optional callback for when generation fails */
@@ -50,7 +59,15 @@ export interface AssistantGenConfig {
  * @returns Promise that resolves when generation starts (not when it completes)
  */
 export async function streamAssistantReply(config: AssistantGenConfig): Promise<void> {
-  const { messageId, contextMessages, onSuccess, onError } = config
+  const {
+    messageId,
+    contextMessages,
+    modelConfigId,
+    reasoningEffort,
+    userDefaultModelId,
+    onSuccess,
+    onError
+  } = config
 
   // Create cancellation token for this streaming operation
   const cancellationToken = cancellationManager.createToken(messageId)
@@ -70,11 +87,95 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
     let accumulatedReasoning = ''
     let streamingActive = true
 
+    // IPC batching state
+    let pendingTextChunk = ''
+    let textFlushTimer: NodeJS.Timeout | null = null
+    const flushTextIPC = () => {
+      if (pendingTextChunk.length > 0) {
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
+          messageId,
+          chunk: pendingTextChunk
+        })
+        pendingTextChunk = ''
+      }
+      if (textFlushTimer) {
+        clearTimeout(textFlushTimer)
+        textFlushTimer = null
+      }
+    }
+    const scheduleTextFlush = () => {
+      if (textFlushTimer) return
+      textFlushTimer = setTimeout(flushTextIPC, 16)
+    }
+
+    let pendingReasoningChunk = ''
+    let reasoningFlushTimer: NodeJS.Timeout | null = null
+    const flushReasoningIPC = () => {
+      if (pendingReasoningChunk.length > 0) {
+        sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
+          messageId,
+          chunk: pendingReasoningChunk
+        })
+        pendingReasoningChunk = ''
+      }
+      if (reasoningFlushTimer) {
+        clearTimeout(reasoningFlushTimer)
+        reasoningFlushTimer = null
+      }
+    }
+    const scheduleReasoningFlush = () => {
+      if (reasoningFlushTimer) return
+      reasoningFlushTimer = setTimeout(flushReasoningIPC, 16)
+    }
+
     try {
-      // Generate AI response with streaming
+      // Use centralized model resolution
+      let conversationModelId: string | undefined
+      try {
+        const { getConversation } = await import('@main/services/conversation')
+        const conv = await getConversation(config.conversationId)
+        conversationModelId = conv?.modelConfigId || undefined
+      } catch (e) {
+        // Non-fatal: conversation model resolution failed
+        console.warn('[ASSISTANT] Failed to get conversation model ID:', e)
+      }
+
+      // Build resolution context
+      const availableModels = await modelConfigService.list()
+      const resolutionContext: ModelResolutionContext = {
+        explicitModelId: modelConfigId || null,
+        conversationModelId: conversationModelId || null,
+        userDefaultModelId: userDefaultModelId || null,
+        availableModels
+      }
+
+      const resolution = resolveModelContext(resolutionContext)
+
+      // Log resolution for debugging
+      console.log('[ASSISTANT] Model resolution:', {
+        source: resolution.source,
+        modelId: resolution.modelConfig?.id,
+        trace: resolution.trace
+      })
+
+      if (resolution.warnings.length > 0) {
+        console.warn('[ASSISTANT] Model resolution warnings:', resolution.warnings)
+      }
+
       const response = await streamAIResponse(
         contextMessages,
         {
+          modelConfigId: resolution.modelConfig?.id,
+          conversationModelId,
+          userDefaultModelId,
+          ...(reasoningEffort !== undefined && { reasoningEffort }),
+          onStart: () => {
+            console.log('[ASSISTANT_GEN] Sending start event for message:', messageId)
+            // Send start event for UI feedback (sparkle animation)
+            sendMessageEvent(MESSAGE_EVENTS.START, {
+              messageId
+            })
+          },
           onTextStart: () => {
             console.log('[ASSISTANT_GEN] Sending text start event for message:', messageId)
             // Send text start event
@@ -86,11 +187,9 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
             // Accumulate text content
             accumulatedText += chunk
 
-            // Send each text chunk via event
-            sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
-              messageId,
-              chunk
-            })
+            // Batch IPC emissions by time to reduce pressure
+            pendingTextChunk += chunk
+            scheduleTextFlush()
           },
           onTextEnd: () => {
             console.log('[ASSISTANT_GEN] Sending text end event for message:', messageId)
@@ -110,11 +209,9 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
             // Accumulate reasoning content
             accumulatedReasoning += chunk
 
-            // Send each reasoning chunk via event
-            sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
-              messageId,
-              chunk
-            })
+            // Batch IPC emissions by time to reduce pressure
+            pendingReasoningChunk += chunk
+            scheduleReasoningFlush()
           },
           onReasoningEnd: () => {
             console.log('[ASSISTANT_GEN] Sending reasoning end event for message:', messageId)
@@ -129,6 +226,10 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
 
       streamingActive = false
 
+      // Flush any pending IPC chunks before finishing
+      flushTextIPC()
+      flushReasoningIPC()
+
       // Check if the operation was cancelled
       const wasCancelled = cancellationToken.isCancelled
 
@@ -141,7 +242,10 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
         })
 
         // Write accumulated partial content immediately on cancellation
-        const partialUpdateData: any = {
+        const partialUpdateData: {
+          content: Array<{ type: 'text'; text: string }>
+          reasoning?: string
+        } = {
           content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
         }
 
@@ -162,7 +266,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
         console.log('Streaming completed, writing final content to DB')
 
         // Write complete final content on successful completion
-        const finalUpdateData: any = {
+        const finalUpdateData: { content: any; reasoning?: string } = {
           content: response.content
         }
 
@@ -208,13 +312,24 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
 
       let errorMessage: Message
 
+      // Flush any pending IPC chunks on error as well
+      try {
+        flushTextIPC()
+        flushReasoningIPC()
+      } catch {
+        // Ignore flush errors during cleanup
+      }
+
       if (wasCancelled && streamingActive && (accumulatedText || accumulatedReasoning)) {
         console.log(
           'Error occurred during streaming after cancellation, preserving accumulated content'
         )
 
         // Preserve accumulated content even in error case if user cancelled
-        const partialUpdateData: any = {
+        const partialUpdateData: {
+          content: Array<{ type: 'text'; text: string }>
+          reasoning?: string
+        } = {
           content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
         }
 
@@ -264,7 +379,8 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
  */
 export async function generateReplyForNewMessage(
   messageId: string,
-  conversationId: string
+  conversationId: string,
+  reasoningEffort?: ReasoningEffort
 ): Promise<void> {
   // Build branch-scoped context (up to 5 messages) following parent chain
   const branchContext = await buildBranchContext(messageId, {
@@ -276,6 +392,7 @@ export async function generateReplyForNewMessage(
     messageId,
     conversationId,
     contextMessages: branchContext,
+    reasoningEffort,
     onSuccess: async (_updatedMessage) => {
       // Trigger title generation after successful completion
       const { tryTriggerAutoTitleGeneration } = await import('./title-generation')

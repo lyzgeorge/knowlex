@@ -3,6 +3,9 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { CancellationToken } from '@main/utils/cancellation'
+import type { ReasoningEffort } from '@shared/types/models'
+import { modelConfigService } from './model-config-service'
+import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
 
 /**
  * OpenAI Adapter Service using official AI SDK
@@ -16,17 +19,19 @@ export interface OpenAIConfig {
   apiKey: string
   baseURL: string | undefined
   model: string
-  temperature?: number
-  maxTokens?: number
-  topP?: number
-  frequencyPenalty?: number
-  presencePenalty?: number
-  reasoningEffort?: 'low' | 'medium' | 'high'
-  smooth?: {
-    enabled: boolean
-    delayInMs?: number
-    chunking?: RegExp | 'word' | 'line'
-  }
+  temperature?: number | undefined
+  maxTokens?: number | undefined
+  topP?: number | undefined
+  frequencyPenalty?: number | undefined
+  presencePenalty?: number | undefined
+  reasoningEffort?: 'low' | 'medium' | 'high' | undefined
+  smooth?:
+    | {
+        enabled: boolean
+        delayInMs?: number | undefined
+        chunking?: RegExp | 'word' | 'line' | undefined
+      }
+    | undefined
 }
 
 /**
@@ -204,14 +209,23 @@ export async function generateAIResponseOnce(
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
     // Prepare model parameters
-    const modelParams = {
+    const providerOptions: Record<string, any> = {}
+    if (config.reasoningEffort !== undefined) {
+      // Pass reasoning effort via providerOptions for OpenAI providers
+      providerOptions.openai = { reasoningEffort: config.reasoningEffort }
+      // Also set for custom-compatible provider name to maximize compatibility
+      providerOptions['custom-provider'] = { reasoningEffort: config.reasoningEffort }
+    }
+
+    const modelParams: any = {
       model,
       messages: aiMessages,
       ...(config.temperature !== undefined && { temperature: config.temperature }),
       ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
       ...(config.topP !== undefined && { topP: config.topP }),
       ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
-      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty })
+      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
+      ...(Object.keys(providerOptions).length > 0 && { providerOptions })
     }
 
     // Generate response
@@ -238,6 +252,8 @@ export async function generateAIResponseOnce(
 export interface StreamingCallbacks {
   // Fired when fullStream emits 'start'. Useful to lazily create resources (e.g., conversations/messages).
   onStreamStart?: () => void
+  // Fired when fullStream emits 'start' for UI feedback (e.g., sparkle animation)
+  onStart?: () => void
   // Text lifecycle
   onTextStart?: () => void
   // Fired for each assistant text delta
@@ -256,29 +272,94 @@ export interface StreamingCallbacks {
  */
 export async function streamAIResponse(
   conversationMessages: Message[],
-  callbacks: StreamingCallbacks | ((chunk: string) => void),
+  options: {
+    modelConfigId?: string | undefined
+    conversationModelId?: string | undefined
+    userDefaultModelId?: string | undefined
+    reasoningEffort?: ReasoningEffort | undefined
+  } & (StreamingCallbacks | { onTextChunk: (chunk: string) => void }),
   cancellationToken?: CancellationToken
 ): Promise<{ content: MessageContent; reasoning?: string }> {
-  // Validate configuration
-  const validation = validateOpenAIConfig()
-  if (!validation.isValid) {
-    throw new Error(validation.error || 'AI configuration is invalid')
+  const { modelConfigId, conversationModelId, userDefaultModelId, reasoningEffort, ...callbacks } =
+    options
+
+  // Use centralized model resolution
+  const availableModels = await modelConfigService.list()
+  const resolutionContext: ModelResolutionContext = {
+    explicitModelId: modelConfigId || null,
+    conversationModelId: conversationModelId || null,
+    userDefaultModelId: userDefaultModelId || null,
+    availableModels
   }
 
-  const config = getOpenAIConfigFromEnv()
+  const resolution = resolveModelContext(resolutionContext)
+
+  // Log resolution trace for debugging
+  console.log('[AI] Model resolution:', {
+    source: resolution.source,
+    modelId: resolution.modelConfig?.id,
+    trace: resolution.trace
+  })
+
+  if (resolution.warnings.length > 0) {
+    console.warn('[AI] Model resolution warnings:', resolution.warnings)
+  }
+
+  const modelConfig = resolution.modelConfig
+
+  let config: OpenAIConfig
+  if (modelConfig) {
+    // Use model configuration
+    config = {
+      apiKey: modelConfig.apiKey || '',
+      baseURL: modelConfig.apiEndpoint,
+      model: modelConfig.modelId,
+      temperature: modelConfig.temperature,
+      topP: modelConfig.topP,
+      frequencyPenalty: modelConfig.frequencyPenalty,
+      presencePenalty: modelConfig.presencePenalty,
+      reasoningEffort,
+      smooth: {
+        enabled: true,
+        delayInMs: 20,
+        chunking: /[\u4E00-\u9FFF]|\S+\s+/
+      }
+    }
+  } else {
+    // Fallback to environment configuration
+    const validation = validateOpenAIConfig()
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'No model configured. Add a model in Settings → Models.')
+    }
+    config = getOpenAIConfigFromEnv()
+    if (reasoningEffort) {
+      config.reasoningEffort = reasoningEffort
+    }
+  }
+
   const model = createOpenAIModel(config)
 
   let streamedText = ''
   let streamedReasoning = ''
 
-  try {
+  // Helper to attempt streaming with or without reasoning options
+  async function attemptStream(withReasoning: boolean) {
+    streamedText = ''
+    streamedReasoning = ''
+
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
     console.log(`[AI] Using model: ${config.model}`)
 
     // Prepare model parameters
-    const modelParams = {
+    const providerOptions: Record<string, any> = {}
+    if (withReasoning && config.reasoningEffort !== undefined) {
+      providerOptions.openai = { reasoningEffort: config.reasoningEffort }
+      providerOptions['custom-provider'] = { reasoningEffort: config.reasoningEffort }
+    }
+
+    const modelParams: any = {
       model,
       messages: aiMessages,
       ...(config.temperature !== undefined && { temperature: config.temperature }),
@@ -286,7 +367,7 @@ export async function streamAIResponse(
       ...(config.topP !== undefined && { topP: config.topP }),
       ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
       ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-      ...(config.reasoningEffort !== undefined && { reasoningEffort: config.reasoningEffort }),
+      ...(Object.keys(providerOptions).length > 0 && { providerOptions }),
       // Add smooth streaming transform if enabled
       ...(config.smooth?.enabled && {
         experimental_transform: smoothStream({
@@ -301,7 +382,9 @@ export async function streamAIResponse(
 
     // Handle both old callback format and new callbacks interface
     const streamCallbacks: StreamingCallbacks =
-      typeof callbacks === 'function' ? { onTextChunk: callbacks } : callbacks
+      typeof callbacks === 'function'
+        ? { onTextChunk: callbacks }
+        : (callbacks as StreamingCallbacks)
 
     // Stream response using fullStream for reasoning support
     let wasCancelled = false
@@ -338,6 +421,8 @@ export async function streamAIResponse(
           case 'start':
             // Stream initialization
             streamCallbacks.onStreamStart?.()
+            // Also trigger UI start event for sparkle animation
+            streamCallbacks.onStart?.()
             break
 
           case 'start-step':
@@ -414,7 +499,7 @@ export async function streamAIResponse(
       return {
         content: [
           {
-            type: 'text',
+            type: 'text' as const,
             text: streamedText
           }
         ],
@@ -429,13 +514,29 @@ export async function streamAIResponse(
     return {
       content: [
         {
-          type: 'text',
+          type: 'text' as const,
           text
         }
       ],
       ...(reasoningText !== undefined && { reasoning: reasoningText })
     }
-  } catch (error) {
+  }
+
+  try {
+    // First try with reasoning if provided
+    return await attemptStream(true)
+  } catch (error: any) {
+    const msg = error?.message ?? String(error)
+    const mayBeParamError = /400|Bad Request|Unknown parameter|reasoning/i.test(msg)
+    if (config.reasoningEffort !== undefined && mayBeParamError) {
+      console.warn('[AI] Retrying without reasoning parameters due to provider error...')
+      try {
+        return await attemptStream(false)
+      } catch (e2) {
+        console.error('AI streaming retry without reasoning failed:', e2)
+        throw enhanceError(e2)
+      }
+    }
     console.error('AI streaming response generation failed:', error)
     throw enhanceError(error)
   }

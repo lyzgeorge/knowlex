@@ -80,6 +80,8 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
     borderColor: theme.borderColor,
     borderRadius: 'md' as const,
     p: 2,
+    shadow: 'file-card',
+    _hover: { shadow: 'file-card-hover' },
     className,
     ...(isCompact ? { w: '160px', flexShrink: 0 } : { mb: 2 })
   }
