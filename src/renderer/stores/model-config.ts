@@ -33,6 +33,7 @@ interface ModelConfigState {
   testModel: (id: string) => Promise<ModelConnectionTestResult>
   getModelById: (id: string) => ModelConfigPublic | undefined
   getDefaultModel: () => ModelConfigPublic | undefined
+  updateDefaultModelCache: () => void
 
   // Performance helpers
   rebuildIndexes: () => void
@@ -209,14 +210,13 @@ export const useModelConfigStore = create<ModelConfigState>()(
 
     getDefaultModel: () => {
       const state = get()
-      const now = Date.now()
 
       // Use cached default if still valid (5 minute TTL)
-      if (state.defaultModelCache && now - state.lastDefaultUpdate < 300000) {
+      if (state.defaultModelCache && Date.now() - state.lastDefaultUpdate < 300000) {
         return state.defaultModelCache
       }
 
-      // Recalculate default model
+      // Recalculate default model without caching during render
       if (state.models.length === 0) return undefined
 
       // First model by creation time (oldest first)
@@ -224,13 +224,28 @@ export const useModelConfigStore = create<ModelConfigState>()(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )[0]
 
-      // Cache the result
+      return defaultModel
+    },
+    updateDefaultModelCache: () => {
+      const state = get()
+      const now = Date.now()
+
+      if (state.models.length === 0) {
+        set((s) => {
+          s.defaultModelCache = null
+          s.lastDefaultUpdate = now
+        })
+        return
+      }
+
+      const defaultModel = [...state.models].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )[0]
+
       set((s) => {
         s.defaultModelCache = defaultModel || null
         s.lastDefaultUpdate = now
       })
-
-      return defaultModel
     }
   }))
 )

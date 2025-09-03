@@ -7,7 +7,6 @@ import {
   MenuItem,
   Text,
   HStack,
-  Box,
   useColorModeValue,
   Tooltip
 } from '@chakra-ui/react'
@@ -73,7 +72,7 @@ export function ReasoningEffortSelector({
             justifyContent="space-between"
           >
             <HStack spacing={1}>
-              <Box as={HiLightBulb} boxSize={4} />
+              <HiLightBulb size={16} />
               <Text fontSize="sm" isTruncated>
                 {selectedOption?.label}
               </Text>
@@ -104,7 +103,7 @@ export function ReasoningEffortSelector({
                 </Text>
               </div>
               {selectedOption?.value === option.value && (
-                <Box as={HiMiniCheck} boxSize={4} color="primary.500" />
+                <HiMiniCheck size={16} color="var(--chakra-colors-primary-500)" />
               )}
             </HStack>
           </MenuItem>

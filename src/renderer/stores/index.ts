@@ -6,7 +6,6 @@
 // Store imports for internal use
 import useAppStoreInternal from './app'
 import useSettingsStoreInternal from './settings'
-import useConversationStoreInternal from './conversation'
 import useProjectStoreInternal from './project'
 
 // Store exports
@@ -39,7 +38,8 @@ export { default as useSettingsStore, useDefaultModel } from './settings'
 // Type exports
 export type { Theme, AppState } from './app'
 export type { Language } from '@shared/i18n/types'
-export type { ConversationState } from './conversation'
+import useConversationStoreInternal from './conversation'
+export type ConversationState = ReturnType<typeof useConversationStoreInternal.getState>
 // Settings types are trimmed; no public re-exports needed
 
 // Flag to prevent duplicate store initialization in React.StrictMode

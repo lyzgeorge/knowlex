@@ -109,7 +109,9 @@ export function ModelCard({ model, onEdit, isDefault = false }: ModelCardProps) 
               <HStack spacing={1}>
                 {getCapabilityIcons().map(({ Icon, tooltip }, index) => (
                   <Tooltip key={index} label={tooltip}>
-                    <Box as={Icon} boxSize={4} color="gray.500" />
+                    <Box>
+                      <Icon size={16} color="var(--chakra-colors-gray-500)" />
+                    </Box>
                   </Tooltip>
                 ))}
               </HStack>

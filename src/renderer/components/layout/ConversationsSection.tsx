@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { Box, HStack, VStack, Text, Spinner, Input, IconButton, Tooltip } from '@chakra-ui/react'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
@@ -31,6 +31,16 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
 }) => {
   const { t } = useI18n()
   const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
+
+  // Ensure conversations are displayed with the most recently updated first.
+  // We memoize the sorted list so we don't re-sort on every render unnecessarily.
+  const sortedConversations = useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return bTime - aTime
+    })
+  }, [conversations])
 
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
@@ -69,12 +79,12 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
       </Text>
 
       <VStack spacing={0} align="stretch" role="list" aria-label="Uncategorized conversations">
-        {conversations.length === 0 ? (
+        {sortedConversations.length === 0 ? (
           <Text fontSize="sm" color="text.tertiary" fontStyle="italic" py={2}>
             No uncategorized conversations
           </Text>
         ) : (
-          conversations.map((conversation) => {
+          sortedConversations.map((conversation) => {
             const isCurrent = currentConversationId === conversation.id
             const isEditing = editingConversationId === conversation.id
             return (

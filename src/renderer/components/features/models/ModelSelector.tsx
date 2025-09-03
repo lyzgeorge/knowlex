@@ -8,7 +8,6 @@ import {
   MenuDivider,
   Text,
   HStack,
-  Box,
   useColorModeValue
 } from '@chakra-ui/react'
 import { HiChevronDown, HiCog6Tooth, HiMiniCheck } from 'react-icons/hi2'
@@ -18,7 +17,8 @@ import { useDefaultModel } from '@renderer/stores/settings'
 import { useNavigationActions } from '@renderer/stores/navigation'
 
 export function ModelSelector() {
-  const { models, initialized, loading, fetchModels, getDefaultModel } = useModelConfigStore()
+  const { models, initialized, loading, fetchModels, getDefaultModel, updateDefaultModelCache } =
+    useModelConfigStore()
 
   const { setActiveModel, getActiveModelId } = useConversationStore()
   const currentConversationId = useConversationStore((s) => s.currentConversationId)
@@ -40,6 +40,13 @@ export function ModelSelector() {
     const currentActiveModelId = getActiveModelId(defaultModelId || undefined)
     setSelectedModelId(currentActiveModelId)
   }, [getActiveModelId, defaultModelId])
+
+  useEffect(() => {
+    // Update default model cache when models change
+    if (models.length > 0) {
+      updateDefaultModelCache()
+    }
+  }, [models, updateDefaultModelCache])
 
   const handleModelSelect = async (modelId: string) => {
     try {
@@ -118,7 +125,7 @@ export function ModelSelector() {
             <HStack justify="space-between" w="full">
               <Text fontSize="sm">{model.name}</Text>
               {selectedModelId === model.id && (
-                <Box as={HiMiniCheck} boxSize={4} color="primary.500" />
+                <HiMiniCheck size={16} color="var(--chakra-colors-primary-500)" />
               )}
             </HStack>
           </MenuItem>
