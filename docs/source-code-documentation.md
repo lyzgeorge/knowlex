@@ -124,6 +124,7 @@ Electron 主进程和渲染进程间通信的结构定义。
 | generateShortId | 函数 | 无 | 生成 12 字符十六进制 ID |
 | generateUUID | 函数 | 无 | 生成 RFC 4122 兼容的 UUID v4 |
 
+注意: 此文件在近期重构中已从代码库中删除（原内容仅在文档中保留）。运行时不再依赖集中式 AI 常量配置，而是通过模型配置表/服务动态解析模型与能力。
 ### src/shared/utils/message-branching.ts
 实现对话树分支逻辑，用于替代对话路径。
 
@@ -132,9 +133,9 @@ Electron 主进程和渲染进程间通信的结构定义。
 | BranchSendOptions | 接口 | 分支选项 | 创建消息分支的选项 |
 | buildUserMessageBranchSendOptions | 函数 | messages, messageId | 确定分支逻辑的适当父消息 ID |
 | canCreateBranch | 函数 | message | 验证消息是否可用于分支创建 |
-
 ### src/shared/utils/model-resolution.ts
 集中化模型解析服务，实现 3 层优先级系统。
+注: `MIME_TYPES` 映射已在重构中移除（未在运行时被引用）。文档中保留了受支持文件类型与约束。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
@@ -142,8 +143,7 @@ Electron 主进程和渲染进程间通信的结构定义。
 | getModelCapabilities | 函数 | modelId | 缓存的功能提取，1 分钟 TTL |
 | getActiveModelId | 函数 | context | 基于优先级的活动模型 ID 提取 |
 | validateModelResolution | 函数 | result | 详细错误报告的验证 |
-
-### src/shared/utils/time.ts
+注意: 为了减少未使用的工具函数，近期重构移除了 `generateShortId` 和 `generateUUID`，仅保留通用且被使用的 `generateId`。
 统一的时间管理，支持 SQLite 时间戳和国际化。
 
 | 导出项 | 类型 | 参数 | 描述 |
@@ -670,3 +670,38 @@ Vitest 的测试配置。
 10. **文件处理**: 多格式支持、验证管道、安全措施
 
 此文档涵盖了 Knowlex 应用程序的完整源代码架构，展示了企业级 Electron + React 应用程序的高级状态管理、实时能力和综合用户体验模式。
+
+## 最近重构与迁移说明
+
+此部分记录了近期对共享层与 IPC 层的精简与迁移决策，便于团队后续完成迁移并清理兼容性代码。
+
+- 目标：精简共享常量/工具、统一 IPC 请求签名、并最小化主进程/渲染进程之间的重复验证逻辑。
+- 主要变更：
+	- 删除不再被运行时代码使用的共享常量（例如 `src/shared/constants/ai.ts`），以及不必要的映射（`MIME_TYPES`）。
+	- 精简 `src/shared/utils/id.ts`，移除未使用的 `generateShortId` 和 `generateUUID`。保留 `generateId`。
+	- 在 `src/main/ipc/common.ts` 中新增 `expectObject`、`expectString` 等集中验证辅助函数，替代重复的本地验证代码。
+	- 在 `src/main/ipc/conversation.ts` 中合并并规范了会话与消息相关的 IPC 处理：
+		- 引入统一的 `conversation:update` 输入对象形式（{ id, ... }）。
+		- 移除旧的 `conversation:update-title` 与 `message:edit` 主进程处理器（迁移期间保留了 preload 层的兼容映射）。
+		- 简化 `message:send` 的流程：将会话创建逻辑从消息发送中抽离为 `ensureConversationExists` 辅助函数，并使用事件广播更新渲染端状态。
+	- 在 `src/main/preload.ts` 中添加了兼容性映射（例如 `conversation.updateTitle` → `conversation.update({ id, title })`，`message.edit` → `message.update(id, content)`）以保证迁移为逐步零中断。
+
+- 渲染端迁移（当前要做的工作）：
+	1. 将渲染端调用改为新的统一 IPC 形态，例如：
+		 - `window.knowlex.conversation.updateTitle(conversationId, title)` → `window.knowlex.conversation.update({ id: conversationId, title })`。
+		 - `window.knowlex.message.edit(messageId, content)` → `window.knowlex.message.update(messageId, content)`（或直接使用 `message.update({ id, content })` 取决于预期的 API 形态）。
+	2. 更新 `src/renderer/stores/conversation/api.ts`（已开始），并修复所有调用方（如 `src/renderer/stores/conversation.ts`）。
+
+- 清理步骤（迁移完成后）：
+	- 在确认渲染端所有调用已更新并通过类型检查后，删除 `src/main/preload.ts` 中的兼容性映射。
+	- 从主进程中移除对应的遗留 IPC 处理器注册（已在一次迭代中移除，但在最终清理前请再次确认）。
+	- 更新文档并移除与已删除常量/函数相关的说明。
+
+- 验证建议：
+	- 运行 `pnpm -w exec -- tsc --noEmit` 进行全量类型检查。
+	- 运行 `pnpm test`（或 `pnpm -w test`）以验证关键路径（文件处理、IPC handlers）没有回归。
+	- 在 UI 层进行手动冒烟：新建会话、发送消息、编辑消息、生成标题，确保事件广播与流式更新正常。
+
+如需我继续，我可以：
+	- 继续在渲染端完成剩余的 API 替换（自动化 grep 替换并运行类型检查与测试）；
+	- 移除 preload 中的兼容 API（在你确认渲染端完全迁移后）。

@@ -64,6 +64,31 @@ export function validateObject(data: unknown): data is Record<string, any> {
 }
 
 /**
+ * Ensures the provided value is a non-null object and returns it typed.
+ * Throws an Error with the provided message when validation fails.
+ */
+export function expectObject<T extends Record<string, any>>(
+  data: unknown,
+  errorMessage: string = 'Invalid request data'
+): T {
+  if (!validateObject(data)) {
+    throw new Error(errorMessage)
+  }
+  return data as T
+}
+
+/**
+ * Ensures the provided value is a non-empty string and returns the trimmed string.
+ * Throws an Error when validation fails.
+ */
+export function expectString(value: unknown, name: string = 'Value'): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${name} is required and must be a non-empty string`)
+  }
+  return value.trim()
+}
+
+/**
  * Validates that a string property exists and is non-empty
  */
 export function validateStringProperty(

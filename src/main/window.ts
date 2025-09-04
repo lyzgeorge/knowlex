@@ -1,22 +1,17 @@
 import { BrowserWindow, shell, screen, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
+import { WINDOW_CONFIG, APP_NAME } from '@shared/constants/app'
 
-// Window configuration constants
+// Window configuration constants with app name integration
 const MAIN_WINDOW_CONFIG = {
-  width: 1200,
-  height: 800,
-  minWidth: 800,
-  minHeight: 600,
-  title: 'Knowlex Desktop'
+  ...WINDOW_CONFIG.MAIN,
+  title: APP_NAME
 }
 
 const DEBUG_WINDOW_CONFIG = {
-  width: 1400,
-  height: 900,
-  minWidth: 1000,
-  minHeight: 700,
-  title: 'Knowlex Desktop - Debug Console'
+  ...WINDOW_CONFIG.DEBUG,
+  title: `${APP_NAME} - Debug Console`
 }
 
 // Common web preferences for security

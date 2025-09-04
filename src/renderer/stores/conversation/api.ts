@@ -59,7 +59,7 @@ export const conversationApi: ConversationApiInterface = {
   update: (params) => window.knowlex.conversation.update(params) as Promise<any>,
   delete: (conversationId) => window.knowlex.conversation.delete(conversationId) as Promise<any>,
   updateTitle: (conversationId, title) =>
-    window.knowlex.conversation.updateTitle(conversationId, title) as Promise<any>,
+    window.knowlex.conversation.update({ id: conversationId, title }) as Promise<any>,
   generateTitle: (conversationId) =>
     window.knowlex.conversation.generateTitle(conversationId) as Promise<any>,
   move: (conversationId, projectId) =>
@@ -72,7 +72,10 @@ export const conversationApi: ConversationApiInterface = {
 export const messageApi: MessageApiInterface = {
   send: (params) => window.knowlex.message.send(params) as Promise<any>,
   regenerate: (messageId) => window.knowlex.message.regenerate(messageId) as Promise<any>,
-  edit: (messageId, content) => window.knowlex.message.edit(messageId, content) as Promise<any>,
+  edit: (messageId, content) => window.knowlex.message.update(messageId, content) as Promise<any>,
+  // Map legacy edit call to unified message.update signature
+  // Note: keep exported function signature for store callers unchanged
+
   delete: (messageId) => window.knowlex.message.delete(messageId) as Promise<any>,
   stop: (messageId) => window.knowlex.message.stop(messageId) as Promise<any>,
   list: (conversationId) => window.knowlex.message.list(conversationId) as Promise<any>

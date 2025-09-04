@@ -11,8 +11,9 @@ export { TempFileCardList } from './TempFileCard'
 // Inputs
 export { default as AutoResizeTextarea } from './AutoResizeTextarea'
 
-// Language selection
+// Language and theme selection
 export { LanguageSelector } from './LanguageSelector'
+export { ThemeSelector } from './ThemeSelector'
 
 // Modal
 export { default as Modal } from './Modal'

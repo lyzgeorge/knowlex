@@ -9,6 +9,10 @@
  */
 
 import type { ModelConfig, ModelConfigPublic } from '@shared/types/models'
+import { DEVELOPMENT } from '@shared/constants/app'
+
+// Debug flag for trace output
+const DEBUG_MODEL_RESOLUTION = DEVELOPMENT.debugMode
 
 export interface ModelResolutionContext {
   /** Explicit model ID from message or operation */
@@ -73,11 +77,11 @@ export function resolveModelContext(context: ModelResolutionContext): ModelResol
 
   // 1. Try explicit model ID (highest priority)
   if (context.explicitModelId) {
-    trace.push(`Checking explicit model ID: ${context.explicitModelId}`)
+    if (DEBUG_MODEL_RESOLUTION) trace.push(`Checking explicit model ID: ${context.explicitModelId}`)
     modelConfig = findModelById(context.explicitModelId)
     if (modelConfig) {
       source = 'message'
-      trace.push(`✓ Resolved from explicit model ID`)
+      if (DEBUG_MODEL_RESOLUTION) trace.push(`✓ Resolved from explicit model ID`)
     } else {
       warnings.push(`Explicit model ID "${context.explicitModelId}" not found`)
     }
@@ -85,11 +89,12 @@ export function resolveModelContext(context: ModelResolutionContext): ModelResol
 
   // 2. Try conversation model ID
   if (!modelConfig && context.conversationModelId) {
-    trace.push(`Checking conversation model ID: ${context.conversationModelId}`)
+    if (DEBUG_MODEL_RESOLUTION)
+      trace.push(`Checking conversation model ID: ${context.conversationModelId}`)
     modelConfig = findModelById(context.conversationModelId)
     if (modelConfig) {
       source = 'conversation'
-      trace.push(`✓ Resolved from conversation model ID`)
+      if (DEBUG_MODEL_RESOLUTION) trace.push(`✓ Resolved from conversation model ID`)
     } else {
       warnings.push(`Conversation model ID "${context.conversationModelId}" not found`)
     }
@@ -97,11 +102,12 @@ export function resolveModelContext(context: ModelResolutionContext): ModelResol
 
   // 3. Try user default model ID
   if (!modelConfig && context.userDefaultModelId) {
-    trace.push(`Checking user default model ID: ${context.userDefaultModelId}`)
+    if (DEBUG_MODEL_RESOLUTION)
+      trace.push(`Checking user default model ID: ${context.userDefaultModelId}`)
     modelConfig = findModelById(context.userDefaultModelId)
     if (modelConfig) {
       source = 'user-default'
-      trace.push(`✓ Resolved from user default model ID`)
+      if (DEBUG_MODEL_RESOLUTION) trace.push(`✓ Resolved from user default model ID`)
     } else {
       warnings.push(`User default model ID "${context.userDefaultModelId}" not found`)
     }
@@ -109,13 +115,13 @@ export function resolveModelContext(context: ModelResolutionContext): ModelResol
 
   // 4. Fallback to system default (earliest created)
   if (!modelConfig) {
-    trace.push(`Falling back to system default (earliest created)`)
+    if (DEBUG_MODEL_RESOLUTION) trace.push(`Falling back to system default (earliest created)`)
     modelConfig = getSystemDefault()
     if (modelConfig) {
       source = 'system-default'
-      trace.push(`✓ Resolved from system default: ${modelConfig.id}`)
+      if (DEBUG_MODEL_RESOLUTION) trace.push(`✓ Resolved from system default: ${modelConfig.id}`)
     } else {
-      trace.push(`⚠ No models available`)
+      if (DEBUG_MODEL_RESOLUTION) trace.push(`⚠ No models available`)
       warnings.push('No models available for resolution')
     }
   }

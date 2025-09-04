@@ -66,6 +66,12 @@ export const useAppStore = create<AppState>()(
           state.theme = theme
         })
         themeManager.setColorMode(theme)
+
+        // Also sync with Chakra UI's color mode if available
+        if (typeof window !== 'undefined' && window.document) {
+          // We'll let the ThemeSelector component handle Chakra UI sync
+          // to avoid circular dependencies
+        }
       },
 
       // Language management
@@ -191,7 +197,12 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Utility hooks for common use cases
+// Individual theme selectors to avoid object recreation issues
+export const useCurrentTheme = () => useAppStore((state) => state.theme)
+export const useResolvedTheme = () => useAppStore((state) => state.resolvedTheme)
+export const useSetTheme = () => useAppStore((state) => state.setTheme)
+
+// Utility hook for components that need all theme data (use sparingly)
 export const useTheme = () =>
   useAppStore((state) => ({
     theme: state.theme,

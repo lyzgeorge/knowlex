@@ -264,7 +264,8 @@ export const useNavigationActions = () => {
     navigateBack,
     canGoBack,
     getPreviousView,
-    openModelsSettings: () => openSettings(0) // Models tab is first tab
+    openGeneralSettings: () => openSettings(0), // General tab is first tab
+    openModelsSettings: () => openSettings(1) // Models tab is second tab
   }
 }
 

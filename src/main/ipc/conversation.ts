@@ -17,7 +17,7 @@ import {
 } from '@main/services/message'
 import type { IPCResult, ConversationCreateRequest } from '@shared/types/ipc'
 import type { Conversation, SessionSettings } from '@shared/types/conversation'
-import type { Message, MessageContent } from '@shared/types/message'
+import type { Message } from '@shared/types/message'
 import { testOpenAIConfig } from '@main/services/openai-adapter'
 import { regenerateReply } from '@main/services/assistant-service'
 import { cancellationManager } from '@main/utils/cancellation'
@@ -37,6 +37,7 @@ import {
   validateObject,
   validateStringProperty
 } from './common'
+import { expectObject, expectString } from './common'
 
 /**
  * Validates conversation creation request data
@@ -114,11 +115,11 @@ export function registerConversationIPCHandlers(): void {
       data: unknown
     ): Promise<IPCResult<{ conversations: Conversation[]; hasMore: boolean }>> => {
       return handleIPCCall(async () => {
-        if (!data || typeof data !== 'object') {
-          throw new Error('Invalid pagination data')
-        }
+        const request = expectObject<{ limit?: number; offset?: number }>(
+          data,
+          'Invalid pagination data'
+        )
 
-        const request = data as any
         const limit = typeof request.limit === 'number' && request.limit > 0 ? request.limit : 15
         const offset =
           typeof request.offset === 'number' && request.offset >= 0 ? request.offset : 0
@@ -141,7 +142,7 @@ export function registerConversationIPCHandlers(): void {
     'conversation:get',
     async (_, id: unknown): Promise<IPCResult<Conversation | null>> => {
       return handleIPCCall(async () => {
-        const conversationId = requireValidId(id, 'Conversation ID')
+        const conversationId = expectString(id, 'Conversation ID')
         return await getConversation(conversationId)
       })
     }
@@ -152,8 +153,15 @@ export function registerConversationIPCHandlers(): void {
     'conversation:update',
     async (_, data: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
+        // Support both legacy signature (id, updates) and object form ({id, ...})
+        const requestObj: any = data
+        // If called as (id, updates) ipcMain will pass only the second arg as data here.
+        if (!requestObj || typeof requestObj !== 'object' || !('id' in requestObj)) {
+          throw new Error('Invalid conversation update data')
+        }
+
         const requestData = validateRequest(
-          data,
+          requestObj,
           validateConversationUpdateData,
           'Invalid conversation update data'
         )
@@ -202,20 +210,20 @@ export function registerConversationIPCHandlers(): void {
     'conversation:update-settings',
     async (_, data: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
-        if (!data || typeof data !== 'object') {
-          throw new Error('Invalid conversation settings data')
-        }
+        const request = expectObject<{ conversationId: unknown; settings: unknown }>(
+          data,
+          'Invalid conversation settings data'
+        )
 
-        const request = data as any
-        if (!validateConversationId(request.conversationId)) {
-          throw new Error('Invalid conversation ID')
-        }
+        const conversationId = expectString(request.conversationId, 'Conversation ID')
 
         if (!request.settings || typeof request.settings !== 'object') {
           throw new Error('Invalid settings object')
         }
 
-        return await updateConversation(request.conversationId, { settings: request.settings })
+        return await updateConversation(conversationId, {
+          settings: request.settings as SessionSettings
+        })
       })
     }
   )
@@ -225,11 +233,8 @@ export function registerConversationIPCHandlers(): void {
     'conversation:generate-title',
     async (_, id: unknown): Promise<IPCResult<string>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationId(id)) {
-          throw new Error('Invalid conversation ID')
-        }
-
-        return await generateConversationTitle(id)
+        const conversationId = expectString(id, 'Conversation ID')
+        return await generateConversationTitle(conversationId)
       })
     }
   )
@@ -344,11 +349,14 @@ export function registerConversationIPCHandlers(): void {
   // Send message (user input + AI response with streaming)
   ipcMain.handle('message:send', async (_, data: unknown): Promise<IPCResult<Message[]>> => {
     return handleIPCCall(async () => {
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid send message data')
-      }
-
-      const request = data as any
+      const request = expectObject<{
+        content: unknown
+        reasoningEffort?: unknown
+        conversationId?: unknown
+        parentMessageId?: unknown
+        projectId?: unknown
+        modelConfigId?: unknown
+      }>(data, 'Invalid send message data')
 
       if (!validateMessageContent(request.content)) {
         throw new Error('Invalid message content')
@@ -362,39 +370,42 @@ export function registerConversationIPCHandlers(): void {
         }
       }
 
-      const providedConversationId: string | undefined =
-        typeof request.conversationId === 'string' && request.conversationId.trim().length > 0
-          ? request.conversationId.trim()
-          : undefined
+      // Helper: ensure conversation exists or create it and return id
+      async function ensureConversationExists(req: typeof request): Promise<string> {
+        const providedConversationId: string | undefined =
+          typeof req.conversationId === 'string' && req.conversationId.trim().length > 0
+            ? req.conversationId.trim()
+            : undefined
 
-      const parentMessageId: string | undefined =
-        typeof request.parentMessageId === 'string' && request.parentMessageId.trim().length > 0
-          ? request.parentMessageId.trim()
-          : undefined
+        if (providedConversationId) return providedConversationId
 
-      const projectIdForNew: string | undefined =
-        typeof request.projectId === 'string' && request.projectId.trim().length > 0
-          ? request.projectId.trim()
-          : undefined
+        const projectIdForNew: string | undefined =
+          typeof req.projectId === 'string' && req.projectId.trim().length > 0
+            ? req.projectId.trim()
+            : undefined
 
-      const modelConfigIdForNew: string | undefined =
-        typeof request.modelConfigId === 'string' && request.modelConfigId.trim().length > 0
-          ? request.modelConfigId.trim()
-          : undefined
+        const modelConfigIdForNew: string | undefined =
+          typeof req.modelConfigId === 'string' && req.modelConfigId.trim().length > 0
+            ? req.modelConfigId.trim()
+            : undefined
 
-      // Determine conversation - create if needed
-      let actualConversationId = providedConversationId
-      if (!actualConversationId) {
         const newConv = await createConversation({
           title: 'New Chat',
           projectId: projectIdForNew ?? null,
           modelConfigId: modelConfigIdForNew ?? null
         })
-        actualConversationId = newConv.id
 
         // Notify renderer about new conversation
         sendConversationEvent(CONVERSATION_EVENTS.CREATED, newConv)
+        return newConv.id
       }
+
+      const actualConversationId = await ensureConversationExists(request)
+
+      const parentMessageId: string | undefined =
+        typeof request.parentMessageId === 'string' && request.parentMessageId.trim().length > 0
+          ? request.parentMessageId.trim()
+          : undefined
 
       // Create user message
       const userMessage = await addMessage({
@@ -425,7 +436,6 @@ export function registerConversationIPCHandlers(): void {
 
       // Use assistant service for unified streaming logic
       const { generateReplyForNewMessage } = await import('@main/services/assistant-service')
-      // Pass reasoningEffort if provided to the assistant generation pipeline
       const reasoningEffort: 'low' | 'medium' | 'high' | undefined =
         typeof request.reasoningEffort === 'string' && request.reasoningEffort.trim().length > 0
           ? (request.reasoningEffort as 'low' | 'medium' | 'high')
@@ -473,27 +483,7 @@ export function registerConversationIPCHandlers(): void {
   )
 
   // Edit message
-  ipcMain.handle(
-    'message:edit',
-    async (_, messageId: unknown, content: unknown): Promise<IPCResult<Message>> => {
-      return handleIPCCall(async () => {
-        if (!validateMessageId(messageId)) {
-          throw new Error('Invalid message ID')
-        }
-
-        if (!validateMessageContent(content)) {
-          throw new Error('Invalid message content')
-        }
-
-        const updatedMessage = await updateMessage(messageId, {
-          content: content as MessageContent
-        })
-
-        sendMessageEvent(MESSAGE_EVENTS.UPDATED, updatedMessage)
-        return updatedMessage
-      })
-    }
-  )
+  // Note: legacy 'message:edit' removed; use 'message:update' unified handler
 
   // Test AI configuration
   ipcMain.handle(
@@ -521,7 +511,7 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:list-paginated',
     'conversation:get',
     'conversation:update',
-    'conversation:update-title',
+    // 'conversation:update-title' removed (use 'conversation:update')
     'conversation:delete',
     'conversation:update-settings',
     'conversation:generate-title',
@@ -533,7 +523,7 @@ export function unregisterConversationIPCHandlers(): void {
     'message:stop',
     'message:send',
     'message:regenerate',
-    'message:edit',
+    // 'message:edit' removed (use 'message:update')
 
     // AI channels
     'ai:test-connection'

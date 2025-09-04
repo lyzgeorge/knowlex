@@ -6,6 +6,7 @@ import { useCurrentView, useSettingsModal, useNavigationActions } from '@rendere
 import ProjectPage from '@renderer/components/features/projects/ProjectPage'
 import { SettingsModal } from '@renderer/components/features/settings'
 import { NotificationProvider } from '@renderer/components/ui'
+import { useThemeSync } from '@renderer/hooks/useThemeSync'
 
 /**
  * Main application interface - the primary user workspace
@@ -19,6 +20,9 @@ function MainApp(): JSX.Element {
   const { currentView, selectedProjectId } = useCurrentView()
   const { isSettingsOpen, settingsDefaultTab } = useSettingsModal()
   const { closeSettings } = useNavigationActions()
+
+  // Sync our theme system with Chakra UI
+  useThemeSync()
 
   return (
     <NotificationProvider>

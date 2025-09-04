@@ -24,6 +24,6 @@ export const DATABASE_CONFIG = {
 } as const
 
 export const DEVELOPMENT = {
-  isDev: process.env.NODE_ENV === 'development',
-  debugMode: process.env.DEBUG_MODE === 'true'
+  isDev: typeof process !== 'undefined' ? process.env.NODE_ENV === 'development' : false,
+  debugMode: typeof process !== 'undefined' ? process.env.DEBUG_MODE === 'true' : false
 } as const

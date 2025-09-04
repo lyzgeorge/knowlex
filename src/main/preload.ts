@@ -174,7 +174,8 @@ const knowlexAPI: KnowlexAPI = {
     get: (id) => ipcRenderer.invoke('conversation:get', id),
     update: (data) => ipcRenderer.invoke('conversation:update', data),
     updateTitle: (conversationId, title) =>
-      ipcRenderer.invoke('conversation:update-title', conversationId, title),
+      // Legacy convenience API mapped to unified conversation:update
+      ipcRenderer.invoke('conversation:update', { id: conversationId, title }),
     updateSettings: (conversationId, settings) =>
       ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
     generateTitle: (conversationId) =>
@@ -189,10 +190,12 @@ const knowlexAPI: KnowlexAPI = {
     send: (data) => ipcRenderer.invoke('message:send', data),
     stop: (messageId) => ipcRenderer.invoke('message:stop', messageId),
     list: (conversationId) => ipcRenderer.invoke('message:list', conversationId),
-    update: (id, content) => ipcRenderer.invoke('message:update', id, content),
+    // Normalize message update API to send single object { id, content }
+    update: (id, content) => ipcRenderer.invoke('message:update', { id, content }),
     delete: (id) => ipcRenderer.invoke('message:delete', id),
     regenerate: (messageId) => ipcRenderer.invoke('message:regenerate', messageId),
-    edit: (messageId, content) => ipcRenderer.invoke('message:edit', messageId, content)
+    // Keep legacy edit mapped to message:update for backward compatibility
+    edit: (messageId, content) => ipcRenderer.invoke('message:update', { id: messageId, content })
   },
 
   // Project IPC
