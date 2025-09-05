@@ -7,7 +7,7 @@ import type {
   UpdateModelConfigInput,
   ModelConnectionTestResult
 } from '@shared/types/models'
-import { sanitizeForBroadcast } from '@shared/types/models'
+import { toPublicModelConfig } from '@shared/types/models'
 import { modelConfigService } from '@main/services/model-config-service'
 import { handleIPCCall, requireValidId } from './common'
 
@@ -61,7 +61,7 @@ export function registerModelConfigIPCHandlers(): void {
         if (options?.includeApiKeys === true) {
           return models
         } else {
-          return models.map(sanitizeForBroadcast)
+          return models.map(toPublicModelConfig)
         }
       })
     }
@@ -83,7 +83,7 @@ export function registerModelConfigIPCHandlers(): void {
         if (options?.includeApiKey === true) {
           return model
         } else {
-          return sanitizeForBroadcast(model)
+          return toPublicModelConfig(model)
         }
       })
     }
@@ -100,9 +100,9 @@ export function registerModelConfigIPCHandlers(): void {
         const modelConfig = await modelConfigService.create(input as CreateModelConfigInput)
 
         // Unified changed event
-        enqueueChange({ type: 'created', model: sanitizeForBroadcast(modelConfig) })
+        enqueueChange({ type: 'created', model: toPublicModelConfig(modelConfig) })
 
-        return sanitizeForBroadcast(modelConfig)
+        return toPublicModelConfig(modelConfig)
       })
     }
   )
@@ -122,9 +122,9 @@ export function registerModelConfigIPCHandlers(): void {
         )
 
         // Unified changed event
-        enqueueChange({ type: 'updated', model: sanitizeForBroadcast(modelConfig) })
+        enqueueChange({ type: 'updated', model: toPublicModelConfig(modelConfig) })
 
-        return sanitizeForBroadcast(modelConfig)
+        return toPublicModelConfig(modelConfig)
       })
     }
   )

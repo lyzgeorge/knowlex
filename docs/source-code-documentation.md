@@ -89,23 +89,28 @@ Electron 主进程和渲染进程间通信的结构定义。
 | CitationContent | 接口 | 引用属性 | 文件引用，包含相似度分数和页面引用 |
 
 ### src/shared/types/models.ts
-模型配置类型定义，区分公共和私有配置。
+模型配置类型定义和工具函数。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| ModelConfig | 接口 | 配置属性 | 完整模型配置，包含 API 凭据和功能 |
-| ModelConfigPublic | 接口 | 配置属性 | 公共模型配置，不包含 API 密钥 |
-| isPrivateModelConfig | 函数 | config | 检查是否为私有配置的类型守卫 |
-| toPublicModelConfig | 函数 | privateConfig | 将私有配置转换为公共配置 |
+| ModelConfigPublic | 接口 | 配置属性 | 基础模型配置接口（公共字段） |
+| ModelConfig | 接口 | 扩展 ModelConfigPublic | 完整模型配置，包含 API 凭据 |
+| isPrivateModelConfig | 函数 | config | 检查配置是否包含 API 密钥的类型守卫 |
+| toPublicModelConfig | 函数 | config | 将完整配置转换为公共配置（移除 API 密钥） |
+| CreateModelConfigInput | 接口 | 创建参数 | 模型创建输入结构 |
+| UpdateModelConfigInput | 接口 | 更新参数 | 模型更新输入结构 |
 
 ### src/shared/types/notification.ts
-完整的通知系统，包含预定义模式和类型安全配置。
+通知系统类型定义和预设配置。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| NotificationType | 联合类型 | 无 | 通知严重程度级别 |
-| NotificationOptions | 接口 | 选项属性 | 通知配置选项 |
-| NOTIFICATION_PRESETS | 常量 | 无 | 30+ 个预定义通知配置 |
+| NotificationType | 联合类型 | 无 | 通知严重程度级别 ('success' \| 'error' \| 'warning' \| 'info') |
+| NotificationPosition | 联合类型 | 无 | 通知显示位置选项 |
+| NotificationOptions | 接口 | 选项属性 | 通知配置选项，包含标题、描述、持续时间等 |
+| NotificationPreset | 接口 | 预设属性 | 预设通知配置结构 |
+| NOTIFICATION_PRESETS | 常量 | 无 | 15 个实际使用的预定义通知配置 |
+| NotificationPresetKey | 类型 | 无 | 预设键的类型安全枚举 |
 
 ### src/shared/types/project.ts
 简单的项目数据结构定义。
@@ -121,10 +126,7 @@ Electron 主进程和渲染进程间通信的结构定义。
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | generateId | 函数 | 无 | 生成 32 字符十六进制 ID |
-| generateShortId | 函数 | 无 | 生成 12 字符十六进制 ID |
-| generateUUID | 函数 | 无 | 生成 RFC 4122 兼容的 UUID v4 |
 
-注意: 此文件在近期重构中已从代码库中删除（原内容仅在文档中保留）。运行时不再依赖集中式 AI 常量配置，而是通过模型配置表/服务动态解析模型与能力。
 ### src/shared/utils/message-branching.ts
 实现对话树分支逻辑，用于替代对话路径。
 
@@ -135,7 +137,6 @@ Electron 主进程和渲染进程间通信的结构定义。
 | canCreateBranch | 函数 | message | 验证消息是否可用于分支创建 |
 ### src/shared/utils/model-resolution.ts
 集中化模型解析服务，实现 3 层优先级系统。
-注: `MIME_TYPES` 映射已在重构中移除（未在运行时被引用）。文档中保留了受支持文件类型与约束。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
@@ -143,7 +144,7 @@ Electron 主进程和渲染进程间通信的结构定义。
 | getModelCapabilities | 函数 | modelId | 缓存的功能提取，1 分钟 TTL |
 | getActiveModelId | 函数 | context | 基于优先级的活动模型 ID 提取 |
 | validateModelResolution | 函数 | result | 详细错误报告的验证 |
-注意: 为了减少未使用的工具函数，近期重构移除了 `generateShortId` 和 `generateUUID`，仅保留通用且被使用的 `generateId`。
+### src/shared/utils/time.ts
 统一的时间管理，支持 SQLite 时间戳和国际化。
 
 | 导出项 | 类型 | 参数 | 描述 |
@@ -579,12 +580,12 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useMessageBranching | Hook | conversationId | 消息分支钩子，支持树遍历和分支导航 |
 
-### src/renderer/hooks/useMessageBranch.ts
-简化的分支导航 API。
+### 分支导航（已内联到 UserMessage）
+简化的分支导航 API 已从独立 hook 内联至 `src/renderer/components/features/chat/UserMessage.tsx`。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| useMessageBranch | Hook | messageId | 消息分支钩子，自动状态同步 |
+| BranchInfo | 类型 | branches, currentIndex | 分支信息用于渲染与切换（由 `useMessageBranching.getBranchInfo` 提供） |
 
 ### src/renderer/hooks/useModelCapabilities.ts
 集中化模型能力检测。
@@ -615,11 +616,18 @@ AI 模型配置管理。
 | useMessageContentDiff | Hook | oldContent, newContent | 内容差异钩子，性能优化的记忆化 |
 
 ### src/renderer/hooks/useNotifications.ts
-综合通知系统。
+综合通知系统钩子。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| useNotifications | Hook | 无 | 通知钩子，通知队列管理和自动解除 |
+| useNotifications | Hook | 无 | 通知钩子，返回核心通知函数和实际使用的便利函数 |
+| notify | 函数 | type, options | 通用通知函数 |
+| success/error/warning/info | 函数 | options | 特定类型的通知函数 |
+| preset | 函数 | presetKey, overrides | 使用预设配置的通知函数 |
+| messageCopied/messageRegenerated/messageError | 函数 | 参数 | 消息操作相关通知 |
+| aiGenerating/aiError/networkError | 函数 | 参数 | AI 操作相关通知 |
+| fileValidationError/filesProcessed/fileProcessingFailed | 函数 | 参数 | 文件操作相关通知 |
+| conversationRenamed/conversationDeleted 等 | 函数 | 参数 | 对话操作相关通知 |
 
 ### src/renderer/hooks/useProjectManagement.ts
 项目 CRUD，包含 UI 状态管理。
@@ -671,37 +679,3 @@ Vitest 的测试配置。
 
 此文档涵盖了 Knowlex 应用程序的完整源代码架构，展示了企业级 Electron + React 应用程序的高级状态管理、实时能力和综合用户体验模式。
 
-## 最近重构与迁移说明
-
-此部分记录了近期对共享层与 IPC 层的精简与迁移决策，便于团队后续完成迁移并清理兼容性代码。
-
-- 目标：精简共享常量/工具、统一 IPC 请求签名、并最小化主进程/渲染进程之间的重复验证逻辑。
-- 主要变更：
-	- 删除不再被运行时代码使用的共享常量（例如 `src/shared/constants/ai.ts`），以及不必要的映射（`MIME_TYPES`）。
-	- 精简 `src/shared/utils/id.ts`，移除未使用的 `generateShortId` 和 `generateUUID`。保留 `generateId`。
-	- 在 `src/main/ipc/common.ts` 中新增 `expectObject`、`expectString` 等集中验证辅助函数，替代重复的本地验证代码。
-	- 在 `src/main/ipc/conversation.ts` 中合并并规范了会话与消息相关的 IPC 处理：
-		- 引入统一的 `conversation:update` 输入对象形式（{ id, ... }）。
-		- 移除旧的 `conversation:update-title` 与 `message:edit` 主进程处理器（迁移期间保留了 preload 层的兼容映射）。
-		- 简化 `message:send` 的流程：将会话创建逻辑从消息发送中抽离为 `ensureConversationExists` 辅助函数，并使用事件广播更新渲染端状态。
-	- 在 `src/main/preload.ts` 中添加了兼容性映射（例如 `conversation.updateTitle` → `conversation.update({ id, title })`，`message.edit` → `message.update(id, content)`）以保证迁移为逐步零中断。
-
-- 渲染端迁移（当前要做的工作）：
-	1. 将渲染端调用改为新的统一 IPC 形态，例如：
-		 - `window.knowlex.conversation.updateTitle(conversationId, title)` → `window.knowlex.conversation.update({ id: conversationId, title })`。
-		 - `window.knowlex.message.edit(messageId, content)` → `window.knowlex.message.update(messageId, content)`（或直接使用 `message.update({ id, content })` 取决于预期的 API 形态）。
-	2. 更新 `src/renderer/stores/conversation/api.ts`（已开始），并修复所有调用方（如 `src/renderer/stores/conversation.ts`）。
-
-- 清理步骤（迁移完成后）：
-	- 在确认渲染端所有调用已更新并通过类型检查后，删除 `src/main/preload.ts` 中的兼容性映射。
-	- 从主进程中移除对应的遗留 IPC 处理器注册（已在一次迭代中移除，但在最终清理前请再次确认）。
-	- 更新文档并移除与已删除常量/函数相关的说明。
-
-- 验证建议：
-	- 运行 `pnpm -w exec -- tsc --noEmit` 进行全量类型检查。
-	- 运行 `pnpm test`（或 `pnpm -w test`）以验证关键路径（文件处理、IPC handlers）没有回归。
-	- 在 UI 层进行手动冒烟：新建会话、发送消息、编辑消息、生成标题，确保事件广播与流式更新正常。
-
-如需我继续，我可以：
-	- 继续在渲染端完成剩余的 API 替换（自动化 grep 替换并运行类型检查与测试）；
-	- 移除 preload 中的兼容 API（在你确认渲染端完全迁移后）。

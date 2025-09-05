@@ -1,19 +1,12 @@
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import type { Message } from '@shared/types/message'
 
 // Sentinel key for top-level roots (messages with parentMessageId === null)
 const ROOT_KEY = '__ROOT__'
 
-interface BranchState {
-  parentKey: string
-  activeIndex: number
-  explicit: boolean // Whether this is an explicit user choice or automatic default
-  knownLength?: number // Track number of known children for new message detection
-}
-
 interface MessageBranchingResult {
   filteredMessages: Message[]
-  branchStates: Record<string, BranchState>
+  branchStates: Record<string, number>
   setBranchIndex: (parentKey: string, index: number) => void
   getBranchInfo: (message: Message) => {
     branches: Message[]
@@ -23,17 +16,18 @@ interface MessageBranchingResult {
 }
 
 /**
- * Enhanced message branching with proper tree traversal and explicit user choices.
+ * Simplified message branching with deterministic traversal.
  *
- * Key behaviors:
- * 1. Default shows the latest top-level message chain
- * 2. User selections are remembered and persist until changed
- * 3. When switching branches, downstream paths reset to defaults (latest)
- * 4. Only shows messages in the currently selected chain
+ * Behaviors:
+ * - Default picks the latest user child at every fork (top-level and below).
+ * - Per-parent selections are remembered (parentKey -> index) until changed.
+ * - No implicit/explicit heuristics or cascading resets; switching a parent
+ *   naturally changes the path because downstream parent keys differ.
+ * - Only messages along the currently selected path are returned.
  */
 export const useMessageBranching = (messages: Message[]): MessageBranchingResult => {
-  // Track branch selections with explicit vs implicit state
-  const [branchStates, setBranchStates] = useState<Record<string, BranchState>>({})
+  // Track branch selections: parentKey -> selected user-child index
+  const [branchStates, setBranchStates] = useState<Record<string, number>>({})
 
   // Build parent-child relationships
   const childrenMap = useMemo(() => {
@@ -53,110 +47,10 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
     return map
   }, [messages])
 
-  // Initialize default branch states and handle new message auto-switching
-  useEffect(() => {
-    setBranchStates((prev) => {
-      const next: Record<string, BranchState> = { ...prev }
-      let changed = false
-
-      // For each parent that has user children, set default to latest
-      for (const [parentKey, children] of Object.entries(childrenMap)) {
-        const userChildren = children.filter((m) => m.role === 'user')
-        if (userChildren.length > 0) {
-          const currentState = next[parentKey]
-          const latestIndex = userChildren.length - 1
-
-          // Auto-switch to latest message in these cases:
-          // 1. No current state exists
-          // 2. Current choice is invalid (out of bounds)
-          // 3. There's a new message (userChildren.length > previous known length) AND no explicit choice
-          // We also treat a previously 'explicit' selection that was made when there was
-          // only a single option as implicit once new siblings appear. This fixes the
-          // scenario where the very first (and only) root user message becomes flagged
-          // explicit (e.g. due to a programmatic set) and then prevents auto-switching
-          // when a new top-level user message (fork) is created.
-          const previouslySingleChoiceBecomesMulti =
-            !!currentState?.explicit &&
-            (currentState.knownLength || 0) === 1 &&
-            userChildren.length > 1
-
-          const shouldAutoSwitch =
-            !currentState ||
-            currentState.activeIndex >= userChildren.length ||
-            currentState.activeIndex < 0 ||
-            (!currentState.explicit && userChildren.length > (currentState?.knownLength || 0)) ||
-            previouslySingleChoiceBecomesMulti ||
-            // Also auto-switch when there are new messages, even if explicitly chosen before
-            // This ensures that after editing a message and creating a branch, we navigate to the latest branch
-            userChildren.length > (currentState?.knownLength || 0)
-
-          if (shouldAutoSwitch) {
-            next[parentKey] = {
-              parentKey,
-              activeIndex: latestIndex,
-              explicit: currentState?.explicit || false,
-              knownLength: userChildren.length // Track known length for new message detection
-            }
-            changed = true
-          } else if (currentState.knownLength !== userChildren.length) {
-            // Update known length without changing selection
-            next[parentKey] = {
-              ...currentState,
-              knownLength: userChildren.length
-            }
-            changed = true
-          }
-        }
-      }
-
-      return changed ? next : prev
-    })
-  }, [childrenMap])
-
   // Set active branch with cascading reset
   const setBranchIndex = useCallback(
     (parentKey: string, index: number) => {
-      setBranchStates((prev) => {
-        const next: Record<string, BranchState> = { ...prev }
-
-        // Get current known length
-        const parentChildren = childrenMap[parentKey] || []
-        const userChildren = parentChildren.filter((m) => m.role === 'user')
-
-        // Set the explicit choice
-        next[parentKey] = {
-          parentKey,
-          activeIndex: index,
-          // Only mark as explicit if there is a genuine choice (>= 2 siblings)
-          explicit: userChildren.length > 1,
-          knownLength: userChildren.length
-        }
-
-        // Find the selected message to determine what needs to be reset
-        const selectedMessage = userChildren[index]
-
-        if (selectedMessage) {
-          // Reset all downstream explicit choices to allow re-evaluation
-          const resetDownstream = (messageId: string) => {
-            const children = childrenMap[messageId] || []
-            for (const child of children) {
-              if (next[child.id]?.explicit) {
-                const existing = next[child.id]!
-                next[child.id] = {
-                  parentKey: existing.parentKey,
-                  activeIndex: existing.activeIndex,
-                  explicit: false,
-                  knownLength: existing.knownLength ?? 0
-                }
-              }
-              resetDownstream(child.id)
-            }
-          }
-          resetDownstream(selectedMessage.id)
-        }
-
-        return next
-      })
+      setBranchStates((prev) => ({ ...prev, [parentKey]: index }))
     },
     [childrenMap]
   )
@@ -166,12 +60,14 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
     (message: Message) => {
       const parentKey = message.parentMessageId ?? ROOT_KEY
       const siblings = (childrenMap[parentKey] || []).filter((m) => m.role === 'user')
+      const selectedIndex = branchStates[parentKey]
+      const fallbackIndex = siblings.findIndex((m) => m.id === message.id)
       const currentIndex =
-        branchStates[parentKey]?.activeIndex ??
-        Math.max(
-          0,
-          siblings.findIndex((m) => m.id === message.id)
-        )
+        selectedIndex !== undefined
+          ? Math.max(0, Math.min(selectedIndex, siblings.length - 1))
+          : fallbackIndex >= 0
+            ? fallbackIndex
+            : Math.max(0, siblings.length - 1)
 
       return {
         branches: siblings,
@@ -197,8 +93,10 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
     }
 
     // Select top-level message based on branch state
-    const rootState = branchStates[ROOT_KEY]
-    const topIndex = rootState?.activeIndex ?? topLevelUsers.length - 1
+    const topIndex =
+      branchStates[ROOT_KEY] !== undefined
+        ? Math.max(0, Math.min(branchStates[ROOT_KEY]!, topLevelUsers.length - 1))
+        : topLevelUsers.length - 1
     const clampedIndex = Math.max(0, Math.min(topIndex, topLevelUsers.length - 1))
 
     let current: Message | undefined = topLevelUsers[clampedIndex]
@@ -222,8 +120,10 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
         if (userChildren.length === 0) break
 
         // Use branch state to select which user child to follow
-        const branchState = branchStates[current.id]
-        const childIndex = branchState?.activeIndex ?? userChildren.length - 1
+        const childIndex =
+          branchStates[current.id] !== undefined
+            ? Math.max(0, Math.min(branchStates[current.id]!, userChildren.length - 1))
+            : userChildren.length - 1
         const clampedChildIndex = Math.max(0, Math.min(childIndex, userChildren.length - 1))
 
         current = userChildren[clampedChildIndex]

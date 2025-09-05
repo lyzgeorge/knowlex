@@ -1,8 +1,16 @@
-/**
- * Generic Chunk Buffer System
- * Provides batched streaming updates to prevent excessive re-renders
+/*
+ * Streaming utilities (skeleton)
+ * Will consolidate chunk-buffer.ts and chunk-appliers.ts here.
  */
 
+/**
+ * Streaming utilities: chunk buffers and appliers
+ * Consolidated implementation of chunk buffering (batched updates) and
+ * chunk appliers for text/reasoning. This module is the canonical place
+ * for streaming-related logic.
+ */
+
+// --- chunk-buffer implementation ---
 export type ChunkApplier<T> = (messageId: string, chunk: T) => void
 
 export interface ChunkBuffer<T> {
@@ -13,9 +21,6 @@ export interface ChunkBuffer<T> {
   destroy: () => void
 }
 
-/**
- * Creates a generic chunk buffer that batches updates using requestAnimationFrame
- */
 export function createChunkBuffer<T>(
   applier: ChunkApplier<T>,
   combiner: (existing: T | undefined, newChunk: T) => T
@@ -52,7 +57,6 @@ export function createChunkBuffer<T>(
   }
 
   const finalize = (messageId: string) => {
-    // Apply any remaining chunks for this message immediately
     const pendingChunk = pendingChunks[messageId]
     if (pendingChunk !== undefined) {
       applier(messageId, pendingChunk)
@@ -84,7 +88,33 @@ export const textChunkCombiner = (existing: string | undefined, newChunk: string
   return (existing || '') + newChunk
 }
 
-// Generic chunk combiner - just uses the new value
+// Generic chunk combiner - replace with new chunk
 export const replaceChunkCombiner = <T>(_existing: T | undefined, newChunk: T): T => {
   return newChunk
+}
+
+// --- chunk-appliers implementation ---
+import { CONVERSATION_CONSTANTS } from './utils'
+
+export function applyTextChunkToDraft(message: any, combinedChunk: string) {
+  const lastContent = message.content[message.content.length - 1]
+  if (lastContent?.type === 'text') {
+    const currentText =
+      lastContent.text === CONVERSATION_CONSTANTS.ZERO_WIDTH_SPACE ? '' : lastContent.text || ''
+    lastContent.text = currentText + combinedChunk
+  } else {
+    message.content.push({ type: 'text', text: combinedChunk })
+  }
+}
+
+export function applyReasoningChunkToDraft(message: any, combinedChunk: string) {
+  message.reasoning = (message.reasoning || '') + combinedChunk
+}
+
+export default {
+  createChunkBuffer,
+  textChunkCombiner,
+  replaceChunkCombiner,
+  applyTextChunkToDraft,
+  applyReasoningChunkToDraft
 }

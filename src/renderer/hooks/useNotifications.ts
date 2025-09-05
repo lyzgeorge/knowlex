@@ -102,54 +102,6 @@ export const useNotifications = () => {
   )
 
   // Convenience functions for common operations
-  const fileCopied = useCallback(
-    (customMessage?: string) => {
-      return preset('fileCopied', customMessage ? { description: customMessage } : {})
-    },
-    [preset]
-  )
-
-  const fileProcessing = useCallback(
-    (filename?: string) => {
-      return preset(
-        'fileProcessing',
-        filename
-          ? {
-              description: `Processing ${filename}...`
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
-
-  const fileUploaded = useCallback(
-    (filename?: string) => {
-      return preset(
-        'fileUploaded',
-        filename
-          ? {
-              description: `${filename} processed successfully`
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
-
-  const fileError = useCallback(
-    (error?: string) => {
-      return preset(
-        'fileError',
-        error
-          ? {
-              description: error
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
 
   const messageCopied = useCallback(() => {
     return preset('messageCopied')
@@ -164,34 +116,6 @@ export const useNotifications = () => {
       return preset('messageError', {
         description: error || NOTIFICATION_PRESETS.messageError.description
       })
-    },
-    [preset]
-  )
-
-  const saved = useCallback(
-    (itemName?: string) => {
-      return preset(
-        'saved',
-        itemName
-          ? {
-              description: `${itemName} saved successfully`
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
-
-  const deleted = useCallback(
-    (itemName?: string) => {
-      return preset(
-        'deleted',
-        itemName
-          ? {
-              description: `${itemName} deleted successfully`
-            }
-          : {}
-      )
     },
     [preset]
   )
@@ -214,20 +138,6 @@ export const useNotifications = () => {
   }, [preset])
 
   // File upload and validation convenience functions
-  const fileTooMany = useCallback(
-    (maxFiles?: number) => {
-      return preset(
-        'fileTooMany',
-        maxFiles
-          ? {
-              description: `Maximum ${maxFiles} files allowed`
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
-
   const fileValidationError = useCallback(
     (error?: string) => {
       return preset(
@@ -302,25 +212,6 @@ export const useNotifications = () => {
   )
 
   // Message edit operations convenience functions
-  const messageUpdated = useCallback(
-    (role?: 'user' | 'assistant') => {
-      return preset(
-        'messageUpdated',
-        role === 'user'
-          ? {
-              description: 'User message updated and conversation will continue from this point'
-            }
-          : {
-              description: 'Message updated successfully'
-            }
-      )
-    },
-    [preset]
-  )
-
-  const messageUpdateFailed = useCallback(() => {
-    return preset('messageUpdateFailed')
-  }, [preset])
 
   // Close all toasts
   const closeAll = useCallback(() => {
@@ -336,22 +227,13 @@ export const useNotifications = () => {
     info,
     preset,
 
-    // Convenience functions - existing
-    fileCopied,
-    fileProcessing,
-    fileUploaded,
-    fileError,
+    // Convenience functions
     messageCopied,
     messageRegenerated,
     messageError,
-    saved,
-    deleted,
     aiGenerating,
     aiError,
     networkError,
-
-    // Convenience functions - new
-    fileTooMany,
     fileValidationError,
     filesProcessed,
     fileProcessingFailed,
@@ -359,8 +241,6 @@ export const useNotifications = () => {
     conversationRenameFailed,
     conversationDeleted,
     conversationDeleteFailed,
-    messageUpdated,
-    messageUpdateFailed,
 
     // Utility functions
     closeAll

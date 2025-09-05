@@ -4,7 +4,7 @@ import os from 'os'
 import { TemporaryFileResult } from '@shared/types/file'
 import {
   getFileExtension,
-  isValidTemporaryFileType,
+  isValidFileType,
   getMimeTypeFromExtension,
   formatBytes,
   isImageFile
@@ -109,26 +109,7 @@ export async function processTemporaryFiles(filePaths: string[]): Promise<Tempor
     }))
   }
 
-  // Validate overall constraints (count and total size)
-  const validation = validateTemporaryFileConstraints(fileStats)
-
-  if (!validation.valid) {
-    // Check if errors are global (count/total size) vs individual file errors
-    const globalErrors = validation.errors.filter(
-      (error) => error.includes('Too many files') || error.includes('Total file size too large')
-    )
-
-    if (globalErrors.length > 0) {
-      // Return error for all files if global validation fails
-      return filePaths.map((filePath) => ({
-        filename: path.basename(filePath),
-        content: '',
-        size: 0,
-        mimeType: '',
-        error: globalErrors.join('; ')
-      }))
-    }
-  }
+  // Individual file validation will be handled during processing
 
   // Process each file individually
   for (const stat of fileStats) {
@@ -173,24 +154,24 @@ async function processSingleTemporaryFile(
   size: number
 ): Promise<TemporaryFileResult> {
   // Validate file type
-  if (!isValidTemporaryFileType(filename)) {
+  if (!isValidFileType(filename)) {
     return {
       filename,
       content: '',
       size,
       mimeType: '',
-      error: `Unsupported file type. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
+      error: `Unsupported file type. Only ${SUPPORTED_FILE_TYPES.join(', ')} files are supported.`
     }
   }
 
   // Validate file size
-  if (size > FILE_CONSTRAINTS.TEMPORARY.maxFileSize) {
+  if (size > FILE_CONSTRAINTS.maxFileSize) {
     return {
       filename,
       content: '',
       size,
       mimeType: '',
-      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.TEMPORARY.maxFileSize)}.`
+      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.maxFileSize)}.`
     }
   }
 
@@ -259,34 +240,18 @@ function validateTemporaryFileConstraintsInternal(
   throwOnError: boolean = false
 ): { valid: boolean; errors: string[] } | void {
   const errors: string[] = []
-  const constraints = FILE_CONSTRAINTS.TEMPORARY
-
-  // Check file count
-  if (files.length > constraints.maxFileCount) {
-    const error = `Too many files. Maximum ${constraints.maxFileCount} files allowed.`
-    if (throwOnError) throw new Error(error)
-    errors.push(error)
-  }
-
-  // Check total size
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-  if (totalSize > constraints.maxTotalSize) {
-    const error = `Total file size too large. Maximum ${formatBytes(constraints.maxTotalSize)} allowed.`
-    if (throwOnError) throw new Error(error)
-    errors.push(error)
-  }
 
   // Check individual files
   files.forEach((file, index) => {
-    if (!isValidTemporaryFileType(file.name)) {
+    if (!isValidFileType(file.name)) {
       const extension = getFileExtension(file.name)
-      const error = `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
+      const error = `File ${index + 1} (${file.name}): Unsupported file type ${extension}. Only ${SUPPORTED_FILE_TYPES.join(', ')} files are supported.`
       if (throwOnError) throw new Error(error)
       errors.push(error)
     }
 
-    if (file.size > constraints.maxFileSize) {
-      const error = `File ${index + 1} (${file.name}): File too large. Maximum ${formatBytes(constraints.maxFileSize)} allowed.`
+    if (file.size > FILE_CONSTRAINTS.maxFileSize) {
+      const error = `File ${index + 1} (${file.name}): File too large. Maximum ${formatBytes(FILE_CONSTRAINTS.maxFileSize)} allowed.`
       if (throwOnError) throw new Error(error)
       errors.push(error)
     }
@@ -350,24 +315,24 @@ async function processSingleTemporaryFileContent(
   size: number
 ): Promise<TemporaryFileResult> {
   // Validate file type
-  if (!isValidTemporaryFileType(filename)) {
+  if (!isValidFileType(filename)) {
     return {
       filename,
       content: '',
       size,
       mimeType: '',
-      error: `Unsupported file type. Only ${SUPPORTED_FILE_TYPES.TEMPORARY.join(', ')} files are supported.`
+      error: `Unsupported file type. Only ${SUPPORTED_FILE_TYPES.join(', ')} files are supported.`
     }
   }
 
   // Validate file size
-  if (size > FILE_CONSTRAINTS.TEMPORARY.maxFileSize) {
+  if (size > FILE_CONSTRAINTS.maxFileSize) {
     return {
       filename,
       content: '',
       size,
       mimeType: '',
-      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.TEMPORARY.maxFileSize)}.`
+      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.maxFileSize)}.`
     }
   }
 

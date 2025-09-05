@@ -13,17 +13,25 @@ import {
 import type { Message, MessageContentPart } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
 import { buildUserMessageBranchSendOptions } from '@shared/utils/message-branching'
-import MarkdownContent from './MarkdownContent'
-import { TempFileCard, toMessageFileLikeFromMessagePart, TempFileCardList } from './TempFileCard'
-import AutoResizeTextarea from './AutoResizeTextarea'
+import MarkdownContent from '@renderer/components/ui/MarkdownContent'
+import {
+  TempFileCard,
+  toMessageFileLikeFromMessagePart,
+  TempFileCardList
+} from '@renderer/components/ui/TempFileCard'
+import AutoResizeTextarea from '@renderer/components/ui/AutoResizeTextarea'
 import { useNotifications } from '@renderer/components/ui'
 import { useSendMessage, useIsSending } from '@renderer/stores/conversation'
-import { useMessageBranch, BranchInfo } from '@renderer/hooks/useMessageBranch'
+// Inline branch navigation logic; remove dependency on useMessageBranch hook
 import { useEditableMessage } from '@renderer/hooks/useEditableMessage'
 import { useMessageContentDiff } from '@renderer/hooks/useMessageContentDiff'
 import { getFileAcceptString } from '@renderer/hooks/useFileUpload'
 
-export type { BranchInfo } from '@renderer/hooks/useMessageBranch'
+export interface BranchInfo {
+  branches: Message[]
+  currentIndex: number
+  totalCount: number
+}
 
 export interface UserMessageProps {
   /** Message data */
@@ -58,21 +66,33 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const userBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)')
   const userTextColor = useColorModeValue('text.primary', 'text.primary')
 
-  // Branch management
-  const branch = useMessageBranch(message, branchInfo, onBranchChange)
+  // Branch management (inline replacement of useMessageBranch)
+  const branches = branchInfo?.branches || [message]
+  const activeIndex = branchInfo?.currentIndex || 0
+  const currentBranch = branches[activeIndex] || message
+  const canGoPrevious = activeIndex > 0
+  const canGoNext = activeIndex < branches.length - 1
+  const goToPrevious = useCallback(() => {
+    const newIndex = Math.max(0, activeIndex - 1)
+    onBranchChange?.(newIndex)
+  }, [activeIndex, onBranchChange])
+  const goToNext = useCallback(() => {
+    const newIndex = Math.min(branches.length - 1, activeIndex + 1)
+    onBranchChange?.(newIndex)
+  }, [activeIndex, branches.length, onBranchChange])
 
   // Editable message state
   const editableMessage = useEditableMessage()
 
   // Content diffing
-  const contentDiff = useMessageContentDiff(branch.currentBranch.content)
+  const contentDiff = useMessageContentDiff(currentBranch.content)
 
   // Initialize editing state when entering edit mode or switching branch while editing
   useEffect(() => {
     if (isEditing) {
-      editableMessage.initialize(branch.currentBranch)
+      editableMessage.initialize(currentBranch)
     }
-  }, [isEditing, branch.currentBranch.id, branch.activeIndex, editableMessage.initialize])
+  }, [isEditing, currentBranch.id, activeIndex, editableMessage.initialize])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {
@@ -102,14 +122,14 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
   // Derived values
   const fileParts = useMemo(() => {
-    return branch.currentBranch.content.filter(
+    return currentBranch.content.filter(
       (part) => part.type === 'temporary-file' || part.type === 'image'
     )
-  }, [branch.currentBranch.content])
+  }, [currentBranch.content])
 
   const textParts = useMemo(() => {
-    return branch.currentBranch.content.filter((part) => part.type === 'text')
-  }, [branch.currentBranch.content])
+    return currentBranch.content.filter((part) => part.type === 'text')
+  }, [currentBranch.content])
 
   const textContent = useMemo(() => {
     return textParts.map((part) => part.text || '').join('\n')
@@ -134,7 +154,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
     try {
       const content = editableMessage.buildContent()
-      const sendOptions = buildUserMessageBranchSendOptions(branch.currentBranch)
+      const sendOptions = buildUserMessageBranchSendOptions(currentBranch)
 
       await sendMessage(content, sendOptions)
 
@@ -158,7 +178,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     hasContentChanged,
     isSending,
     sendMessage,
-    branch.currentBranch,
+    currentBranch,
     notifications
   ])
 
@@ -188,7 +208,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const handleCopy = useCallback(async () => {
     try {
       // Copy visible text from the currently selected branch
-      const content = branch.currentBranch.content
+      const content = currentBranch.content
         .filter((part) => part.type === 'text')
         .map((part) => part.text || '')
         .join('\n')
@@ -206,7 +226,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         duration: 3000
       })
     }
-  }, [branch.currentBranch.content, notifications])
+  }, [currentBranch.content, notifications])
 
   // Determine if send button should be enabled
   const canSend =
@@ -312,10 +332,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               <>
                 <MarkdownContent text={textContent} />
                 {/* Reasoning badge: show transient per-message reasoning selection if available */}
-                {branch.currentBranch?.reasoningEffort && (
+                {currentBranch?.reasoningEffort && (
                   <HStack spacing={1} justify="flex-end" mt={1} color="gray.500">
                     <Icon as={HiLightBulb} boxSize={3} />
-                    <Text fontSize="xs">Reasoning: {branch.currentBranch.reasoningEffort}</Text>
+                    <Text fontSize="xs">Reasoning: {currentBranch.reasoningEffort}</Text>
                   </HStack>
                 )}
               </>
@@ -391,29 +411,29 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               </HStack>
             </Box>
             <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-              <Text variant="timestamp">{formatTime(branch.currentBranch.updatedAt)}</Text>
+              <Text variant="timestamp">{formatTime(currentBranch.updatedAt)}</Text>
             </Box>
             {/* Branch Switcher - always show when multiple branches exist */}
-            {branch.branches.length > 1 && (
+            {branches.length > 1 && (
               <HStack spacing={1} fontSize="xs" color="text.secondary" align="center">
                 <Icon
                   as={HiChevronLeft}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
-                  onClick={branch.goToPrevious}
-                  opacity={branch.canGoPrevious ? 1 : 0.5}
+                  onClick={goToPrevious}
+                  opacity={canGoPrevious ? 1 : 0.5}
                 />
-                <Text lineHeight="1">{branch.activeIndex + 1}</Text>
+                <Text lineHeight="1">{activeIndex + 1}</Text>
                 <Text lineHeight="1">/</Text>
-                <Text lineHeight="1">{branch.branches.length}</Text>
+                <Text lineHeight="1">{branches.length}</Text>
                 <Icon
                   as={HiChevronRight}
                   boxSize={3}
                   cursor="pointer"
                   _hover={{ color: 'text.primary' }}
-                  onClick={branch.goToNext}
-                  opacity={branch.canGoNext ? 1 : 0.5}
+                  onClick={goToNext}
+                  opacity={canGoNext ? 1 : 0.5}
                 />
               </HStack>
             )}

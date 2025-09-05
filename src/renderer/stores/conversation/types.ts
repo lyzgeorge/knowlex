@@ -6,7 +6,7 @@
 import type { Conversation, SessionSettings } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
-import type { MessageStore } from './message-index'
+import type { MessageStore } from './data'
 
 export interface ConversationState extends MessageStore {
   // Core data

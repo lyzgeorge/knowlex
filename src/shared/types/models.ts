@@ -2,25 +2,7 @@
  * Types for AI model configuration and management
  */
 
-export interface ModelConfig {
-  id: string
-  name: string
-  apiEndpoint: string
-  apiKey: string | null
-  modelId: string
-  temperature?: number | undefined
-  topP?: number | undefined
-  frequencyPenalty?: number | undefined
-  presencePenalty?: number | undefined
-  supportsReasoning: boolean
-  supportsVision: boolean
-  supportsToolUse: boolean
-  supportsWebSearch: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-// Public model config type (without sensitive information)
+// Base model configuration interface (public fields only)
 export interface ModelConfigPublic {
   id: string
   name: string
@@ -38,28 +20,23 @@ export interface ModelConfigPublic {
   updatedAt: string
 }
 
-// Private model config type (only for main process)
-export interface ModelConfigPrivate extends ModelConfigPublic {
+// Full model config type with sensitive information (for main process)
+export interface ModelConfig extends ModelConfigPublic {
   apiKey: string | null
 }
 
-// Type guard to check if config is private
+// Type guard to check if config has API key
 export function isPrivateModelConfig(
-  config: ModelConfigPublic | ModelConfigPrivate
-): config is ModelConfigPrivate {
+  config: ModelConfigPublic | ModelConfig
+): config is ModelConfig {
   return 'apiKey' in config
 }
 
-// Utility to convert private to public
-export function toPublicModelConfig(config: ModelConfig | ModelConfigPrivate): ModelConfigPublic {
+// Utility to convert full config to public (removes API key)
+export function toPublicModelConfig(config: ModelConfig): ModelConfigPublic {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { apiKey, ...publicConfig } = config
   return publicConfig
-}
-
-// Utility to safely broadcast model config (removes API key)
-export function sanitizeForBroadcast(config: ModelConfig): ModelConfigPublic {
-  return toPublicModelConfig(config)
 }
 
 export type ReasoningEffort = 'low' | 'medium' | 'high'

@@ -46,19 +46,15 @@ export interface FileUploadHook {
 }
 
 // File constraints sourced from shared constants
-const MAX_FILES = FILE_CONSTRAINTS.TEMPORARY.maxFileCount
-const MAX_FILE_SIZE = FILE_CONSTRAINTS.TEMPORARY.maxFileSize
-const MAX_TOTAL_SIZE = FILE_CONSTRAINTS.TEMPORARY.maxTotalSize
-const ALLOWED_TYPES = SUPPORTED_FILE_TYPES.TEMPORARY as readonly string[]
+const MAX_FILE_SIZE = FILE_CONSTRAINTS.maxFileSize
+const ALLOWED_TYPES = SUPPORTED_FILE_TYPES as readonly string[]
 
 // Export for use in file input accept attribute
 export const getFileAcceptString = (): string => (ALLOWED_TYPES as string[]).join(',')
 
 // Export file constraints for use in components
 export const getFileConstraints = () => ({
-  MAX_FILES,
   MAX_FILE_SIZE,
-  MAX_TOTAL_SIZE,
   ALLOWED_TYPES
 })
 
@@ -181,7 +177,7 @@ export const useFileUpload = (): FileUploadHook => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Failed to process files'
         setState((s) => ({ ...s, error: msg, isProcessing: false }))
-        notifications.fileError(msg)
+        notifications.fileProcessingFailed('', msg)
       } finally {
         processingRef.current = false
       }
@@ -194,21 +190,12 @@ export const useFileUpload = (): FileUploadHook => {
     (incoming: FileList | File[]) => {
       const batch = uniqueBatch(Array.from(incoming))
 
-      // Snapshot current state for validation
-      const existing = state.files
-      if (existing.length + batch.length > MAX_FILES) {
-        notifications.fileTooMany(MAX_FILES)
-        return
-      }
-
-      const existingTotal = existing.reduce((sum, it) => sum + it.file.size, 0)
-      let total = existingTotal
       const validItems: FileUploadItem[] = []
       const errors: string[] = []
 
       for (const file of batch) {
         // duplicate against existing list
-        const dup = existing.some((it) => buildFileKey(it.file) === buildFileKey(file))
+        const dup = state.files.some((it) => buildFileKey(it.file) === buildFileKey(file))
         if (dup) {
           errors.push(`File "${file.name}" is already added.`)
           continue
@@ -218,13 +205,6 @@ export const useFileUpload = (): FileUploadHook => {
           errors.push(err)
           continue
         }
-        if (total + file.size > MAX_TOTAL_SIZE) {
-          errors.push(
-            `Adding "${file.name}" would exceed the total size limit of ${formatBytes(MAX_TOTAL_SIZE)}.`
-          )
-          continue
-        }
-        total += file.size
         validItems.push({
           id: `${buildFileKey(file)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           file

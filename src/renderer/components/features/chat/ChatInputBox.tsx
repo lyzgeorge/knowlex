@@ -21,8 +21,7 @@ import {
   useFileUpload,
   FileUploadItem,
   ProcessedFile,
-  getFileAcceptString,
-  getFileConstraints
+  getFileAcceptString
 } from '@renderer/hooks/useFileUpload'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
@@ -103,7 +102,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
-  const { MAX_FILES } = getFileConstraints()
+  // File constraints (removed MAX_FILES as file count is no longer limited)
 
   // Theme colors
   const bgColor = useColorModeValue('surface.primary', 'surface.primary')
@@ -457,11 +456,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                     icon={<HiPaperClip />}
                     size="sm"
                     variant="ghost"
-                    isDisabled={
-                      disabled ||
-                      fileUpload.state.files.length >= MAX_FILES ||
-                      fileUpload.state.isProcessing
-                    }
+                    isDisabled={disabled || fileUpload.state.isProcessing}
                     onClick={() => fileInputRef.current?.click()}
                   />
 

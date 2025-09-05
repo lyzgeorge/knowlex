@@ -32,33 +32,6 @@ export interface NotificationPreset extends NotificationOptions {
 
 // Common notification presets for the application
 export const NOTIFICATION_PRESETS = {
-  // File operations
-  fileCopied: {
-    type: 'success' as const,
-    title: 'Copied',
-    description: 'Content copied to clipboard',
-    duration: 2000
-  },
-  fileUploaded: {
-    type: 'success' as const,
-    title: 'File uploaded',
-    description: 'File processed successfully',
-    duration: 3000
-  },
-  fileProcessing: {
-    type: 'info' as const,
-    title: 'Processing',
-    description: 'File is being processed...',
-    duration: 0, // Don't auto-close
-    isClosable: false
-  },
-  fileError: {
-    type: 'error' as const,
-    title: 'File error',
-    description: 'Failed to process file',
-    duration: 5000
-  },
-
   // Message operations
   messageCopied: {
     type: 'success' as const,
@@ -80,18 +53,6 @@ export const NOTIFICATION_PRESETS = {
   },
 
   // General operations
-  saved: {
-    type: 'success' as const,
-    title: 'Saved',
-    description: 'Changes saved successfully',
-    duration: 2000
-  },
-  deleted: {
-    type: 'success' as const,
-    title: 'Deleted',
-    description: 'Item deleted successfully',
-    duration: 2000
-  },
   networkError: {
     type: 'error' as const,
     title: 'Connection error',
@@ -114,13 +75,7 @@ export const NOTIFICATION_PRESETS = {
     duration: 5000
   },
 
-  // File upload and validation
-  fileTooMany: {
-    type: 'error' as const,
-    title: 'Too many files',
-    description: 'Maximum file limit exceeded',
-    duration: 4000
-  },
+  // File operations
   fileValidationError: {
     type: 'error' as const,
     title: 'File validation error',
@@ -163,20 +118,6 @@ export const NOTIFICATION_PRESETS = {
     type: 'error' as const,
     title: 'Failed to delete conversation',
     description: 'Could not remove conversation',
-    duration: 3000
-  },
-
-  // Message edit operations
-  messageUpdated: {
-    type: 'success' as const,
-    title: 'Message updated',
-    description: 'Message content updated successfully',
-    duration: 2000
-  },
-  messageUpdateFailed: {
-    type: 'error' as const,
-    title: 'Update failed',
-    description: 'Failed to update message',
     duration: 3000
   }
 } as const

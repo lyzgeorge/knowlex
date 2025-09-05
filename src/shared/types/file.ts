@@ -47,7 +47,5 @@ export type FileStatus = 'pending' | 'processing' | 'ready' | 'failed'
 
 export interface FileConstraints {
   maxFileSize: number // in bytes
-  maxTotalSize: number // in bytes
-  maxFileCount: number
   supportedTypes: string[]
 }

@@ -280,7 +280,7 @@ Reusable UI logic encapsulated in custom React hooks with sophisticated state ma
 | `useConversationManagement.ts` | Manages conversation list with infinite scroll using `IntersectionObserver`, delete confirmations, and loading states. |
 | `useMessageBranching.ts`       | Handles complex conversation tree navigation with branch creation, switching, merging, and deletion with state synchronization. |
 | `useEditableMessage.ts`        | Manages editable message state with text editing, file attachment modification, undo/redo, and branch creation integration. |
-| `useMessageBranch.ts`          | Simplified API for message branch navigation with automatic state sync and higher-level abstractions. |
+| `UserMessage.tsx` (inlined)    | Simplified message branch navigation is inlined; uses `useMessageBranching.getBranchInfo` for data. |
 | `useMessageContentDiff.ts`     | Efficient content comparison with text and file change detection, memoized for performance optimization. |
 | `useFileUpload.ts`             | Client-side file validation with debouncing (100ms), base64 encoding for binary files, and IPC integration for processing. |
 | `useInlineEdit.ts`             | Inline editing state management for titles with start/cancel/confirm workflows and validation. |

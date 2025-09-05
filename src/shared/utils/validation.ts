@@ -1,63 +1,13 @@
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
 
-export function isValidFileType(filename: string, context: 'temporary' | 'project'): boolean {
+export function isValidFileType(filename: string): boolean {
   const extension = getFileExtension(filename).toLowerCase()
-  const supportedTypes =
-    context === 'temporary' ? SUPPORTED_FILE_TYPES.TEMPORARY : SUPPORTED_FILE_TYPES.PROJECT
 
-  return (supportedTypes as readonly string[]).includes(extension)
+  return (SUPPORTED_FILE_TYPES as readonly string[]).includes(extension)
 }
 
-export function isValidFileSize(size: number, context: 'temporary' | 'project'): boolean {
-  const maxSize =
-    context === 'temporary'
-      ? FILE_CONSTRAINTS.TEMPORARY.maxFileSize
-      : FILE_CONSTRAINTS.PROJECT.maxFileSize
-
-  return size <= maxSize
-}
-
-export function validateFileConstraints(
-  files: File[],
-  context: 'temporary' | 'project'
-): {
-  valid: boolean
-  errors: string[]
-} {
-  const errors: string[] = []
-  const constraints =
-    context === 'temporary' ? FILE_CONSTRAINTS.TEMPORARY : FILE_CONSTRAINTS.PROJECT
-
-  // Check file count
-  if (files.length > constraints.maxFileCount) {
-    errors.push(`Too many files. Maximum ${constraints.maxFileCount} files allowed.`)
-  }
-
-  // Check total size
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-  if (totalSize > constraints.maxTotalSize) {
-    errors.push(
-      `Total file size too large. Maximum ${formatBytes(constraints.maxTotalSize)} allowed.`
-    )
-  }
-
-  // Check individual files
-  files.forEach((file, index) => {
-    if (!isValidFileType(file.name, context)) {
-      errors.push(`File ${index + 1}: Unsupported file type ${getFileExtension(file.name)}`)
-    }
-
-    if (!isValidFileSize(file.size, context)) {
-      errors.push(
-        `File ${index + 1}: File too large. Maximum ${formatBytes(constraints.maxFileSize)} allowed.`
-      )
-    }
-  })
-
-  return {
-    valid: errors.length === 0,
-    errors
-  }
+export function isValidFileSize(size: number): boolean {
+  return size <= FILE_CONSTRAINTS.maxFileSize
 }
 
 export function getFileExtension(filename: string): string {
@@ -91,14 +41,6 @@ export function isValidUrl(url: string): boolean {
 
 export function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, '_')
-}
-
-export function isValidTemporaryFileType(filename: string): boolean {
-  return isValidFileType(filename, 'temporary')
-}
-
-export function isValidProjectFileType(filename: string): boolean {
-  return isValidFileType(filename, 'project')
 }
 
 export function isImageFile(filename: string): boolean {

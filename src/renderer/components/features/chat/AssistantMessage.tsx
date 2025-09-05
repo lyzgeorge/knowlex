@@ -4,7 +4,7 @@ import { HiSparkles, HiClipboard, HiArrowPath } from 'react-icons/hi2'
 import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
-import MarkdownContent from './MarkdownContent'
+import MarkdownContent from '@renderer/components/ui/MarkdownContent'
 import { useNotifications } from '@renderer/components/ui'
 import {
   useIsReasoningStreaming,
