@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react'
 import { Box, Heading, VStack, Text, HStack, Input, IconButton, Tooltip } from '@chakra-ui/react'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
-import { useConversations, useConversationStore } from '@renderer/stores/conversation'
+import { useConversations, useConversationStore } from '@renderer/stores/conversation/index'
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
 import ChatInputBox from '@renderer/components/features/chat/ChatInputBox'

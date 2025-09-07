@@ -13,7 +13,7 @@ import {
 import type { Message, MessageContentPart } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
 import { buildUserMessageBranchSendOptions } from '@shared/utils/message-branching'
-import MarkdownContent from '@renderer/components/ui/MarkdownContent'
+import { MarkdownContent } from '@renderer/utils/markdownComponents'
 import {
   TempFileCard,
   toMessageFileLikeFromMessagePart,
@@ -21,7 +21,7 @@ import {
 } from '@renderer/components/ui/TempFileCard'
 import AutoResizeTextarea from '@renderer/components/ui/AutoResizeTextarea'
 import { useNotifications } from '@renderer/components/ui'
-import { useSendMessage, useIsSending } from '@renderer/stores/conversation'
+import { useSendMessage, useIsSending } from '@renderer/stores/conversation/index'
 // Inline branch navigation logic; remove dependency on useMessageBranch hook
 import { useEditableMessage } from '@renderer/hooks/useEditableMessage'
 import { useMessageContentDiff } from '@renderer/hooks/useMessageContentDiff'

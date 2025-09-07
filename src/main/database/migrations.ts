@@ -1,33 +1,32 @@
 import { executeQuery, executeTransaction } from './index'
 
 /**
- * Database migration system for Knowlex
- * Handles schema versioning, table creation, and data migration
+ * Simplified single-file migration for Knowlex.
+ *
+ * Rationale: the app will be rebuilt and the DB file removed, so keep one
+ * idempotent migration that creates the full, final schema. This is safer
+ * for fresh installs and simpler to maintain during the rebuild.
  */
 
 export interface Migration {
   version: number
   name: string
   up: string[]
-  down?: string[]
 }
 
-/**
- * Database schema version history
- * Each migration includes SQL statements to upgrade and optionally downgrade
- */
+// Consolidated migration: contains the final schema and indexes/triggers.
 const migrations: Migration[] = [
   {
     version: 1,
-    name: 'initial_schema',
+    name: 'initial_full_schema',
     up: [
-      // Create schema version tracking table
+      // Schema version tracking
       `CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
 
-      // Projects table
+      // Projects
       `CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -36,62 +35,26 @@ const migrations: Migration[] = [
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
 
-      // Project files table
-      `CREATE TABLE IF NOT EXISTS project_files (
-        id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
-        filename TEXT NOT NULL,
-        filepath TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        chunk_count INTEGER NOT NULL DEFAULT 0,
-        size INTEGER NOT NULL DEFAULT 0,
-        mime_type TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        error TEXT,
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-      )`,
+      // (Project files, memories, notes removed — feature not implemented)
 
-      // Project memory table (system prompts)
-      `CREATE TABLE IF NOT EXISTS project_memories (
-        id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        priority INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-      )`,
-
-      // Project notes table
-      `CREATE TABLE IF NOT EXISTS project_notes (
-        id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        tags TEXT NOT NULL DEFAULT '[]',
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-      )`,
-
-      // Conversations table
+      // Conversations and messages
       `CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         project_id TEXT,
         title TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        settings TEXT, -- JSON string for SessionSettings
+        settings TEXT,
+        model_config_id TEXT NULL REFERENCES model_configs(id) ON DELETE SET NULL,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE SET NULL
       )`,
 
-      // Messages table
       `CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-        content TEXT NOT NULL, -- JSON string for MessageContent
+        content TEXT NOT NULL,
+        reasoning TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         parent_message_id TEXT,
@@ -99,221 +62,9 @@ const migrations: Migration[] = [
         FOREIGN KEY (parent_message_id) REFERENCES messages (id) ON DELETE SET NULL
       )`,
 
-      // File chunks table for RAG (vector storage)
-      `CREATE TABLE IF NOT EXISTS file_chunks (
-        id TEXT PRIMARY KEY,
-        file_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        chunk_index INTEGER NOT NULL,
-        embedding BLOB, -- Vector embedding (will be enhanced with libsql vector functions)
-        metadata TEXT, -- JSON string for additional metadata
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (file_id) REFERENCES project_files (id) ON DELETE CASCADE
-      )`,
+      // (File chunks and vector storage removed — feature not implemented)
 
-      // Application settings table
-      `CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`
-    ],
-    down: [
-      'DROP TABLE IF EXISTS app_settings',
-      'DROP TABLE IF EXISTS file_chunks',
-      'DROP TABLE IF EXISTS messages',
-      'DROP TABLE IF EXISTS conversations',
-      'DROP TABLE IF EXISTS project_notes',
-      'DROP TABLE IF EXISTS project_memories',
-      'DROP TABLE IF EXISTS project_files',
-      'DROP TABLE IF EXISTS projects',
-      'DROP TABLE IF EXISTS schema_version'
-    ]
-  },
-
-  {
-    version: 2,
-    name: 'add_indexes_and_fts',
-    up: [
-      // Create indexes for better performance
-      'CREATE INDEX IF NOT EXISTS idx_project_files_project_id ON project_files (project_id)',
-      'CREATE INDEX IF NOT EXISTS idx_project_files_status ON project_files (status)',
-      'CREATE INDEX IF NOT EXISTS idx_project_memories_project_id ON project_memories (project_id)',
-      'CREATE INDEX IF NOT EXISTS idx_project_memories_priority ON project_memories (project_id, priority DESC)',
-      'CREATE INDEX IF NOT EXISTS idx_project_notes_project_id ON project_notes (project_id)',
-      'CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations (project_id)',
-      'CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations (updated_at DESC)',
-      'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages (conversation_id)',
-      'CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (conversation_id, created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_file_chunks_file_id ON file_chunks (file_id)',
-
-      // Create FTS5 table for full-text search
-      `CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-        message_id,
-        content,
-        conversation_title,
-        project_name,
-        content='messages',
-        content_rowid='id'
-      )`,
-
-      // Create triggers to keep FTS table synchronized
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
-        INSERT INTO messages_fts (message_id, content, conversation_title, project_name)
-        SELECT 
-          NEW.id,
-          NEW.content,
-          c.title,
-          COALESCE(p.name, '')
-        FROM conversations c
-        LEFT JOIN projects p ON c.project_id = p.id
-        WHERE c.id = NEW.conversation_id;
-      END`,
-
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
-        UPDATE messages_fts SET
-          content = NEW.content,
-          conversation_title = (
-            SELECT title FROM conversations WHERE id = NEW.conversation_id
-          ),
-          project_name = COALESCE((
-            SELECT p.name FROM conversations c
-            LEFT JOIN projects p ON c.project_id = p.id
-            WHERE c.id = NEW.conversation_id
-          ), '')
-        WHERE message_id = NEW.id;
-      END`,
-
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
-        DELETE FROM messages_fts WHERE message_id = OLD.id;
-      END`
-    ],
-    down: [
-      'DROP TRIGGER IF EXISTS messages_fts_delete',
-      'DROP TRIGGER IF EXISTS messages_fts_update',
-      'DROP TRIGGER IF EXISTS messages_fts_insert',
-      'DROP TABLE IF EXISTS messages_fts',
-      'DROP INDEX IF EXISTS idx_file_chunks_file_id',
-      'DROP INDEX IF EXISTS idx_messages_created_at',
-      'DROP INDEX IF EXISTS idx_messages_conversation_id',
-      'DROP INDEX IF EXISTS idx_conversations_updated_at',
-      'DROP INDEX IF EXISTS idx_conversations_project_id',
-      'DROP INDEX IF EXISTS idx_project_notes_project_id',
-      'DROP INDEX IF EXISTS idx_project_memories_priority',
-      'DROP INDEX IF EXISTS idx_project_memories_project_id',
-      'DROP INDEX IF EXISTS idx_project_files_status',
-      'DROP INDEX IF EXISTS idx_project_files_project_id'
-    ]
-  },
-
-  {
-    version: 3,
-    name: 'fix_fts_triggers',
-    up: [
-      // Drop the existing problematic FTS table and triggers
-      'DROP TRIGGER IF EXISTS messages_fts_delete',
-      'DROP TRIGGER IF EXISTS messages_fts_update',
-      'DROP TRIGGER IF EXISTS messages_fts_insert',
-      'DROP TABLE IF EXISTS messages_fts',
-
-      // Create a simpler FTS table that works correctly
-      `CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-        message_id UNINDEXED,
-        content,
-        conversation_title UNINDEXED,
-        project_name UNINDEXED
-      )`,
-
-      // Create corrected triggers
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
-        INSERT INTO messages_fts (message_id, content, conversation_title, project_name)
-        SELECT 
-          NEW.id,
-          NEW.content,
-          c.title,
-          COALESCE(p.name, '')
-        FROM conversations c
-        LEFT JOIN projects p ON c.project_id = p.id
-        WHERE c.id = NEW.conversation_id;
-      END`,
-
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
-        DELETE FROM messages_fts WHERE message_id = NEW.id;
-        INSERT INTO messages_fts (message_id, content, conversation_title, project_name)
-        SELECT 
-          NEW.id,
-          NEW.content,
-          c.title,
-          COALESCE(p.name, '')
-        FROM conversations c
-        LEFT JOIN projects p ON c.project_id = p.id
-        WHERE c.id = NEW.conversation_id;
-      END`,
-
-      `CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
-        DELETE FROM messages_fts WHERE message_id = OLD.id;
-      END`
-    ],
-    down: [
-      'DROP TRIGGER IF EXISTS messages_fts_delete',
-      'DROP TRIGGER IF EXISTS messages_fts_update',
-      'DROP TRIGGER IF EXISTS messages_fts_insert',
-      'DROP TABLE IF EXISTS messages_fts'
-    ]
-  },
-
-  {
-    version: 4,
-    name: 'add_vector_storage',
-    up: [
-      // Create project vectors table for RAG functionality
-      // Note: This uses JSON storage for embeddings as libsql vector support may vary
-      `CREATE TABLE IF NOT EXISTS project_vectors (
-        id TEXT PRIMARY KEY,
-        file_id TEXT NOT NULL,
-        chunk_index INTEGER NOT NULL,
-        chunk_text TEXT NOT NULL,
-        embedding TEXT NOT NULL, -- JSON array of vector values
-        metadata TEXT, -- JSON string for additional metadata
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (file_id) REFERENCES project_files (id) ON DELETE CASCADE
-      )`,
-
-      // Create indexes for vector operations
-      'CREATE INDEX IF NOT EXISTS idx_project_vectors_file_id ON project_vectors (file_id)',
-      'CREATE INDEX IF NOT EXISTS idx_project_vectors_chunk_index ON project_vectors (file_id, chunk_index)',
-
-      // Update file_chunks table to remove embedding column (moved to project_vectors)
-      // Note: We keep both tables for now to maintain compatibility
-      'CREATE INDEX IF NOT EXISTS idx_file_chunks_chunk_index ON file_chunks (file_id, chunk_index)'
-    ],
-    down: [
-      'DROP INDEX IF EXISTS idx_file_chunks_chunk_index',
-      'DROP INDEX IF EXISTS idx_project_vectors_chunk_index',
-      'DROP INDEX IF EXISTS idx_project_vectors_file_id',
-      'DROP TABLE IF EXISTS project_vectors'
-    ]
-  },
-
-  {
-    version: 5,
-    name: 'add_reasoning_to_messages',
-    up: [
-      // Add reasoning column to messages table for AI models that support thinking/reasoning
-      'ALTER TABLE messages ADD COLUMN reasoning TEXT'
-    ],
-    down: [
-      // Note: SQLite doesn't support DROP COLUMN, so we would need to recreate the table
-      // For simplicity, we'll leave the column (which is acceptable for optional fields)
-      'UPDATE messages SET reasoning = NULL'
-    ]
-  },
-
-  {
-    version: 6,
-    name: 'add_model_configs',
-    up: [
-      // Create model configurations table
+      // Model configs
       `CREATE TABLE IF NOT EXISTS model_configs (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -328,225 +79,87 @@ const migrations: Migration[] = [
         supports_vision INTEGER NOT NULL DEFAULT 0,
         supports_tool_use INTEGER NOT NULL DEFAULT 0,
         supports_web_search INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )`,
-
-      // Add unique constraint on model name (case-insensitive)
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_model_configs_name_lower ON model_configs (LOWER(name))',
-
-      // Add model_config_id to conversations table
-      'ALTER TABLE conversations ADD COLUMN model_config_id TEXT NULL REFERENCES model_configs(id) ON DELETE SET NULL',
-
-      // Create index for conversations.model_config_id
-      'CREATE INDEX IF NOT EXISTS idx_conversations_model_config_id ON conversations(model_config_id)'
-    ],
-    down: [
-      // Drop index and column from conversations
-      'DROP INDEX IF EXISTS idx_conversations_model_config_id',
-
-      // SQLite doesn't support DROP COLUMN, so we'll recreate the conversations table
-      `CREATE TABLE conversations_backup AS SELECT 
-        id, project_id, title, created_at, updated_at, settings 
-        FROM conversations`,
-
-      'DROP TABLE conversations',
-
-      `CREATE TABLE conversations (
-        id TEXT PRIMARY KEY,
-        project_id TEXT,
-        title TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        settings TEXT,
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE SET NULL
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
 
-      'INSERT INTO conversations SELECT * FROM conversations_backup',
-      'DROP TABLE conversations_backup',
+      // App settings
+      `CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
 
-      // Recreate indexes for conversations
+      // Indexes
+      // removed indexes for unimplemented features: project_files, memories, notes
       'CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations (project_id)',
       'CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations (updated_at DESC)',
-
-      // Drop model_configs table and its indexes
-      'DROP INDEX IF EXISTS idx_model_configs_name_lower',
-      'DROP TABLE IF EXISTS model_configs'
-    ]
-  },
-
-  {
-    version: 7,
-    name: 'enhance_database_constraints',
-    up: [
-      // Add missing indexes for model_configs
+      'CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages (conversation_id)',
+      'CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (conversation_id, created_at)',
+      // removed indexes for file_chunks and project_vectors
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_model_configs_name_lower ON model_configs (LOWER(name))',
       'CREATE INDEX IF NOT EXISTS idx_model_configs_created_at ON model_configs(created_at)',
       'CREATE INDEX IF NOT EXISTS idx_model_configs_updated_at ON model_configs(updated_at)',
-
-      // Add missing indexes for better performance
       'CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role)',
       'CREATE INDEX IF NOT EXISTS idx_messages_parent_id ON messages(parent_message_id)',
       'CREATE INDEX IF NOT EXISTS idx_messages_updated_at ON messages(updated_at DESC)',
-
-      // Add app_settings index for key lookups
       'CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key)',
-
-      // Add project name index for searches
       'CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)',
       'CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC)',
 
-      // Validate existing foreign key constraints are working
+      // Full-text search removed (messages_fts and triggers not included)
+
+      // Ensure foreign keys are enabled
       'PRAGMA foreign_keys=ON'
-    ],
-    down: [
-      'DROP INDEX IF EXISTS idx_projects_updated_at',
-      'DROP INDEX IF EXISTS idx_projects_name',
-      'DROP INDEX IF EXISTS idx_app_settings_key',
-      'DROP INDEX IF EXISTS idx_messages_updated_at',
-      'DROP INDEX IF EXISTS idx_messages_parent_id',
-      'DROP INDEX IF EXISTS idx_messages_role',
-      'DROP INDEX IF EXISTS idx_model_configs_updated_at',
-      'DROP INDEX IF EXISTS idx_model_configs_created_at'
     ]
   }
 ]
 
 /**
- * Gets the current schema version from database
- * Returns 0 if no version is found (fresh database)
+ * Returns the current applied schema version or 0 when not present.
+ * Because we expect fresh DBs during the rebuild, this quietly handles
+ * missing schema_version table.
  */
 export async function getCurrentVersion(): Promise<number> {
   try {
     const result = await executeQuery('SELECT MAX(version) as version FROM schema_version')
-
-    if (result.rows.length === 0 || !result.rows[0]) {
-      return 0
-    }
-
+    if (!result || !result.rows || result.rows.length === 0) return 0
     const row = result.rows[0] as { version: number | null }
-    return row.version || 0
-  } catch (error) {
-    // If schema_version table doesn't exist, this is a fresh database
-    console.log('Schema version table not found, assuming fresh database')
+    return row?.version || 0
+  } catch (err) {
+    // Missing table is treated as version 0
     return 0
   }
 }
 
-/**
- * Applies a single migration
- * Executes all UP statements in a transaction
- */
 async function applyMigration(migration: Migration): Promise<void> {
-  console.log(`Applying migration ${migration.version}: ${migration.name}`)
-
+  const queries = migration.up.map((sql) => ({ sql }))
+  await executeTransaction(queries)
+  // record the applied version; ignore duplicate insert errors
   try {
-    // Execute all migration statements in a transaction
-    const queries = migration.up.map((sql) => ({ sql }))
-    await executeTransaction(queries)
-
-    // Record the migration as applied
     await executeQuery('INSERT INTO schema_version (version) VALUES (?)', [migration.version])
-
-    console.log(`Migration ${migration.version} applied successfully`)
-  } catch (error) {
-    console.error(`Failed to apply migration ${migration.version}:`, error)
-    throw new Error(
-      `Migration ${migration.version} failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+  } catch (e) {
+    // if schema_version already has this version (or table missing), ignore
   }
 }
 
-/**
- * Runs all pending migrations
- * Upgrades database to the latest schema version
- */
 export async function runMigrations(): Promise<void> {
-  try {
-    const currentVersion = await getCurrentVersion()
-    const latestVersion = Math.max(...migrations.map((m) => m.version))
-
-    console.log(`Current database version: ${currentVersion}`)
-    console.log(`Latest available version: ${latestVersion}`)
-
-    if (currentVersion === latestVersion) {
-      console.log('Database is up to date')
-      return
-    }
-
-    // Apply pending migrations in order
-    const pendingMigrations = migrations
-      .filter((m) => m.version > currentVersion)
-      .sort((a, b) => a.version - b.version)
-
-    if (pendingMigrations.length === 0) {
-      console.log('No pending migrations found')
-      return
-    }
-
-    console.log(`Applying ${pendingMigrations.length} pending migrations...`)
-
-    for (const migration of pendingMigrations) {
-      await applyMigration(migration)
-    }
-
-    console.log('All migrations applied successfully')
-  } catch (error) {
-    console.error('Migration failed:', error)
-    throw new Error(
-      `Database migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
-  }
-}
-
-/**
- * Rolls back to a specific version (optional feature)
- * Note: Only use in development/testing environments
- */
-export async function rollbackToVersion(targetVersion: number): Promise<void> {
   const currentVersion = await getCurrentVersion()
-
-  if (targetVersion >= currentVersion) {
-    throw new Error('Target version must be lower than current version')
+  const latestVersion = Math.max(...migrations.map((m) => m.version))
+  if (currentVersion >= latestVersion) return
+  // Apply only the latest consolidated migration when DB is fresh.
+  for (const m of migrations
+    .filter((x) => x.version > currentVersion)
+    .sort((a, b) => a.version - b.version)) {
+    await applyMigration(m)
   }
-
-  console.log(`Rolling back from version ${currentVersion} to ${targetVersion}`)
-
-  // Get migrations to rollback (in reverse order)
-  const migrationsToRollback = migrations
-    .filter((m) => m.version > targetVersion && m.version <= currentVersion)
-    .sort((a, b) => b.version - a.version) // Descending order
-
-  for (const migration of migrationsToRollback) {
-    if (!migration.down) {
-      throw new Error(`Migration ${migration.version} has no rollback statements`)
-    }
-
-    console.log(`Rolling back migration ${migration.version}: ${migration.name}`)
-
-    try {
-      // Execute rollback statements
-      const queries = migration.down.map((sql) => ({ sql }))
-      await executeTransaction(queries)
-
-      // Remove migration record
-      await executeQuery('DELETE FROM schema_version WHERE version = ?', [migration.version])
-
-      console.log(`Migration ${migration.version} rolled back successfully`)
-    } catch (error) {
-      console.error(`Failed to rollback migration ${migration.version}:`, error)
-      throw new Error(
-        `Rollback failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
-    }
-  }
-
-  console.log(`Rollback to version ${targetVersion} completed`)
 }
 
-/**
- * Gets migration history from database
- * Returns list of applied migrations with timestamps
- */
+// Rollback is intentionally not supported in this simplified migration file.
+export async function rollbackToVersion(_targetVersion: number): Promise<void> {
+  throw new Error('rollbackToVersion is not supported in simplified migrations')
+}
+
 export async function getMigrationHistory(): Promise<
   Array<{ version: number; appliedAt: string }>
 > {
@@ -554,16 +167,8 @@ export async function getMigrationHistory(): Promise<
     const result = await executeQuery(
       'SELECT version, applied_at FROM schema_version ORDER BY version'
     )
-
-    return result.rows.map((row) => {
-      const r = row as { version: number; applied_at: string }
-      return {
-        version: r.version,
-        appliedAt: r.applied_at
-      }
-    })
-  } catch (error) {
-    console.error('Failed to get migration history:', error)
+    return (result.rows || []).map((r: any) => ({ version: r.version, appliedAt: r.applied_at }))
+  } catch (e) {
     return []
   }
 }

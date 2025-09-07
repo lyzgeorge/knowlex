@@ -1,4 +1,4 @@
-import { executeQuery } from './index'
+// executeQuery removed from here; queries file uses entity helpers only
 import type { Conversation } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'
@@ -148,41 +148,7 @@ export async function listConversationsByProject(projectId: string): Promise<Con
   })
 }
 
-// ============================================================================
-// Search Queries (Custom FTS - Cannot use generic CRUD)
-// ============================================================================
-
-export interface SearchResultRow {
-  messageId: string
-  content: string
-  conversationTitle: string
-  rank: number
-}
-
-export async function searchMessages(query: string, limit = 20): Promise<SearchResultRow[]> {
-  try {
-    const result = await executeQuery(
-      `
-      SELECT message_id, content, conversation_title, rank
-      FROM messages_fts
-      WHERE messages_fts MATCH ?
-      ORDER BY rank ASC
-      LIMIT ?
-    `,
-      [query, limit]
-    )
-
-    return result.rows.map((r: any) => ({
-      messageId: r.message_id,
-      content: r.content,
-      conversationTitle: r.conversation_title || '',
-      rank: r.rank
-    }))
-  } catch (error) {
-    console.error('Full-text search failed:', error)
-    return []
-  }
-}
+// (FTS search removed — messages_fts table/triggers not included in simplified schema)
 
 // ============================================================================
 // Model Config Queries (Using Generic CRUD)

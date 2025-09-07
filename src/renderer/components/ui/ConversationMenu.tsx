@@ -12,7 +12,7 @@ import {
 } from '@chakra-ui/react'
 import { HiBars3, HiChevronRight } from 'react-icons/hi2'
 import { useProjectStore } from '@renderer/stores/project'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { formatRelativeTime } from '@shared/utils/time'
 
 interface Props {

@@ -1,5 +1,5 @@
 import { Box, HStack, Heading } from '@chakra-ui/react'
-import { useCurrentConversation } from '@renderer/stores/conversation'
+import { useCurrentConversation } from '@renderer/stores/conversation/index'
 import { ModelSelector } from '../models/ModelSelector'
 
 export function ConversationHeader() {

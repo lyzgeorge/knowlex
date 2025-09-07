@@ -12,7 +12,7 @@ import {
 } from '@chakra-ui/react'
 import { HiChevronDown, HiCog6Tooth, HiMiniCheck } from 'react-icons/hi2'
 import { useModelConfigStore } from '@renderer/stores/model-config'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useDefaultModel } from '@renderer/stores/settings'
 import { useNavigationActions } from '@renderer/stores/navigation'
 

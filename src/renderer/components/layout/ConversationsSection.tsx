@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { Box, HStack, VStack, Text, Spinner, Input, IconButton, Tooltip } from '@chakra-ui/react'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useI18n } from '@renderer/hooks/useI18n'
 
 interface ConversationsSectionProps {

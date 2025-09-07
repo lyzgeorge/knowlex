@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useNotifications } from '@renderer/components/ui'
 
 export function useInlineEdit() {

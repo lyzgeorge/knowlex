@@ -22,10 +22,8 @@ export interface APIProviderConfig {
 }
 
 export interface AppSettings {
-  apiProviders: {
-    openai: APIProviderConfig
-    embedding: APIProviderConfig
-  }
+  // Note: apiProviders simplified since OpenAI config is handled by openai-adapter
+  apiProviders: Record<string, APIProviderConfig>
   defaultProvider: string
   logLevel: string
   nodeEnv: string
@@ -87,85 +85,26 @@ class SettingsService {
 
     // Build settings from environment variables
     this.settings = {
-      apiProviders: {
-        openai: {
-          provider: 'openai',
-          apiKey: process.env.OPENAI_API_KEY || '',
-          baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-          model: process.env.OPENAI_MODEL || 'gpt-4',
-          ...(process.env.OPENAI_REASONING_EFFORT && {
-            reasoningEffort: process.env.OPENAI_REASONING_EFFORT as 'low' | 'medium' | 'high'
-          }),
-          timeout: 30000
-        },
-        embedding: {
-          provider: 'embedding',
-          apiKey: process.env.EMBEDDING_API_KEY || process.env.OPENAI_API_KEY || '',
-          baseURL: process.env.EMBEDDING_BASE_URL || 'https://api.openai.com/v1',
-          model: process.env.EMBEDDING_MODEL || 'text-embedding-ada-002',
-          timeout: 30000
-        }
-      },
-      defaultProvider: process.env.DEFAULT_PROVIDER || 'openai',
+      // Note: OpenAI configuration is handled directly by openai-adapter service
+      // to avoid duplication and ensure comprehensive parameter support
+      apiProviders: {},
+      defaultProvider: 'openai', // Static default since providers are managed elsewhere
       logLevel: process.env.LOG_LEVEL || 'info',
       nodeEnv: process.env.NODE_ENV || 'development'
     }
 
-    return this.settings
-  }
-
-  /**
-   * Get configuration for a specific API provider
-   */
-  getProviderConfig(provider: string): APIProviderConfig | null {
-    const settings = this.getSettings()
-    if (!settings) return null
-    return settings.apiProviders[provider as keyof typeof settings.apiProviders] || null
-  }
-
-  /**
-   * Get default provider configuration
-   */
-  getDefaultProvider(): APIProviderConfig | null {
-    const settings = this.getSettings()
-    return this.getProviderConfig(settings.defaultProvider)
-  }
-
-  /**
-   * Check if a provider is properly configured
-   */
-  isProviderConfigured(provider: string): boolean {
-    const config = this.getProviderConfig(provider)
-    return !!(config && config.apiKey && config.baseURL && config.model)
-  }
-
-  /**
-   * Get list of configured providers
-   */
-  getConfiguredProviders(): string[] {
-    const settings = this.getSettings()
-    return Object.keys(settings.apiProviders).filter((provider) =>
-      this.isProviderConfigured(provider)
-    )
+    return this.settings!
   }
 
   /**
    * Update provider configuration (for runtime changes)
+   * Note: Providers are now managed by their respective adapters (e.g., openai-adapter)
    */
-  updateProviderConfig(provider: string, config: Partial<APIProviderConfig>) {
-    if (!this.settings) {
-      this.getSettings()
-    }
-
-    if (
-      this.settings &&
-      this.settings.apiProviders[provider as keyof typeof this.settings.apiProviders]
-    ) {
-      Object.assign(
-        this.settings.apiProviders[provider as keyof typeof this.settings.apiProviders],
-        config
-      )
-    }
+  updateProviderConfig(provider: string, _config: Partial<APIProviderConfig>) {
+    // No-op: Provider configurations are managed elsewhere to avoid duplication
+    console.warn(
+      `updateProviderConfig called for ${provider} but providers are managed by their respective adapters`
+    )
   }
 
   /**

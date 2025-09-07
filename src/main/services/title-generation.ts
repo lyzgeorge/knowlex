@@ -8,33 +8,29 @@
  */
 
 import type { Message } from '@shared/types/message'
-import { cancellationManager, CancellationToken } from '@main/utils/cancellation'
+import { extractTextContent as extractMessageTextContent } from './message'
 
-/**
- * Checks if automatic title generation should be triggered
- * @param messages - Array of conversation messages
- * @returns true if exactly one user message and one assistant message exist
- */
-export function shouldTriggerAutoGeneration(messages: Message[]): boolean {
-  if (!messages?.length) return false
+// Placeholder titles we consider "unset". Extendable without DB changes.
+const PLACEHOLDER_TITLES = new Set(['New Chat', 'Untitled'])
 
-  const userMessages = messages.filter((m) => m.role === 'user')
-  const assistantMessages = messages.filter((m) => m.role === 'assistant')
-
-  return userMessages.length === 1 && assistantMessages.length === 1
+export function isPlaceholderTitle(title: string | null | undefined): boolean {
+  if (!title) return true
+  return PLACEHOLDER_TITLES.has(title.trim())
 }
 
+// Removed legacy shouldTriggerAutoGeneration helper (logic now inline & one-shot)
+
 /**
- * Extracts text content from a message's content parts
+ * Extracts text content from a message's content parts for title generation
+ * Reuses the standard extractTextContent function with title-specific formatting
  * @param message - Message to extract text from
+ * @param maxLength - Maximum length to truncate to
  * @returns Combined text content, truncated for title generation
  */
 function extractTextContent(message: Message, maxLength: number): string {
-  return message.content
-    .filter((part) => part.type === 'text')
-    .map((part) => part.text)
-    .join(' ')
-    .trim()
+  // Use the standard message text extraction, then format for titles
+  return extractMessageTextContent(message)
+    .replace(/\n/g, ' ') // Convert newlines to spaces for title format
     .slice(0, maxLength)
 }
 
@@ -106,17 +102,8 @@ export async function generateTitleForConversation(conversationId: string): Prom
       }
     ]
 
-    // Create a scoped token so app shutdown or explicit cancellation can stop title generation
-    const tokenId = `title-${conversationId}`
-    const token: CancellationToken = cancellationManager.createToken(tokenId)
-
-    // Currently generateAIResponseOnce does not accept a token; quick cancellation check loop pattern
-    // If future refactor adds streaming/non-blocking version, integrate properly.
-    if (token.isCancelled) return 'New Chat'
+    // Generate title (single blocking call – cooperative cancellation removed for simplicity)
     const response = await generateAIResponseOnce(titleMessages)
-    if (token.isCancelled) return 'New Chat'
-    // Mark complete
-    cancellationManager.complete(tokenId)
 
     // Clean and validate generated title
     const generatedTitle = response.content
@@ -135,56 +122,37 @@ export async function generateTitleForConversation(conversationId: string): Prom
 }
 
 /**
- * Triggers automatic title generation if conditions are met
- * Handles the complete process: check conditions, generate title, update conversation, emit events
- * @param conversationId - ID of the conversation to potentially generate title for
+ * One-shot automatic title attempt.
+ * Safe to call multiple times; exits fast unless ALL are true:
+ *  - Conversation exists
+ *  - Title still placeholder
+ *  - Exactly one user and one assistant message present (first exchange complete)
+ * On success: updates conversation title & emits TITLE_GENERATED.
  */
-export async function tryTriggerAutoTitleGeneration(conversationId: string): Promise<void> {
+export async function attemptInitialTitleGeneration(conversationId: string): Promise<void> {
   try {
-    // Check if automatic title generation should be triggered
-    const { getMessages } = await import('./message')
-    const totalMessages = await getMessages(conversationId)
+    const { getConversation, updateConversation } = await import('@main/services/conversation')
+    const conversation = await getConversation(conversationId)
+    if (!conversation) return
+    if (!isPlaceholderTitle(conversation.title)) return // Already set by user or previous auto gen
 
-    if (shouldTriggerAutoGeneration(totalMessages)) {
-      console.log(
-        `Triggering automatic title generation for conversation ${conversationId} after first exchange`
-      )
+    // Fetch messages (reuse existing service; small overhead acceptable for single invocation)
+    const { getMessages } = await import('@main/services/message')
+    const messages = await getMessages(conversationId)
+    // Require exactly one user + one assistant (first exchange complete)
+    const userCount = messages.filter((m) => m.role === 'user').length
+    const assistantCount = messages.filter((m) => m.role === 'assistant').length
+    if (!(userCount === 1 && assistantCount === 1)) return
 
-      const title = await generateTitleForConversation(conversationId)
+    const title = await generateTitleForConversation(conversationId)
+    if (!title || isPlaceholderTitle(title) || title === 'New Chat') return
 
-      // Only update if we got a meaningful title (not "New Chat")
-      if (title && title !== 'New Chat') {
-        const { updateConversation } = await import('@main/services/conversation')
-        const { sendConversationEvent, CONVERSATION_EVENTS } = await import(
-          '@main/ipc/conversation'
-        )
-
-        await updateConversation(conversationId, { title })
-
-        // Send title update event to renderer
-        sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, {
-          conversationId,
-          title
-        })
-
-        console.log(
-          `Successfully auto-generated title for conversation ${conversationId}: "${title}"`
-        )
-      } else {
-        console.log(
-          `Skipping title update for conversation ${conversationId}: got fallback title "${title}"`
-        )
-      }
-    } else {
-      const userMessages = totalMessages.filter((m) => m.role === 'user')
-      const assistantMessages = totalMessages.filter((m) => m.role === 'assistant')
-      console.log(
-        `Not triggering title generation: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`
-      )
-    }
-  } catch (titleError) {
-    console.error('Failed to automatically generate title:', titleError)
-    // Don't fail the entire operation if title generation fails
+    await updateConversation(conversationId, { title })
+    const { sendConversationEvent, CONVERSATION_EVENTS } = await import('@main/ipc/conversation')
+    sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, { conversationId, title })
+    console.log(`[TITLE] Auto-generated initial title for ${conversationId}: "${title}"`)
+  } catch (err) {
+    console.error('[TITLE] attemptInitialTitleGeneration failed:', err)
   }
 }
 
@@ -192,7 +160,4 @@ export async function tryTriggerAutoTitleGeneration(conversationId: string): Pro
  * Allows external callers (e.g., when a conversation is deleted) to cancel an in-flight
  * title generation task to avoid wasted AI calls.
  */
-export function cancelTitleGeneration(conversationId: string): void {
-  cancellationManager.cancel(`title-${conversationId}`)
-  cancellationManager.complete(`title-${conversationId}`)
-}
+// cancelTitleGeneration removed – no longer needed with one-shot logic.

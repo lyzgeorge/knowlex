@@ -346,45 +346,6 @@ export async function addMultiPartMessage(
 }
 
 /**
- * Adds a citation to an existing message
- * Utility method for RAG functionality to add citations to AI responses
- */
-export async function addCitationToMessage(
-  messageId: string,
-  filename: string,
-  fileId: string,
-  content: string,
-  similarity: number,
-  pageNumber?: number
-): Promise<Message> {
-  const existingMessage = await getMessage(messageId)
-  if (!existingMessage) {
-    throw new Error('Message not found')
-  }
-
-  // Add citation part to existing content
-  const citation: any = {
-    filename,
-    fileId,
-    content,
-    similarity
-  }
-
-  if (pageNumber !== undefined) {
-    citation.pageNumber = pageNumber
-  }
-
-  const citationPart: MessageContentPart = {
-    type: 'citation',
-    citation
-  }
-
-  const updatedContent = [...existingMessage.content, citationPart]
-
-  return await updateMessage(messageId, { content: updatedContent })
-}
-
-/**
  * Gets the text content from a message by combining all text parts
  * Utility method for processing and analyzing message content
  */
@@ -394,50 +355,6 @@ export function extractTextContent(message: Message): string {
     .map((part) => part.text || '')
     .join('\n')
     .trim()
-}
-
-/**
- * Gets all citations from a message
- * Utility method for displaying and processing citations
- */
-export function extractCitations(message: Message) {
-  return message.content
-    .filter((part) => part.type === 'citation')
-    .map((part) => part.citation)
-    .filter(Boolean)
-}
-
-/**
- * Counts different types of content in a message
- * Utility method for analytics and message processing
- */
-export function getContentStats(message: Message) {
-  const stats = {
-    total: message.content.length,
-    text: 0,
-    citation: 0,
-    toolCall: 0,
-    temporaryFile: 0
-  }
-
-  message.content.forEach((part) => {
-    switch (part.type) {
-      case 'text':
-        stats.text++
-        break
-      case 'citation':
-        stats.citation++
-        break
-      case 'tool-call':
-        stats.toolCall++
-        break
-      case 'temporary-file':
-        stats.temporaryFile++
-        break
-    }
-  })
-
-  return stats
 }
 
 /**

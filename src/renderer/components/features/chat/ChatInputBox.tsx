@@ -12,7 +12,7 @@ import {
   useCurrentConversation,
   useIsReasoningStreaming,
   useReasoningStreamingMessageId
-} from '@renderer/stores/conversation'
+} from '@renderer/stores/conversation/index'
 import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
 import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
 import { ReasoningEffortSelector } from '../models/ReasoningEffortSelector'

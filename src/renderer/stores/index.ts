@@ -17,8 +17,8 @@ export {
   initializeThemeSync,
   cleanupThemeSync
 } from './app'
+export { default as useConversationStore } from './conversation/store'
 export {
-  default as useConversationStore,
   useCurrentConversation,
   useConversations,
   useConversationsLoading,
@@ -32,13 +32,13 @@ export {
   useStreamingMessageId,
   useOnStreamingUpdate,
   useSetStreamingState
-} from './conversation'
+} from './conversation/index'
 export { default as useSettingsStore, useDefaultModel } from './settings'
 
 // Type exports
 export type { Theme, AppState } from './app'
 export type { Language } from '@shared/i18n/types'
-import useConversationStoreInternal from './conversation'
+import useConversationStoreInternal from './conversation/store'
 export type ConversationState = ReturnType<typeof useConversationStoreInternal.getState>
 // Settings types are trimmed; no public re-exports needed
 

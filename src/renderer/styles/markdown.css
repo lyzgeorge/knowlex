@@ -1,193 +1,229 @@
-/* Markdown content styling for Knowlex */
+/* Simplified Markdown styles */
 
-/* Contain markdown within available width and prevent overflow */
 .markdown-content {
   max-width: 100%;
-  /* Allow breaking of long, unspaced strings (e.g., hashes, URLs) */
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.6;
 }
-
-/* Override highlight.js styles for better theme integration */
+/* Base text color and paragraph spacing */
+.chakra-ui-light .markdown-content {
+  color: var(--chakra-colors-gray-800);
+}
+.chakra-ui-dark .markdown-content {
+  color: var(--chakra-colors-gray-50);
+}
+.markdown-content p {
+  margin: 0 0;
+}
 .markdown-content .hljs {
   background: transparent !important;
   padding: 0 !important;
 }
 
-/* Light mode syntax highlighting */
-.chakra-ui-light .hljs {
-  color: #1a1a1a;
-}
-
+/* Light mode (minimal palette) */
 .chakra-ui-light .hljs-comment,
 .chakra-ui-light .hljs-quote {
-  color: #6b7280;
+  color: var(--chakra-colors-gray-500);
   font-style: italic;
 }
-
 .chakra-ui-light .hljs-keyword,
-.chakra-ui-light .hljs-selector-tag,
-.chakra-ui-light .hljs-type {
-  color: #2563eb;
+.chakra-ui-light .hljs-selector-tag {
+  color: var(--chakra-colors-primary-600);
   font-weight: 600;
 }
-
-.chakra-ui-light .hljs-string,
-.chakra-ui-light .hljs-title {
-  color: #059669;
+.chakra-ui-light .hljs-string {
+  color: var(--chakra-colors-accent-600);
+}
+.chakra-ui-light .hljs-number {
+  color: var(--chakra-colors-warning-500);
+}
+.chakra-ui-light .hljs-function {
+  color: var(--chakra-colors-accent-500);
 }
 
-.chakra-ui-light .hljs-number,
-.chakra-ui-light .hljs-literal {
-  color: #ea580c;
-}
-
-.chakra-ui-light .hljs-function,
-.chakra-ui-light .hljs-built_in {
-  color: #7c3aed;
-}
-
-.chakra-ui-light .hljs-variable,
-.chakra-ui-light .hljs-attr {
-  color: #0891b2;
-}
-
-.chakra-ui-light .hljs-tag {
-  color: #dc2626;
-}
-
-/* Dark mode syntax highlighting */
-.chakra-ui-dark .hljs {
-  color: #b8c0bb;
-}
-
+/* Dark mode */
 .chakra-ui-dark .hljs-comment,
 .chakra-ui-dark .hljs-quote {
-  color: #9ca3a0;
+  color: var(--chakra-colors-gray-400);
   font-style: italic;
 }
-
 .chakra-ui-dark .hljs-keyword,
-.chakra-ui-dark .hljs-selector-tag,
-.chakra-ui-dark .hljs-type {
-  color: #60a5fa;
+.chakra-ui-dark .hljs-selector-tag {
+  color: var(--chakra-colors-primary-300);
   font-weight: 600;
 }
-
-.chakra-ui-dark .hljs-string,
-.chakra-ui-dark .hljs-title {
-  color: #34d399;
+.chakra-ui-dark .hljs-string {
+  color: var(--chakra-colors-accent-300);
+}
+.chakra-ui-dark .hljs-number {
+  color: var(--chakra-colors-warning-300);
+}
+.chakra-ui-dark .hljs-function {
+  color: var(--chakra-colors-accent-300);
 }
 
-.chakra-ui-dark .hljs-number,
-.chakra-ui-dark .hljs-literal {
-  color: #fb923c;
+.markdown-content pre {
+  line-height: 1.5;
+  tab-size: 2;
+  overflow-x: auto;
+  margin: 0 0;
+}
+.markdown-content pre code {
+  white-space: pre;
+  padding: 0.5rem 0.75rem;
+}
+.markdown-content :not(pre) > code {
+  white-space: break-spaces;
+  background-color: var(--chakra-colors-gray-100);
+  color: var(--chakra-colors-red-800);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+}
+.chakra-ui-dark .markdown-content :not(pre) > code {
+  background-color: var(--chakra-colors-gray-700);
+  color: var(--chakra-colors-red-300);
 }
 
-.chakra-ui-dark .hljs-function,
-.chakra-ui-dark .hljs-built_in {
-  color: #a78bfa;
-}
-
-.chakra-ui-dark .hljs-variable,
-.chakra-ui-dark .hljs-attr {
-  color: #22d3ee;
-}
-
-.chakra-ui-dark .hljs-tag {
-  color: #f87171;
-}
-
-/* Custom list styling for better bullet point indentation */
-.markdown-content ul {
-  margin-left: 0 !important;
-  padding-left: 1.5rem !important;
-}
-
-.markdown-content ol {
-  margin-left: 0 !important;
-  padding-left: 1.5rem !important;
-}
-
-.markdown-content li {
-  margin-bottom: 0.25rem;
-  padding-left: 0.5rem;
-}
-
-.markdown-content li::marker {
-  color: var(--chakra-colors-text-secondary);
-}
-
-/* Ensure consistent spacing */
-.markdown-content p {
-  margin-bottom: 0.75rem;
-}
-
-.markdown-content p:last-child {
-  margin-bottom: 0;
-}
-
-/* Better table styling */
 .markdown-content table {
-  border-collapse: collapse;
   width: 100%;
-  /* Ensure very wide tables don't overflow the container */
+  border-collapse: collapse;
   display: block;
   overflow-x: auto;
+  margin: 0.5rem 0;
 }
-
 .markdown-content th,
 .markdown-content td {
   text-align: left;
   vertical-align: top;
+  padding: 0.5rem 0.75rem;
+}
+.markdown-content th {
+  border-bottom: 2px solid var(--chakra-colors-gray-200);
+  font-weight: 600;
+}
+.markdown-content td {
+  border-bottom: 1px solid var(--chakra-colors-gray-100);
+}
+.chakra-ui-dark .markdown-content th {
+  border-bottom-color: var(--chakra-colors-gray-600);
+}
+.chakra-ui-dark .markdown-content td {
+  border-bottom-color: var(--chakra-colors-gray-700);
 }
 
-/* Code block improvements */
-.markdown-content pre {
-  line-height: 1.5;
-  tab-size: 2;
-  /* Scroll horizontally instead of overflowing container */
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-.markdown-content pre code {
-  white-space: pre;
-  word-wrap: normal;
-  overflow-wrap: normal;
-}
-
-/* Inline code consistency */
-.markdown-content :not(pre) > code {
-  /* Allow inline code to wrap to avoid overflow */
-  white-space: break-spaces;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-/* Blockquote improvements */
 .markdown-content blockquote {
-  margin: 1rem 0;
+  margin: 0.75rem 0;
+  padding: 0.5rem 1rem;
+  background-color: var(--chakra-colors-gray-100);
+  border-left: 4px solid var(--chakra-colors-secondary-300);
+  border-radius: 0.25rem;
 }
-
-.chakra-ui-light .markdown-content blockquote {
-  background-color: #f9fafb;
-  border-left-color: #d1d5db;
-}
-
 .chakra-ui-dark .markdown-content blockquote {
-  background-color: #1f2937;
-  border-left-color: #4b5563;
+  background-color: var(--chakra-colors-gray-800);
+  border-left-color: var(--chakra-colors-secondary-700);
 }
-
-/* Images scale down to fit container */
 .markdown-content img {
   max-width: 100%;
   height: auto;
+  margin: 0.75rem 0;
 }
-
-/* Links with long URLs should wrap instead of overflowing */
 .markdown-content a {
   overflow-wrap: anywhere;
-  word-break: break-word;
+  color: var(--chakra-colors-primary-600);
+  text-decoration: underline;
+}
+.chakra-ui-dark .markdown-content a {
+  color: var(--chakra-colors-primary-400);
+}
+
+.markdown-content hr {
+  margin: 0.75rem 0;
+  border: none;
+  border-top: 1px solid var(--chakra-colors-gray-200);
+}
+.chakra-ui-dark .markdown-content hr {
+  border-top-color: var(--chakra-colors-gray-700);
+}
+
+/* List styling with better spacing */
+.markdown-content ol {
+  list-style: decimal;
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+}
+.markdown-content ol ol {
+  margin: 0.25rem 0;
+}
+.markdown-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.markdown-content ul ul {
+  list-style: circle;
+  margin: 0.25rem 0;
+}
+.markdown-content li {
+  margin: 0.25rem 0;
+  line-height: 1.6;
+}
+.markdown-content li p {
+  display: inline;
+  margin: 0;
+}
+.markdown-content li p + p {
+  display: block;
+  margin-top: 0.5rem;
+}
+/* Heading styles with better spacing */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.markdown-content h1 {
+  font-size: 2em;
+  margin: 0.75rem 0 0.75rem 0;
+  border-bottom: 2px solid var(--chakra-colors-gray-200);
+  padding-bottom: 0.5rem;
+}
+.chakra-ui-dark .markdown-content h1 {
+  border-bottom-color: var(--chakra-colors-gray-700);
+}
+
+.markdown-content h2 {
+  font-size: 1.75em;
+  margin: 0.75rem 0 0.75rem 0;
+  border-bottom: 1px solid var(--chakra-colors-gray-200);
+  padding-bottom: 0.25rem;
+}
+.chakra-ui-dark .markdown-content h2 {
+  border-bottom-color: var(--chakra-colors-gray-700);
+}
+
+.markdown-content h3 {
+  font-size: 1.5em;
+  margin: 1rem 0 0.75rem 0;
+}
+.markdown-content h4 {
+  font-size: 1.25em;
+  margin: 0.75rem 0 0.5rem 0;
+}
+.markdown-content h5 {
+  font-size: 1em;
+  margin: 0.75rem 0 0.5rem 0;
+}
+.markdown-content h6 {
+  font-size: 0.875em;
+  margin: 0.75rem 0 0.5rem 0;
+  color: var(--chakra-colors-gray-600);
+}
+.chakra-ui-dark .markdown-content h6 {
+  color: var(--chakra-colors-gray-400);
 }

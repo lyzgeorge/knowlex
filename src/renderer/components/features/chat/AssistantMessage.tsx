@@ -4,7 +4,7 @@ import { HiSparkles, HiClipboard, HiArrowPath } from 'react-icons/hi2'
 import { formatTime } from '@shared/utils/time'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import ReasoningBox from './ReasoningBox'
-import MarkdownContent from '@renderer/components/ui/MarkdownContent'
+import { MarkdownContent } from '@renderer/utils/markdownComponents'
 import { useNotifications } from '@renderer/components/ui'
 import {
   useIsReasoningStreaming,
@@ -14,7 +14,8 @@ import {
   useIsTextStreaming,
   useTextStreamingMessageId,
   useRegenerateMessage
-} from '@renderer/stores/conversation'
+} from '@renderer/stores/conversation/index'
+import { TEXT_CONSTANTS } from '@shared/constants/text'
 
 export interface AssistantMessageProps {
   /** Message data */
@@ -82,7 +83,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const textContent = getTextContent()
 
   // Calculate visible text (remove zero-width space placeholder)
-  const visibleText = textContent.replace(/\u200B/g, '').trim()
+  const visibleText = textContent
+    .replace(new RegExp(TEXT_CONSTANTS.ZERO_WIDTH_SPACE, 'g'), '')
+    .trim()
 
   // Handle copy
   const handleCopy = async () => {
@@ -170,12 +173,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             maxWidth="100%"
             overflow="hidden"
           >
-            <MarkdownContent
-              text={visibleText}
-              isStreaming={isTextStreamingForMessage}
-              // External streaming indicator is shown below; hide inline cursor
-              showCursor={false}
-            />
+            <MarkdownContent text={visibleText} />
           </Box>
         )}
 

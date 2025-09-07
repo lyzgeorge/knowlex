@@ -5,6 +5,8 @@ import {
   updateConversation,
   deleteConversation,
   generateConversationTitle,
+  listConversationsPaginated,
+  moveConversation,
   type CreateConversationData,
   type UpdateConversationData
 } from '@main/services/conversation'
@@ -21,7 +23,7 @@ import type { Message } from '@shared/types/message'
 import { testOpenAIConfig } from '@main/services/openai-adapter'
 import { regenerateReply } from '@main/services/assistant-service'
 import { cancellationManager } from '@main/utils/cancellation'
-import { cancelTitleGeneration } from '@main/services/title-generation'
+// Title generation cancellation removed with simplified one-shot logic
 
 /**
  * Conversation and Message IPC Handler
@@ -35,9 +37,11 @@ import {
   requireValidId,
   ValidationPatterns,
   validateObject,
-  validateStringProperty
+  validateStringProperty,
+  expectObject,
+  expectString
 } from './common'
-import { expectObject, expectString } from './common'
+import { TEXT_CONSTANTS } from '@shared/constants/text'
 
 /**
  * Validates conversation creation request data
@@ -66,11 +70,6 @@ function validateConversationUpdateData(data: unknown): data is {
     (request.modelConfigId === undefined || ValidationPatterns.modelConfigId(request.modelConfigId))
   )
 }
-
-// Temporary aliases for backward compatibility during migration
-const validateConversationId = ValidationPatterns.conversationId
-const validateMessageId = ValidationPatterns.messageId
-const validateMessageContent = ValidationPatterns.messageContent
 
 /**
  * Registers all conversation and message-related IPC handlers
@@ -128,8 +127,6 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Limit cannot exceed 50 conversations')
         }
 
-        // Import the service function
-        const { listConversationsPaginated } = await import('@main/services/conversation')
         const result = await listConversationsPaginated(limit, offset)
 
         return result
@@ -177,56 +174,14 @@ export function registerConversationIPCHandlers(): void {
     }
   )
 
-  // Update conversation title (convenience method)
-  ipcMain.handle(
-    'conversation:update-title',
-    async (_, conversationId: unknown, title: unknown): Promise<IPCResult<Conversation>> => {
-      return handleIPCCall(async () => {
-        const validConversationId = requireValidId(conversationId, 'Conversation ID')
-
-        if (!title || typeof title !== 'string' || title.trim().length === 0) {
-          throw new Error('Invalid title')
-        }
-
-        return await updateConversation(validConversationId, {
-          title: title.trim()
-        })
-      })
-    }
-  )
-
   // Delete conversation
   ipcMain.handle('conversation:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const conversationId = requireValidId(id, 'Conversation ID')
-      // Best-effort cancellation of any title generation or streaming tied to this conversation
-      cancelTitleGeneration(conversationId)
+      // Title generation no longer needs explicit cancellation (one-shot, fast)
       await deleteConversation(conversationId)
     })
   })
-
-  // Update conversation settings
-  ipcMain.handle(
-    'conversation:update-settings',
-    async (_, data: unknown): Promise<IPCResult<Conversation>> => {
-      return handleIPCCall(async () => {
-        const request = expectObject<{ conversationId: unknown; settings: unknown }>(
-          data,
-          'Invalid conversation settings data'
-        )
-
-        const conversationId = expectString(request.conversationId, 'Conversation ID')
-
-        if (!request.settings || typeof request.settings !== 'object') {
-          throw new Error('Invalid settings object')
-        }
-
-        return await updateConversation(conversationId, {
-          settings: request.settings as SessionSettings
-        })
-      })
-    }
-  )
 
   // Generate conversation title
   ipcMain.handle(
@@ -246,7 +201,6 @@ export function registerConversationIPCHandlers(): void {
       return handleIPCCall(async () => {
         const validConversationId = requireValidId(conversationId, 'Conversation ID')
         const targetProjectId = projectId === null ? null : String(projectId)
-        const { moveConversation } = await import('@main/services/conversation')
         await moveConversation(validConversationId, targetProjectId)
         return true
       })
@@ -266,7 +220,7 @@ export function registerConversationIPCHandlers(): void {
   // Get message
   ipcMain.handle('message:get', async (_, id: unknown): Promise<IPCResult<Message | null>> => {
     return handleIPCCall(async () => {
-      if (!validateMessageId(id)) {
+      if (!ValidationPatterns.messageId(id)) {
         throw new Error('Invalid message ID')
       }
 
@@ -279,7 +233,7 @@ export function registerConversationIPCHandlers(): void {
     'message:list',
     async (_, conversationId: unknown): Promise<IPCResult<Message[]>> => {
       return handleIPCCall(async () => {
-        if (!validateConversationId(conversationId)) {
+        if (!ValidationPatterns.conversationId(conversationId)) {
           throw new Error('Invalid conversation ID')
         }
 
@@ -296,11 +250,11 @@ export function registerConversationIPCHandlers(): void {
       }
 
       const request = data as any
-      if (!validateMessageId(request.id)) {
+      if (!ValidationPatterns.messageId(request.id)) {
         throw new Error('Invalid message ID')
       }
 
-      if (!validateMessageContent(request.content)) {
+      if (!ValidationPatterns.messageContent(request.content)) {
         throw new Error('Invalid message content')
       }
 
@@ -315,7 +269,7 @@ export function registerConversationIPCHandlers(): void {
     return handleIPCCall(async () => {
       // Cancel potential streaming for this message
       cancellationManager.cancel(String(id))
-      if (!validateMessageId(id)) {
+      if (!ValidationPatterns.messageId(id)) {
         throw new Error('Invalid message ID')
       }
 
@@ -326,7 +280,7 @@ export function registerConversationIPCHandlers(): void {
   // Stop message streaming
   ipcMain.handle('message:stop', async (_, messageId: unknown): Promise<IPCResult<boolean>> => {
     return handleIPCCall(async () => {
-      if (!validateMessageId(messageId)) {
+      if (!ValidationPatterns.messageId(messageId)) {
         throw new Error('Invalid message ID')
       }
 
@@ -358,7 +312,7 @@ export function registerConversationIPCHandlers(): void {
         modelConfigId?: unknown
       }>(data, 'Invalid send message data')
 
-      if (!validateMessageContent(request.content)) {
+      if (!ValidationPatterns.messageContent(request.content)) {
         throw new Error('Invalid message content')
       }
 
@@ -430,7 +384,7 @@ export function registerConversationIPCHandlers(): void {
       const assistantMessage = await addMessage({
         conversationId: actualConversationId,
         role: 'assistant',
-        content: [{ type: 'text' as const, text: '\u200B' }],
+        content: [{ type: 'text' as const, text: TEXT_CONSTANTS.ZERO_WIDTH_SPACE }],
         parentMessageId: userMessage.id
       })
 
@@ -454,7 +408,7 @@ export function registerConversationIPCHandlers(): void {
     'message:regenerate',
     async (_, messageId: unknown): Promise<IPCResult<Message>> => {
       return handleIPCCall(async () => {
-        if (!validateMessageId(messageId)) {
+        if (!ValidationPatterns.messageId(messageId)) {
           throw new Error('Invalid message ID')
         }
 
@@ -470,7 +424,7 @@ export function registerConversationIPCHandlers(): void {
 
         // Clear the current message content and reasoning, then set placeholder
         const clearedMessage = await updateMessage(messageId, {
-          content: [{ type: 'text' as const, text: '\u200B' }], // Zero-width space placeholder
+          content: [{ type: 'text' as const, text: TEXT_CONSTANTS.ZERO_WIDTH_SPACE }], // Zero-width space placeholder
           reasoning: '' // Clear any existing reasoning
         })
 
@@ -511,9 +465,7 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:list-paginated',
     'conversation:get',
     'conversation:update',
-    // 'conversation:update-title' removed (use 'conversation:update')
     'conversation:delete',
-    'conversation:update-settings',
     'conversation:generate-title',
     // Message channels
     'message:get',
@@ -537,18 +489,24 @@ export function unregisterConversationIPCHandlers(): void {
 }
 
 /**
- * Sends conversation-related events to renderer processes
- * Used for real-time updates and notifications
+ * Shared broadcast helper for sending events to all renderer processes
  */
-export function sendConversationEvent(eventType: string, data: unknown): void {
-  // Get all windows and send the event
+function broadcast(prefix: string, eventType: string, data: unknown): void {
   const windows = BrowserWindow.getAllWindows()
 
   windows.forEach((window) => {
     if (window.webContents && !window.webContents.isDestroyed()) {
-      window.webContents.send(`conversation:${eventType}`, data)
+      window.webContents.send(`${prefix}:${eventType}`, data)
     }
   })
+}
+
+/**
+ * Sends conversation-related events to renderer processes
+ * Used for real-time updates and notifications
+ */
+export function sendConversationEvent(eventType: string, data: unknown): void {
+  broadcast('conversation', eventType, data)
 }
 
 /**
@@ -556,14 +514,7 @@ export function sendConversationEvent(eventType: string, data: unknown): void {
  * Used for real-time updates and streaming responses
  */
 export function sendMessageEvent(eventType: string, data: unknown): void {
-  // Get all windows and send the event
-  const windows = BrowserWindow.getAllWindows()
-
-  windows.forEach((window) => {
-    if (window.webContents && !window.webContents.isDestroyed()) {
-      window.webContents.send(`message:${eventType}`, data)
-    }
-  })
+  broadcast('message', eventType, data)
 }
 
 /**

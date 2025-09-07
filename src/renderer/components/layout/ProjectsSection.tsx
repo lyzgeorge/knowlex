@@ -14,7 +14,7 @@ import {
 } from '@chakra-ui/react'
 import { useI18n } from '@renderer/hooks/useI18n'
 import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import { HiPlus, HiCheck, HiXMark, HiBars3, HiFolder, HiFolderOpen } from 'react-icons/hi2'
 import { useProjectManagement } from '@renderer/hooks/useProjectManagement'

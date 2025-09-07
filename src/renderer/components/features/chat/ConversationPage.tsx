@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Box, VStack, IconButton } from '@chakra-ui/react'
-import { useCurrentConversation } from '@renderer/stores/conversation'
+import { useCurrentConversation } from '@renderer/stores/conversation/index'
 import ChatInputBox from './ChatInputBox'
 import UserMessage from './UserMessage'
 import AssistantMessage from './AssistantMessage'

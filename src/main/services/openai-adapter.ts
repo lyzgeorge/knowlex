@@ -1,5 +1,4 @@
 import { streamText, generateText, smoothStream } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { CancellationToken } from '@main/utils/cancellation'
@@ -11,6 +10,57 @@ import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/
  * OpenAI Adapter Service using official AI SDK
  * Supports only OpenAI-compatible models with optional reasoning effort
  */
+
+/**
+ * Default smooth streaming options
+ */
+const DEFAULT_SMOOTH_OPTIONS = {
+  enabled: true,
+  delayInMs: 20,
+  chunking: /[\u4E00-\u9FFF]|\S+\s+/
+} as const
+
+/**
+ * Builds model parameters with consistent configuration
+ */
+function buildModelParams(
+  model: any,
+  messages: any[],
+  config: OpenAIConfig,
+  options: {
+    includeReasoningOptions?: boolean
+    includeSmoothStreaming?: boolean
+  } = {}
+) {
+  const { includeReasoningOptions = false, includeSmoothStreaming = false } = options
+
+  // Prepare provider options
+  const providerOptions: Record<string, any> = {}
+  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
+    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
+  }
+
+  const modelParams: any = {
+    model,
+    messages,
+    ...(config.temperature !== undefined && { temperature: config.temperature }),
+    ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+    ...(config.topP !== undefined && { topP: config.topP }),
+    ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
+    ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
+    ...(Object.keys(providerOptions).length > 0 && { providerOptions })
+  }
+
+  // Add smooth streaming transform if enabled and requested
+  if (includeSmoothStreaming && config.smooth?.enabled) {
+    modelParams.experimental_transform = smoothStream({
+      delayInMs: config.smooth.delayInMs || 20,
+      chunking: config.smooth.chunking || 'word'
+    })
+  }
+
+  return modelParams
+}
 
 /**
  * Configuration interface for OpenAI-compatible models
@@ -60,11 +110,7 @@ export function getOpenAIConfigFromEnv(): OpenAIConfig {
   }
 
   // Set default smooth streaming configuration
-  config.smooth = {
-    enabled: true,
-    delayInMs: 20,
-    chunking: /[\u4E00-\u9FFF]|\S+\s+/
-  }
+  config.smooth = DEFAULT_SMOOTH_OPTIONS
 
   return config
 }
@@ -171,22 +217,14 @@ function convertMessagesToAIFormat(messages: Message[]) {
  * Creates OpenAI model instance from configuration
  */
 function createOpenAIModel(config: OpenAIConfig) {
-  if (config.baseURL && !config.baseURL.includes('api.openai.com')) {
-    // Custom OpenAI-compatible API (like SiliconFlow)
-    const provider = createOpenAICompatible({
-      name: 'custom-provider',
-      apiKey: config.apiKey,
-      baseURL: config.baseURL,
-      includeUsage: true // Include usage information in streaming responses
-    })
-    return provider(config.model)
-  } else {
-    // Official OpenAI API - create provider with custom API key
-    const provider = createOpenAI({
-      apiKey: config.apiKey
-    })
-    return provider(config.model)
-  }
+  // Use createOpenAICompatible for both official and custom OpenAI-compatible APIs
+  const provider = createOpenAICompatible({
+    name: 'openai-provider',
+    apiKey: config.apiKey,
+    baseURL: config.baseURL || 'https://api.openai.com/v1',
+    includeUsage: true // Include usage information in streaming responses
+  })
+  return provider(config.model)
 }
 
 /**
@@ -208,25 +246,10 @@ export async function generateAIResponseOnce(
     // Convert messages to AI format
     const aiMessages = convertMessagesToAIFormat(conversationMessages)
 
-    // Prepare model parameters
-    const providerOptions: Record<string, any> = {}
-    if (config.reasoningEffort !== undefined) {
-      // Pass reasoning effort via providerOptions for OpenAI providers
-      providerOptions.openai = { reasoningEffort: config.reasoningEffort }
-      // Also set for custom-compatible provider name to maximize compatibility
-      providerOptions['custom-provider'] = { reasoningEffort: config.reasoningEffort }
-    }
-
-    const modelParams: any = {
-      model,
-      messages: aiMessages,
-      ...(config.temperature !== undefined && { temperature: config.temperature }),
-      ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
-      ...(config.topP !== undefined && { topP: config.topP }),
-      ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
-      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-      ...(Object.keys(providerOptions).length > 0 && { providerOptions })
-    }
+    // Build model parameters
+    const modelParams = buildModelParams(model, aiMessages, config, {
+      includeReasoningOptions: true
+    })
 
     // Generate response
     const result = await generateText(modelParams)
@@ -319,11 +342,7 @@ export async function streamAIResponse(
       frequencyPenalty: modelConfig.frequencyPenalty,
       presencePenalty: modelConfig.presencePenalty,
       reasoningEffort,
-      smooth: {
-        enabled: true,
-        delayInMs: 20,
-        chunking: /[\u4E00-\u9FFF]|\S+\s+/
-      }
+      smooth: DEFAULT_SMOOTH_OPTIONS
     }
   } else {
     // Fallback to environment configuration
@@ -352,39 +371,17 @@ export async function streamAIResponse(
 
     console.log(`[AI] Using model: ${config.model}`)
 
-    // Prepare model parameters
-    const providerOptions: Record<string, any> = {}
-    if (withReasoning && config.reasoningEffort !== undefined) {
-      providerOptions.openai = { reasoningEffort: config.reasoningEffort }
-      providerOptions['custom-provider'] = { reasoningEffort: config.reasoningEffort }
-    }
-
-    const modelParams: any = {
-      model,
-      messages: aiMessages,
-      ...(config.temperature !== undefined && { temperature: config.temperature }),
-      ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
-      ...(config.topP !== undefined && { topP: config.topP }),
-      ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
-      ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-      ...(Object.keys(providerOptions).length > 0 && { providerOptions }),
-      // Add smooth streaming transform if enabled
-      ...(config.smooth?.enabled && {
-        experimental_transform: smoothStream({
-          delayInMs: config.smooth.delayInMs || 20,
-          chunking: config.smooth.chunking || 'word'
-        })
-      })
-    }
+    // Build model parameters
+    const modelParams = buildModelParams(model, aiMessages, config, {
+      includeReasoningOptions: withReasoning,
+      includeSmoothStreaming: true
+    })
 
     // Stream response
     const result = streamText(modelParams)
 
-    // Handle both old callback format and new callbacks interface
-    const streamCallbacks: StreamingCallbacks =
-      typeof callbacks === 'function'
-        ? { onTextChunk: callbacks }
-        : (callbacks as StreamingCallbacks)
+    // Convert to StreamingCallbacks interface
+    const streamCallbacks = callbacks as StreamingCallbacks
 
     // Stream response using fullStream for reasoning support
     let wasCancelled = false
@@ -399,44 +396,17 @@ export async function streamAIResponse(
           break
         }
 
-        // Only log verbose details for unknown types and critical events
-        if (part.type === 'text-delta' || part.type === 'reasoning-delta') {
-          // Don't log every text chunk to reduce noise
-        } else if (
-          ['start', 'start-step', 'finish', 'finish-step', 'done', 'stream-start'].includes(
-            part.type
-          )
-        ) {
-          // These are normal flow events, log briefly
-          console.log(`[AI] Stream event: ${part.type}`)
-        } else {
-          // Log more details for other events
-          console.log('[AI] FullStream part received:', {
-            type: part.type,
-            keys: Object.keys(part)
-          })
-        }
-
         switch (part.type) {
           case 'start':
-            // Stream initialization
             streamCallbacks.onStreamStart?.()
-            // Also trigger UI start event for sparkle animation
             streamCallbacks.onStart?.()
             break
 
-          case 'start-step':
-            // Step initialization
-            break
-
           case 'text-start':
-            console.log('[AI] Text start')
             streamCallbacks.onTextStart?.()
             break
 
           case 'text-delta':
-            // console.log('[AI] Text delta received:', JSON.stringify(part.text))
-
             if (part.text && part.text.length > 0) {
               streamedText += part.text
               streamCallbacks.onTextChunk(part.text)
@@ -444,17 +414,14 @@ export async function streamAIResponse(
             break
 
           case 'text-end':
-            console.log('[AI] Text end')
             streamCallbacks.onTextEnd?.()
             break
 
           case 'reasoning-start':
-            console.log('[AI] Reasoning start')
             streamCallbacks.onReasoningStart?.()
             break
 
           case 'reasoning-delta':
-            // console.log('[AI] Reasoning delta received:', JSON.stringify(part.text))
             if (part.text && part.text.length > 0) {
               streamedReasoning += part.text
               streamCallbacks.onReasoningChunk?.(part.text)
@@ -462,30 +429,26 @@ export async function streamAIResponse(
             break
 
           case 'reasoning-end':
-            console.log('[AI] Reasoning end event received')
             streamCallbacks.onReasoningEnd?.()
             break
 
-          case 'finish-step':
-            // Step completion events
-            break
-
           case 'finish':
-            // Stream completion events
             streamCallbacks.onStreamFinish?.()
-            break
-
-          case 'tool-call':
-          case 'tool-result':
-            console.log(`[AI] Tool event: ${part.type}`)
             break
 
           case 'error':
             console.error('AI streaming error:', part.error)
             throw part.error
 
+          case 'start-step':
+          case 'finish-step':
+          case 'tool-call':
+          case 'tool-result':
+            // No-op cases - handled silently
+            break
+
           default:
-            console.log('[AI] Unknown fullStream part type:', part.type, part)
+            console.log('[AI] Unknown fullStream part type:', part.type)
         }
       }
     } catch (error) {
@@ -563,19 +526,20 @@ export async function testOpenAIConfig(config?: OpenAIConfig): Promise<{
 
     const model = createOpenAIModel(chatConfig)
 
-    // Prepare model parameters
-    const modelParams = {
+    // Build model parameters
+    const modelParams = buildModelParams(
       model,
-      messages: [
+      [
         {
           role: 'user' as const,
           content: 'Hello! Please respond with just "OK" to confirm the connection.'
         }
       ],
-      ...(chatConfig.reasoningEffort !== undefined && {
-        reasoningEffort: chatConfig.reasoningEffort
-      })
-    }
+      chatConfig,
+      {
+        includeReasoningOptions: true
+      }
+    )
 
     // Test with a simple message
     await generateText(modelParams)
@@ -592,15 +556,6 @@ export async function testOpenAIConfig(config?: OpenAIConfig): Promise<{
         : { error: 'Unknown error during AI configuration test' })
     }
   }
-}
-
-/**
- * Gets available OpenAI models (configured via environment)
- */
-export function getAvailableModels(): string[] {
-  // Models are configured via OPENAI_MODEL environment variable
-  // No need to define or verify specific model names
-  return []
 }
 
 /**

@@ -3,7 +3,7 @@ import { VStack, Text, Box } from '@chakra-ui/react'
 import ChatInputBox from './ChatInputBox'
 import { ModelSelector } from '@renderer/components/features/models/ModelSelector'
 import { useI18n } from '@renderer/hooks/useI18n'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useNavigationActions } from '@renderer/stores/navigation'
 
 export interface MainPageProps {

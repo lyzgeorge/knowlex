@@ -18,8 +18,7 @@ import { streamAIResponse } from '@main/services/openai-adapter'
 import { updateMessage, getMessage } from '@main/services/message'
 import { cancellationManager } from '@main/utils/cancellation'
 import { sendMessageEvent, MESSAGE_EVENTS } from '@main/ipc/conversation'
-import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
-import { modelConfigService } from './model-config-service'
+import { TEXT_CONSTANTS } from '@shared/constants/text'
 
 /**
  * Configuration for assistant message generation
@@ -41,6 +40,46 @@ export interface AssistantGenConfig {
   onSuccess?: (updatedMessage: Message) => Promise<void>
   /** Optional callback for when generation fails */
   onError?: (error: Error, errorMessage: Message) => Promise<void>
+}
+
+/**
+ * Creates a batched emitter for streaming chunks to reduce IPC pressure
+ * Eliminates duplication between text and reasoning chunk handling
+ */
+function createBatchedEmitter(
+  messageId: string,
+  eventType: string,
+  chunkProperty: string,
+  flushInterval: number = 16
+) {
+  let pendingChunk = ''
+  let flushTimer: NodeJS.Timeout | null = null
+
+  const flush = () => {
+    if (pendingChunk.length > 0) {
+      sendMessageEvent(eventType, {
+        messageId,
+        [chunkProperty]: pendingChunk
+      })
+      pendingChunk = ''
+    }
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
+  }
+
+  const schedule = () => {
+    if (flushTimer) return
+    flushTimer = setTimeout(flush, flushInterval)
+  }
+
+  const addChunk = (chunk: string) => {
+    pendingChunk += chunk
+    schedule()
+  }
+
+  return { addChunk, flush }
 }
 
 /**
@@ -76,7 +115,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
   sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
     messageId,
     message: await updateMessage(messageId, {
-      content: [{ type: 'text' as const, text: '\u200B' }] // Zero-width space placeholder
+      content: [{ type: 'text' as const, text: TEXT_CONSTANTS.ZERO_WIDTH_SPACE }] // Zero-width space placeholder
     })
   })
 
@@ -87,49 +126,16 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
     let accumulatedReasoning = ''
     let streamingActive = true
 
-    // IPC batching state
-    let pendingTextChunk = ''
-    let textFlushTimer: NodeJS.Timeout | null = null
-    const flushTextIPC = () => {
-      if (pendingTextChunk.length > 0) {
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CHUNK, {
-          messageId,
-          chunk: pendingTextChunk
-        })
-        pendingTextChunk = ''
-      }
-      if (textFlushTimer) {
-        clearTimeout(textFlushTimer)
-        textFlushTimer = null
-      }
-    }
-    const scheduleTextFlush = () => {
-      if (textFlushTimer) return
-      textFlushTimer = setTimeout(flushTextIPC, 16)
-    }
-
-    let pendingReasoningChunk = ''
-    let reasoningFlushTimer: NodeJS.Timeout | null = null
-    const flushReasoningIPC = () => {
-      if (pendingReasoningChunk.length > 0) {
-        sendMessageEvent(MESSAGE_EVENTS.REASONING_CHUNK, {
-          messageId,
-          chunk: pendingReasoningChunk
-        })
-        pendingReasoningChunk = ''
-      }
-      if (reasoningFlushTimer) {
-        clearTimeout(reasoningFlushTimer)
-        reasoningFlushTimer = null
-      }
-    }
-    const scheduleReasoningFlush = () => {
-      if (reasoningFlushTimer) return
-      reasoningFlushTimer = setTimeout(flushReasoningIPC, 16)
-    }
+    // Create batched emitters for IPC to reduce pressure
+    const textEmitter = createBatchedEmitter(messageId, MESSAGE_EVENTS.STREAMING_CHUNK, 'chunk')
+    const reasoningEmitter = createBatchedEmitter(
+      messageId,
+      MESSAGE_EVENTS.REASONING_CHUNK,
+      'chunk'
+    )
 
     try {
-      // Use centralized model resolution
+      // Get conversation model ID for resolution context
       let conversationModelId: string | undefined
       try {
         const { getConversation } = await import('@main/services/conversation')
@@ -140,32 +146,11 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
         console.warn('[ASSISTANT] Failed to get conversation model ID:', e)
       }
 
-      // Build resolution context
-      const availableModels = await modelConfigService.list()
-      const resolutionContext: ModelResolutionContext = {
-        explicitModelId: modelConfigId || null,
-        conversationModelId: conversationModelId || null,
-        userDefaultModelId: userDefaultModelId || null,
-        availableModels
-      }
-
-      const resolution = resolveModelContext(resolutionContext)
-
-      // Log resolution for debugging
-      console.log('[ASSISTANT] Model resolution:', {
-        source: resolution.source,
-        modelId: resolution.modelConfig?.id,
-        trace: resolution.trace
-      })
-
-      if (resolution.warnings.length > 0) {
-        console.warn('[ASSISTANT] Model resolution warnings:', resolution.warnings)
-      }
-
+      // Let openai-adapter handle model resolution with raw parameters
       const response = await streamAIResponse(
         contextMessages,
         {
-          modelConfigId: resolution.modelConfig?.id,
+          modelConfigId,
           conversationModelId,
           userDefaultModelId,
           ...(reasoningEffort !== undefined && { reasoningEffort }),
@@ -188,8 +173,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
             accumulatedText += chunk
 
             // Batch IPC emissions by time to reduce pressure
-            pendingTextChunk += chunk
-            scheduleTextFlush()
+            textEmitter.addChunk(chunk)
           },
           onTextEnd: () => {
             console.log('[ASSISTANT_GEN] Sending text end event for message:', messageId)
@@ -210,8 +194,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
             accumulatedReasoning += chunk
 
             // Batch IPC emissions by time to reduce pressure
-            pendingReasoningChunk += chunk
-            scheduleReasoningFlush()
+            reasoningEmitter.addChunk(chunk)
           },
           onReasoningEnd: () => {
             console.log('[ASSISTANT_GEN] Sending reasoning end event for message:', messageId)
@@ -227,8 +210,8 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
       streamingActive = false
 
       // Flush any pending IPC chunks before finishing
-      flushTextIPC()
-      flushReasoningIPC()
+      textEmitter.flush()
+      reasoningEmitter.flush()
 
       // Check if the operation was cancelled
       const wasCancelled = cancellationToken.isCancelled
@@ -246,7 +229,9 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
           content: Array<{ type: 'text'; text: string }>
           reasoning?: string
         } = {
-          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
+          content: [
+            { type: 'text' as const, text: accumulatedText || TEXT_CONSTANTS.ZERO_WIDTH_SPACE }
+          ]
         }
 
         if (accumulatedReasoning) {
@@ -314,8 +299,8 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
 
       // Flush any pending IPC chunks on error as well
       try {
-        flushTextIPC()
-        flushReasoningIPC()
+        textEmitter.flush()
+        reasoningEmitter.flush()
       } catch {
         // Ignore flush errors during cleanup
       }
@@ -330,7 +315,9 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
           content: Array<{ type: 'text'; text: string }>
           reasoning?: string
         } = {
-          content: [{ type: 'text' as const, text: accumulatedText || '\u200B' }]
+          content: [
+            { type: 'text' as const, text: accumulatedText || TEXT_CONSTANTS.ZERO_WIDTH_SPACE }
+          ]
         }
 
         if (accumulatedReasoning) {
@@ -388,20 +375,23 @@ export async function generateReplyForNewMessage(
     maxDepth: 5
   })
 
+  // Shared title generation callback - runs regardless of success/error
+  const handleTitleGeneration = async () => {
+    // Attempt one-shot initial title generation (idempotent)
+    const { attemptInitialTitleGeneration } = await import('./title-generation')
+    await attemptInitialTitleGeneration(conversationId)
+  }
+
   await streamAssistantReply({
     messageId,
     conversationId,
     contextMessages: branchContext,
     reasoningEffort,
     onSuccess: async (_updatedMessage) => {
-      // Trigger title generation after successful completion
-      const { tryTriggerAutoTitleGeneration } = await import('./title-generation')
-      await tryTriggerAutoTitleGeneration(conversationId)
+      await handleTitleGeneration()
     },
     onError: async (_error, _errorMessage) => {
-      // Trigger title generation even after error/cancellation
-      const { tryTriggerAutoTitleGeneration } = await import('./title-generation')
-      await tryTriggerAutoTitleGeneration(conversationId)
+      await handleTitleGeneration()
     }
   })
 }

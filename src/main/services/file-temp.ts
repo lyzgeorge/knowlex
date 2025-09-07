@@ -218,7 +218,7 @@ async function processSingleTemporaryFile(
  * @param filename Original filename for type detection
  * @returns Extracted text content
  */
-export async function extractTextContent(filePath: string, filename: string): Promise<string> {
+export async function extractFileTextContent(filePath: string, filename: string): Promise<string> {
   try {
     const result = await parseFile(filePath, filename)
     return result.content

@@ -5,13 +5,14 @@
 import type { Conversation } from '@shared/types/conversation'
 import type { MessageContent } from '@shared/types/message'
 import type { Draft } from 'immer'
+import { TEXT_CONSTANTS } from '@shared/constants/text'
 
 // --- constants ---
 export const CONVERSATION_CONSTANTS = {
   CONVERSATIONS_PAGE_SIZE: 15,
   TEXT_CHUNK_FLUSH_INTERVAL: 16,
   REASONING_CHUNK_FLUSH_INTERVAL: 16,
-  ZERO_WIDTH_SPACE: '\u200B',
+  ZERO_WIDTH_SPACE: TEXT_CONSTANTS.ZERO_WIDTH_SPACE,
   DEFAULT_CONVERSATION_TITLE: 'New Chat'
 } as const
 

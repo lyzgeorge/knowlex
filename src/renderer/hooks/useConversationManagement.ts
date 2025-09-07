@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useDisclosure } from '@chakra-ui/react'
-import { useConversationStore } from '@renderer/stores/conversation'
+import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useNotifications } from '@renderer/components/ui'
 
