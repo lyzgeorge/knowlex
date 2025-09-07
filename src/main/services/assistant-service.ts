@@ -17,8 +17,8 @@ import type { ReasoningEffort } from '@shared/types/models'
 import { streamAIResponse } from '@main/services/openai-adapter'
 import { updateMessage, getMessage } from '@main/services/message'
 import { cancellationManager } from '@main/utils/cancellation'
-import { sendMessageEvent, MESSAGE_EVENTS } from '@main/ipc/conversation'
-import { TEXT_CONSTANTS } from '@shared/constants/text'
+import { sendMessageEvent, MESSAGE_EVENTS } from '@main/utils/ipc-events'
+import { ensurePlaceholder } from '@shared/utils/text'
 
 /**
  * Configuration for assistant message generation
@@ -115,7 +115,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
   sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
     messageId,
     message: await updateMessage(messageId, {
-      content: [{ type: 'text' as const, text: TEXT_CONSTANTS.ZERO_WIDTH_SPACE }] // Zero-width space placeholder
+      content: [{ type: 'text' as const, text: ensurePlaceholder('') }] // placeholder
     })
   })
 
@@ -229,9 +229,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
           content: Array<{ type: 'text'; text: string }>
           reasoning?: string
         } = {
-          content: [
-            { type: 'text' as const, text: accumulatedText || TEXT_CONSTANTS.ZERO_WIDTH_SPACE }
-          ]
+          content: [{ type: 'text' as const, text: ensurePlaceholder(accumulatedText) }]
         }
 
         if (accumulatedReasoning) {
@@ -315,9 +313,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
           content: Array<{ type: 'text'; text: string }>
           reasoning?: string
         } = {
-          content: [
-            { type: 'text' as const, text: accumulatedText || TEXT_CONSTANTS.ZERO_WIDTH_SPACE }
-          ]
+          content: [{ type: 'text' as const, text: ensurePlaceholder(accumulatedText) }]
         }
 
         if (accumulatedReasoning) {

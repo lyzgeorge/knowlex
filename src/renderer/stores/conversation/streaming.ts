@@ -94,14 +94,13 @@ export const replaceChunkCombiner = <T>(_existing: T | undefined, newChunk: T): 
 }
 
 // --- chunk-appliers implementation ---
-import { CONVERSATION_CONSTANTS } from './utils'
+import { stripPlaceholder } from '@shared/utils/text'
 
 export function applyTextChunkToDraft(message: any, combinedChunk: string) {
   const lastContent = message.content[message.content.length - 1]
   if (lastContent?.type === 'text') {
-    const currentText =
-      lastContent.text === CONVERSATION_CONSTANTS.ZERO_WIDTH_SPACE ? '' : lastContent.text || ''
-    lastContent.text = currentText + combinedChunk
+    const currentText = stripPlaceholder(lastContent.text) || ''
+    lastContent.text = currentText + combinedChunk || ''
   } else {
     message.content.push({ type: 'text', text: combinedChunk })
   }

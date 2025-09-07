@@ -148,7 +148,7 @@ export async function attemptInitialTitleGeneration(conversationId: string): Pro
     if (!title || isPlaceholderTitle(title) || title === 'New Chat') return
 
     await updateConversation(conversationId, { title })
-    const { sendConversationEvent, CONVERSATION_EVENTS } = await import('@main/ipc/conversation')
+    const { sendConversationEvent, CONVERSATION_EVENTS } = await import('@main/utils/ipc-events')
     sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, { conversationId, title })
     console.log(`[TITLE] Auto-generated initial title for ${conversationId}: "${title}"`)
   } catch (err) {

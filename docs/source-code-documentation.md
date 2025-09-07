@@ -256,7 +256,7 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | rollbackToVersion | 函数 | targetVersion | 简化模式下不再支持（调用将抛错）|
 | getMigrationHistory | 函数 | 无 | 列出已应用的迁移（无表返回空）|
 
-说明：迁移已简化为“整合式”单向升级，移除了早期的 FTS/Search、文件分块/向量等未实现特性所需的表与索引。
+说明：迁移方案已更新为简化的"整合"单向升级，支持多版本顺序升级。移除了早期的 FTS/Search、文件分块/向量等未实现特性所需的表与索引，采用流线化方案。
 
 ### src/main/database/queries.ts
 使用通用 CRUD 工具的优化数据库查询。
@@ -278,7 +278,7 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | conversationSchema | 对象 | 无 | 对话表映射 |
 | messageSchema | 对象 | 无 | 消息表，包含 JSON 内容 |
 | projectSchema | 对象 | 无 | 项目表映射 |
-| modelConfigSchema | 对象 | 无 | 模型配置映射 |
+| modelConfigSchema | 对象 | 无 | 模型配置映射，包含 `max_input_tokens` 字段 |
 
 ### src/main/services/project-service.ts
 具有业务逻辑的项目 CRUD 操作。
@@ -318,23 +318,25 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| streamAssistantReply | 函数 | config | 主要流式传输函数 |
+| streamAssistantReply | 函数 | config: AssistantGenConfig | 主要流式传输函数，配置对象包含 messageId, conversationId, contextMessages, modelConfigId, reasoningEffort, userDefaultModelId, onSuccess, onError。 |
 | generateReplyForNewMessage | 函数 | messageId, conversationId, reasoningEffort | 新消息生成 |
 | regenerateReply | 函数 | messageId | 消息重新生成 |
+| buildBranchContext | 函数 | assistantMessageId, options | 构建消息分支上下文，用于获取相关消息链。 |
 
 实现要点：
 - 由 `openai-adapter` 统一处理模型解析；此服务只传递可选 `modelConfigId/conversationModelId/userDefaultModelId`。
-- 使用内部的批量发射器合并文本和推理分片，降低 IPC 压力。
+- 使用内部的 `createBatchedEmitter` 批量发射器合并文本和推理分片，降低 IPC 压力。
+- 使用 `buildBranchContext` 构建消息上下文。
 - 使用集中常量 `TEXT_CONSTANTS.ZERO_WIDTH_SPACE` 作为占位符。
+- 支持 3 层模型解析优先级：显式 → 对话 → 用户默认 → 系统默认。
 
 ### src/main/services/file-temp.ts
 聊天上下文的临时文件处理。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| processTemporaryFiles | 函数 | filePaths | 文件路径处理 |
-| processTemporaryFileContents | 函数 | files | 基于内容的处理 |
-| validateTemporaryFileConstraints | 函数 | files | 详细错误报告的验证 |
+| processTemporaryFiles | 函数 | filePaths | 处理文件路径数组，进行验证和内容提取。 |
+| processTemporaryFileContents | 函数 | files | 处理文件内容数据数组（例如来自浏览器 File API），进行验证和内容提取。 |
 | extractFileTextContent | 函数 | filePath, filename | 文本提取（避免与消息文本提取重名）|
 | cleanupTemporaryFiles | 函数 | filePaths | 清理工具 |
 
@@ -355,7 +357,7 @@ AI SDK 集成，支持流式传输和模型解析。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| streamAIResponse | 函数 | messages, options, cancellationToken | 主要流式传输函数 |
+| streamAIResponse | 函数 | conversationMessages, options, cancellationToken | 主要流式传输函数，支持模型解析（显式/对话/用户默认/系统默认优先级）、推理参数和流式回调，并包含失败重试机制。 |
 | generateAIResponseOnce | 函数 | messages | 单次生成 |
 | testOpenAIConfig | 函数 | config | 配置测试 |
 | getOpenAIConfigFromEnv | 函数 | 无 | 环境配置 |
@@ -364,7 +366,10 @@ AI SDK 集成，支持流式传输和模型解析。
 说明：
 - 模型解析（显式/对话/默认）由适配器内部完成，调用方无需重复解析。
 - 统一使用 `createOpenAICompatible` 适配官方和 OpenAI 兼容提供商。
-- 内部使用一致的参数构建器（含可选推理与平滑流式配置）。
+- 内部使用统一的参数构建器，支持可选推理与流畅流式配置。
+- 包含重试机制，当带推理参数的流式传输失败时，会尝试不带推理参数再次传输。
+- 支持 `smooth` 流式传输选项和错误增强功能。
+- 实现 3 层优先级系统的内部模型解析。
 
 ### src/main/services/title-generation.ts
 自动化对话标题生成。
@@ -375,7 +380,7 @@ AI SDK 集成，支持流式传输和模型解析。
 | attemptInitialTitleGeneration | 函数 | conversationId | 一次性、幂等的首轮自动标题尝试 |
 | isPlaceholderTitle | 函数 | title | 判断标题是否为占位（如 'New Chat'）|
 
-说明：标题生成采用“一次性首轮尝试”策略，满足“首个用户+助手消息完成且对话标题仍为占位”时触发。取消逻辑已移除。
+说明：标题生成采用"一次性首轮尝试"策略，满足"首个用户+助手消息完成且对话标题仍为占位"时触发。采用幂等设计，取消逻辑已移除。
 
 ### src/main/services/settings.ts
 应用程序配置管理。
@@ -396,11 +401,14 @@ AI SDK 集成，支持流式传输和模型解析。
 |--------|------|------|------|
 | ModelConfigService | 类 | 无 | 模型配置服务实现 |
 | list | 方法 | 无 | 获取所有模型配置 |
-| create | 方法 | input | 使用 Zod 验证创建 |
-| update | 方法 | id, updates | 使用验证更新 |
+| create | 方法 | input | 使用 Zod 验证创建，包含 `max_input_tokens` 字段 |
+| update | 方法 | id, updates | 使用验证更新，支持更新 `max_input_tokens` 字段 |
 | delete | 方法 | id | 删除，处理默认模型 |
 | testConnection | 方法 | id | 连接测试 |
 | resolveDefaultModel | 方法 | 无 | 默认模型解析 |
+| setDefaultModel | 方法 | id | 设置用户默认模型 |
+| getDefaultModelId | 方法 | 无 | 获取用户默认模型 ID |
+| handleDefaultModelDeletion | 方法 | deletedModelId | 处理默认模型删除时的逻辑，包括重新分配默认模型和受影响的对话。 |
 
 ### src/main/ipc/common.ts
 共享的 IPC 工具和验证模式。
@@ -418,9 +426,17 @@ AI SDK 集成，支持流式传输和模型解析。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| registerConversationIPCHandlers | 函数 | 无 | 注册所有处理器 |
+| registerConversationIPCHandlers | 函数 | 无 | 注册所有对话和消息相关的 IPC 处理器，包括对话的创建、获取、更新、删除、分页列表、标题生成、移动，以及消息的获取、列表、更新、删除、停止流式传输、发送和重新生成。还包括 AI 连接测试。 |
 | sendConversationEvent | 函数 | eventType, data | 事件广播 |
 | sendMessageEvent | 函数 | eventType, data | 消息事件广播 |
+
+说明：
+- 移除了 `conversation:list`，请使用 `conversation:list-paginated`。
+- 移除了 `message:add`、`message:add-text`、`message:add-multipart`，请使用 `message:send`。
+- 移除了 `message:edit`，请使用 `message:update`。
+- 新增了 `message:stop` 和 `message:send` IPC 处理器。
+- 新增了 `conversation:move` IPC 处理器。
+- 新增了 `ai:test-connection` IPC 处理器。
 
 ### src/main/ipc/project.ts
 项目管理 IPC 处理器。
@@ -471,7 +487,7 @@ AI SDK 集成，支持流式传输和模型解析。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| Application | 类 | 无 | 主应用程序控制器 |
+| Application | 类 | 无 | 主应用程序控制器，负责初始化数据库、注册/注销 IPC 处理器、设置应用程序菜单和管理窗口生命周期。 |
 | application | 实例 | 无 | 全局应用程序实例 |
 
 ### src/main/window.ts
@@ -611,6 +627,15 @@ AI 模型配置管理。
 | useSettingsStore | Hook | 无 | 主设置存储 |
 | useDefaultModel | Hook | 无 | 默认模型偏好钩子 |
 
+### src/renderer/stores/model-config.ts
+AI 模型配置管理。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useModelConfigStore | Hook | 无 | 主模型配置存储 |
+| useModelConfigs | Hook | 无 | 模型配置列表选择器 |
+| useDefaultModel | Hook | 无 | 默认模型选择器 |
+
 ### src/renderer/hooks/useAutoScroll.ts
 聊天界面的智能自动滚动。
 
@@ -695,6 +720,13 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useProjectManagement | Hook | 无 | 项目管理钩子，表单状态管理和验证 |
 
+### src/renderer/hooks/useModelCapabilities.ts
+集中化模型能力检测。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useModelCapabilities | Hook | modelId | 模型能力钩子，缓存能力解析 |
+
 ### src/renderer/hooks/useThemeSync.ts
 负责将应用程序主题与操作系统主题同步，并处理主题相关的持久化和更新。
 
@@ -710,6 +742,10 @@ AI 模型配置管理。
 
 ### src/renderer/components/features/chat/
 与聊天功能相关的组件，例如消息显示、输入区域和聊天历史。
+
+| 文件 | 描述 |
+|---|---|
+| `AssistantMessage.tsx` | 显示 AI 助手消息的组件，支持流式传输指示器、推理显示和消息重新生成。 |
 
 ### src/renderer/components/features/models/
 与 AI 模型配置和管理相关的组件。
@@ -798,14 +834,16 @@ Vitest 的测试配置。
 ## 关键架构模式
 
 1. **三层架构**: 主进程、渲染进程和共享代码的严格分离
-2. **类型安全的 IPC**: 所有通信使用强类型接口
-3. **性能优化**: 基于 Map 的缓存、块缓冲和记忆化
-4. **实时同步**: 通过 IPC 事件的事件驱动更新
-5. **错误边界**: 各级别的综合错误处理
-6. **可访问性**: ARIA 合规性和键盘导航支持
-7. **国际化**: 完整的 i18n 支持，包含 React Suspense
-8. **主题系统**: 综合设计令牌，包含语义颜色管理
-9. **状态管理**: 原子更新、选择性持久化、事件协调
-10. **文件处理**: 多格式支持、验证管道、安全措施
+2. **类型安全的 IPC**: 所有通信使用强类型接口和 `handleIPCCall` 包装器
+3. **简化数据库架构**: 移除早期 FTS/Search 和文件向量化功能，采用流线化方案
+4. **智能模型解析**: 3 层优先级系统（显式 → 对话 → 用户默认 → 系统默认）
+5. **批量流式传输**: 内部批量发射器减少 IPC 压力，合并文本和推理分片
+6. **幂等标题生成**: 一次性、自动的对话标题生成策略
+7. **统一 AI 适配器**: 支持官方和 OpenAI 兼容提供商，包含重试机制
+8. **取消令牌系统**: 基于 ID 的取消管理，支持长时间运行操作
+9. **通知预设系统**: 15 个预定义通知配置，覆盖常见使用场景
+10. **主题同步**: OS 主题自动同步，支持暗色/亮色模式切换
+11. **模块化状态管理**: 对话存储拆分为多个职责单一的文件
+12. **综合文件处理**: 多格式解析器工厂，包含编码检测和验证管道
 
-此文档涵盖了 Knowlex 应用程序的完整源代码架构，展示了企业级 Electron + React 应用程序的高级状态管理、实时能力和综合用户体验模式。
+此文档涵盖了 Knowlex 应用程序的完整源代码架构，展示了现代 Electron + React 应用程序的流线化设计、智能模型集成和用户体验优化模式。

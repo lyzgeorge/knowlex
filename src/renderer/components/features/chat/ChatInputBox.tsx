@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Box, IconButton, useColorModeValue, Icon } from '@chakra-ui/react'
+import { Box, IconButton, useColorModeValue, Icon, Text, Tooltip } from '@chakra-ui/react'
 import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
 import { keyframes } from '@emotion/react'
+// token formatting removed: display raw token numbers
 import { useI18n } from '@renderer/hooks/useI18n'
 import {
   useSendMessage,
@@ -23,6 +24,9 @@ import {
   ProcessedFile,
   getFileAcceptString
 } from '@renderer/hooks/useFileUpload'
+import { fromUserInput as buildFromUserInput } from '@shared/message/content-builder'
+import { resolveReasoningEffort } from '@shared/reasoning/policy'
+import { useRequestTokenCount } from '@renderer/hooks/useRequestTokenCount'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
 
@@ -104,65 +108,44 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const fileUpload = useFileUpload()
   // File constraints (removed MAX_FILES as file count is no longer limited)
 
+  // Convert processed files to token count format with unique IDs
+  const tokenCountFiles = fileUpload.state.processedFiles.map((file, index) => ({
+    id: `${file.filename}-${file.size}-${index}`, // Create unique ID with filename, size, and index
+    name: file.filename,
+    type: file.isImage ? ('image' as const) : ('text' as const),
+    content: file.content,
+    ...(file.isImage && file.content && { dataUrl: file.content })
+  }))
+
+  // Token counting hook
+  const tokenCount = useRequestTokenCount({
+    text: input,
+    processedFiles: tokenCountFiles,
+    model: activeModel
+  })
+
   // Theme colors
+  // call hooks unconditionally to satisfy rules-of-hooks
   const bgColor = useColorModeValue('surface.primary', 'surface.primary')
   const placeholderColor = useColorModeValue('text.tertiary', 'text.tertiary')
+  const tokenCountTertiary = useColorModeValue('text.tertiary', 'text.tertiary')
+  const tokenCountColor = tokenCount.overLimit ? 'red.500' : tokenCountTertiary
 
-  // Build message content from text and processed files
+  // token counts displayed as raw numbers
+
+  // Build message content from text and processed files using shared builder
   const buildMessageContent = useCallback(
     (text: string, processedFiles: ProcessedFile[] = []): MessageContent => {
-      const content: MessageContent = []
-
-      // Add text content part if present
-      const trimmedText = text.trim()
-      if (trimmedText) {
-        content.push({
-          type: 'text' as const,
-          text: trimmedText
-        })
-      }
-
-      // Add file content parts (skip files with errors)
-      processedFiles.forEach((file) => {
-        if (file.error) {
-          console.log('buildMessageContent: Skipping file due to error:', {
-            filename: file.filename,
-            error: file.error
-          })
-          return
-        }
-
-        console.log('buildMessageContent: Adding file to content:', {
-          filename: file.filename,
-          contentLength: file.content?.length,
-          isImage: file.isImage
-        })
-
-        if (file.isImage) {
-          // Add as image content part (AI SDK compatible format)
-          content.push({
-            type: 'image' as const,
-            image: {
-              image: file.content, // DataContent: base64 data URL
-              mediaType: file.mimeType,
-              filename: file.filename
-            }
-          })
-        } else {
-          // Add as temporary file content part
-          content.push({
-            type: 'temporary-file' as const,
-            temporaryFile: {
-              filename: file.filename,
-              content: file.content,
-              size: file.size,
-              mimeType: file.mimeType
-            }
-          })
-        }
-      })
-
-      return content
+      const files = processedFiles
+        .filter((f) => !f.error)
+        .map((f) => ({
+          filename: f.filename,
+          content: f.content || '',
+          size: f.size,
+          mimeType: f.mimeType,
+          isImage: !!f.isImage
+        }))
+      return buildFromUserInput({ text: text.trim(), files })
     },
     []
   )
@@ -320,6 +303,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         }
       }
 
+      // Resolve reasoning effort via strategy before sending
+      const resolvedReasoning = resolveReasoningEffort(reasoningEffort, activeModelCapabilities)
+      if (resolvedReasoning !== undefined) sendOptions.reasoningEffort = resolvedReasoning
+
       console.log('handleSend: Sending with options:', sendOptions)
 
       try {
@@ -360,9 +347,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         // Enter key sends message for all variants (Shift+Enter for new line)
-        // Block during any refreshing state
+        // Block during any refreshing state or token limit exceeded
         const isRefreshing = isSending || isStreaming || isReasoningStreaming
-        if (isRefreshing) {
+        if (isRefreshing || tokenCount.overLimit) {
           e.preventDefault()
           return
         }
@@ -370,7 +357,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         handleSend()
       }
     },
-    [handleSend, isSending, isStreaming, isReasoningStreaming]
+    [handleSend, isSending, isStreaming, isReasoningStreaming, tokenCount.overLimit]
   )
 
   // Button state logic (simple and single-purpose)
@@ -383,11 +370,13 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // 2. Or has successful processed files
   // 3. Not currently processing files
   // 4. Not currently refreshing/sending
+  // 5. Not over token limit
   const canSend =
     (hasTextContent || hasSuccessfulFiles) &&
     !disabled &&
     !fileUpload.state.isProcessing &&
-    !isRefreshing
+    !isRefreshing &&
+    !tokenCount.overLimit
 
   // Unified render - single implementation for all variants
   return (
@@ -488,43 +477,73 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               )}
             </Box>
 
-            {/* Send / Refreshing-Stop Button - Bottom Right */}
-            {isRefreshing ? (
-              <IconButton
-                aria-label={isHoveringStreamButton ? t('chat.stop') : t('chat.refreshing')}
-                icon={
-                  isHoveringStreamButton ? (
-                    <HiStop />
-                  ) : (
-                    <Icon
-                      as={HiArrowPath}
-                      css={{ animation: `${spinAnimation} 1s linear infinite` }}
-                    />
-                  )
-                }
-                variant="solid"
-                {...(isHoveringStreamButton
-                  ? { colorScheme: 'red' as const }
-                  : { bg: 'gray.300' as const })}
-                size="sm"
-                borderRadius="md"
-                onClick={handleStop}
-                onMouseEnter={() => setIsHoveringStreamButton(true)}
-                onMouseLeave={() => setIsHoveringStreamButton(false)}
-                cursor="pointer"
-              />
-            ) : (
-              <IconButton
-                aria-label={t('chat.sendMessage')}
-                icon={<HiArrowUp />}
-                {...(canSend ? { colorScheme: 'primary' } : {})}
-                size="sm"
-                borderRadius="md"
-                isDisabled={!canSend}
-                onClick={handleSend}
-                cursor={canSend ? 'pointer' : 'not-allowed'}
-              />
-            )}
+            {/* Right side controls */}
+            <Box display="flex" alignItems="center" gap={2}>
+              {/* Token Count Display */}
+              {(hasTextContent || hasSuccessfulFiles) && activeModel && (
+                <Tooltip
+                  label={
+                    tokenCount.overLimit
+                      ? t('chat.tokenLimitExceeded')
+                      : t('chat.tokenCount', {
+                          total: tokenCount.total.toLocaleString(),
+                          limit: tokenCount.limit.toLocaleString()
+                        })
+                  }
+                  placement="top"
+                >
+                  <Text
+                    fontSize="xs"
+                    color={tokenCountColor}
+                    fontFamily="mono"
+                    minW="fit-content"
+                    textAlign="right"
+                  >
+                    {tokenCount.total.toLocaleString()} / {tokenCount.limit.toLocaleString()}
+                  </Text>
+                </Tooltip>
+              )}
+
+              {/* Send / Refreshing-Stop Button */}
+              {isRefreshing ? (
+                <IconButton
+                  aria-label={isHoveringStreamButton ? t('chat.stop') : t('chat.refreshing')}
+                  icon={
+                    isHoveringStreamButton ? (
+                      <HiStop />
+                    ) : (
+                      <Icon
+                        as={HiArrowPath}
+                        css={{ animation: `${spinAnimation} 1s linear infinite` }}
+                      />
+                    )
+                  }
+                  variant="solid"
+                  {...(isHoveringStreamButton
+                    ? { colorScheme: 'red' as const }
+                    : { bg: 'gray.300' as const })}
+                  size="sm"
+                  borderRadius="md"
+                  onClick={handleStop}
+                  onMouseEnter={() => setIsHoveringStreamButton(true)}
+                  onMouseLeave={() => setIsHoveringStreamButton(false)}
+                  cursor="pointer"
+                />
+              ) : (
+                <IconButton
+                  aria-label={
+                    tokenCount.overLimit ? t('chat.tokenLimitExceeded') : t('chat.sendMessage')
+                  }
+                  icon={<HiArrowUp />}
+                  {...(canSend ? { colorScheme: 'primary' } : {})}
+                  size="sm"
+                  borderRadius="md"
+                  isDisabled={!canSend}
+                  onClick={handleSend}
+                  cursor={canSend ? 'pointer' : 'not-allowed'}
+                />
+              )}
+            </Box>
           </Box>
         </Box>
       </Box>

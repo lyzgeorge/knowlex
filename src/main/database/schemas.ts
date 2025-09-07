@@ -133,6 +133,10 @@ export const modelConfigSchema: EntitySchema<ModelConfig> = {
       required: false,
       updatable: true
     }),
+    createFieldMapping('maxInputTokens', 'max_input_tokens', {
+      required: false,
+      updatable: true
+    }),
     createFieldMapping('supportsReasoning', 'supports_reasoning'),
     createFieldMapping('supportsVision', 'supports_vision'),
     createFieldMapping('supportsToolUse', 'supports_tool_use'),

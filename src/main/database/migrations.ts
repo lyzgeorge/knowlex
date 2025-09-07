@@ -112,6 +112,14 @@ const migrations: Migration[] = [
       // Ensure foreign keys are enabled
       'PRAGMA foreign_keys=ON'
     ]
+  },
+  {
+    version: 2,
+    name: 'add_max_input_tokens_to_model_configs',
+    up: [
+      // Add max_input_tokens column to existing model_configs table
+      `ALTER TABLE model_configs ADD COLUMN max_input_tokens INTEGER NULL DEFAULT 131072`
+    ]
   }
 ]
 

@@ -64,6 +64,7 @@ class ModelConfigService implements IModelConfigService {
       topP: validatedInput.topP,
       frequencyPenalty: validatedInput.frequencyPenalty,
       presencePenalty: validatedInput.presencePenalty,
+      maxInputTokens: validatedInput.maxInputTokens,
       supportsReasoning: validatedInput.supportsReasoning,
       supportsVision: validatedInput.supportsVision,
       supportsToolUse: validatedInput.supportsToolUse,
@@ -126,6 +127,8 @@ class ModelConfigService implements IModelConfigService {
       updateData.supportsToolUse = validatedUpdates.supportsToolUse
     if (validatedUpdates.supportsWebSearch !== undefined)
       updateData.supportsWebSearch = validatedUpdates.supportsWebSearch
+    if (validatedUpdates.maxInputTokens !== undefined)
+      updateData.maxInputTokens = validatedUpdates.maxInputTokens
 
     const { updateModelConfig } = await import('@main/database/queries')
     await updateModelConfig(id, updateData)

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
+import { normalizeParts } from '@shared/message/content-builder'
 import { useFileUpload, ProcessedFile } from '@renderer/hooks/useFileUpload'
 
 export interface UnifiedAttachment {
@@ -105,24 +106,21 @@ export function useEditableMessage(): UseEditableMessageResult {
   )
 
   const buildContent = useCallback((): MessageContent => {
-    const content: MessageContent = []
+    const parts: Partial<MessageContentPart>[] = []
 
     // Add text content if present
     const trimmedText = draftText.trim()
     if (trimmedText) {
-      content.push({
-        type: 'text',
-        text: trimmedText
-      })
+      parts.push({ type: 'text', text: trimmedText })
     }
 
-    // Add attachments
+    // Add attachments - existing parts preserved, new parts constructed
     attachments.forEach((attachment) => {
       if (attachment.kind === 'existing' && attachment.originalPart) {
-        content.push(attachment.originalPart)
+        parts.push(attachment.originalPart)
       } else if (attachment.kind === 'new') {
         if (attachment.partType === 'image') {
-          content.push({
+          parts.push({
             type: 'image',
             image: {
               image: attachment.content || '',
@@ -131,7 +129,7 @@ export function useEditableMessage(): UseEditableMessageResult {
             }
           })
         } else {
-          content.push({
+          parts.push({
             type: 'temporary-file',
             temporaryFile: {
               filename: attachment.filename,
@@ -144,7 +142,7 @@ export function useEditableMessage(): UseEditableMessageResult {
       }
     })
 
-    return content
+    return normalizeParts(parts)
   }, [draftText, attachments])
 
   const addFiles = useCallback(

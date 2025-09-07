@@ -50,6 +50,7 @@ interface FormData {
   topP: number | ''
   frequencyPenalty: number | ''
   presencePenalty: number | ''
+  maxInputTokens: number | ''
   supportsReasoning: boolean
   supportsVision: boolean
   supportsToolUse: boolean
@@ -97,6 +98,7 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
     topP: '',
     frequencyPenalty: '',
     presencePenalty: '',
+    maxInputTokens: 131072,
     supportsReasoning: false,
     supportsVision: false,
     supportsToolUse: false,
@@ -122,6 +124,7 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
               topP: fullModelData.topP ?? '',
               frequencyPenalty: fullModelData.frequencyPenalty ?? '',
               presencePenalty: fullModelData.presencePenalty ?? '',
+              maxInputTokens: fullModelData.maxInputTokens ?? 131072,
               supportsReasoning: fullModelData.supportsReasoning,
               supportsVision: fullModelData.supportsVision,
               supportsToolUse: fullModelData.supportsToolUse,
@@ -141,6 +144,7 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
             topP: model.topP ?? '',
             frequencyPenalty: model.frequencyPenalty ?? '',
             presencePenalty: model.presencePenalty ?? '',
+            maxInputTokens: model.maxInputTokens ?? 131072,
             supportsReasoning: model.supportsReasoning,
             supportsVision: model.supportsVision,
             supportsToolUse: model.supportsToolUse,
@@ -162,6 +166,7 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
         topP: '',
         frequencyPenalty: '',
         presencePenalty: '',
+        maxInputTokens: 131072,
         supportsReasoning: false,
         supportsVision: false,
         supportsToolUse: false,
@@ -211,6 +216,13 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
       newErrors.presencePenalty = 'Presence penalty must be between -2 and 2'
     }
 
+    if (
+      formData.maxInputTokens !== '' &&
+      (formData.maxInputTokens < 1024 || formData.maxInputTokens > 2000000)
+    ) {
+      newErrors.maxInputTokens = 'Max input tokens must be between 1,024 and 2,000,000'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -229,6 +241,7 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
         ...(formData.topP !== '' && { topP: formData.topP }),
         ...(formData.frequencyPenalty !== '' && { frequencyPenalty: formData.frequencyPenalty }),
         ...(formData.presencePenalty !== '' && { presencePenalty: formData.presencePenalty }),
+        ...(formData.maxInputTokens !== '' && { maxInputTokens: formData.maxInputTokens }),
         supportsReasoning: formData.supportsReasoning,
         supportsVision: formData.supportsVision,
         supportsToolUse: formData.supportsToolUse,
@@ -522,6 +535,26 @@ export function EditModelModal({ isOpen, onClose, model }: EditModelModalProps) 
                       </NumberInputStepper>
                     </NumberInput>
                     <FormErrorMessage>{errors.presencePenalty}</FormErrorMessage>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.maxInputTokens}>
+                    <FormLabel fontSize="sm">Max Input Tokens</FormLabel>
+                    <NumberInput
+                      value={formData.maxInputTokens}
+                      onChange={(_, val) =>
+                        setFormData((prev) => ({ ...prev, maxInputTokens: isNaN(val) ? '' : val }))
+                      }
+                      min={1024}
+                      max={2000000}
+                      step={1024}
+                    >
+                      <NumberInputField placeholder="131072 (128K)" />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                    <FormErrorMessage>{errors.maxInputTokens}</FormErrorMessage>
                   </FormControl>
                 </VStack>
               </Box>

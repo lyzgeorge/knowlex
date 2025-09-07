@@ -37,12 +37,16 @@
     "typeMessage": "Type your message...",
     "startConversation": "Start a conversation in this project...",
     "attachFile": "Attach file",
+    "editMessage": "Edit",
+    "copyToClipboard": "Copy",
     "sendMessage": "Send message",
     "stop": "Stop",
     "refreshing": "Refreshing",
     "thinking": "Thinking...",
     "reasoning": "Reasoning...",
-    "greeting": "How do you do?"
+    "greeting": "How do you do?",
+    "tokenCount": "{{total}} / {{limit}} tokens",
+    "tokenLimitExceeded": "Input exceeds model token limit. Please reduce your content or files."
   },
   "file": {
     "upload": "Upload File",

@@ -70,6 +70,14 @@ export const PenaltySchema = z
 
 export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high']).optional()
 
+export const MaxInputTokensSchema = z
+  .number()
+  .int('Max input tokens must be an integer')
+  .min(1024, 'Max input tokens must be at least 1,024')
+  .max(2000000, 'Max input tokens must be at most 2,000,000')
+  .default(131072)
+  .optional()
+
 // Model capability schemas
 export const ModelCapabilitiesSchema = z.object({
   supportsReasoning: BooleanishSchema.default(false),
@@ -89,6 +97,7 @@ export const ModelConfigSchema = z.object({
   topP: TopPSchema,
   frequencyPenalty: PenaltySchema,
   presencePenalty: PenaltySchema,
+  maxInputTokens: MaxInputTokensSchema,
   supportsReasoning: BooleanishSchema.default(false),
   supportsVision: BooleanishSchema.default(false),
   supportsToolUse: BooleanishSchema.default(false),
@@ -107,6 +116,7 @@ export const CreateModelConfigInputSchema = z.object({
   topP: TopPSchema,
   frequencyPenalty: PenaltySchema,
   presencePenalty: PenaltySchema,
+  maxInputTokens: MaxInputTokensSchema,
   supportsReasoning: BooleanishSchema.default(false),
   supportsVision: BooleanishSchema.default(false),
   supportsToolUse: BooleanishSchema.default(false),
@@ -204,6 +214,8 @@ export const ValidationPatterns = {
   temperature: (value: unknown): value is number => TemperatureSchema.safeParse(value).success,
   topP: (value: unknown): value is number => TopPSchema.safeParse(value).success,
   penalty: (value: unknown): value is number => PenaltySchema.safeParse(value).success,
+  maxInputTokens: (value: unknown): value is number =>
+    MaxInputTokensSchema.safeParse(value).success,
   reasoningEffort: (value: unknown): value is 'low' | 'medium' | 'high' =>
     ReasoningEffortSchema.safeParse(value).success
 }

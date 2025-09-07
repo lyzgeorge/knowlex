@@ -37,12 +37,16 @@
     "typeMessage": "输入您的消息...",
     "startConversation": "在此项目中开始对话...",
     "attachFile": "附加文件",
+    "editMessage": "编辑",
+    "copyToClipboard": "复制",
     "sendMessage": "发送消息",
     "stop": "停止",
     "refreshing": "刷新中",
     "thinking": "思考中...",
     "reasoning": "推理中...",
-    "greeting": "你好，请问有什么可以帮助您的吗？"
+    "greeting": "你好，请问有什么可以帮助您的吗？",
+    "tokenCount": "{{total}} / {{limit}} 令牌",
+    "tokenLimitExceeded": "输入超出模型令牌限制。请减少内容或文件。"
   },
   "file": {
     "upload": "上传文件",

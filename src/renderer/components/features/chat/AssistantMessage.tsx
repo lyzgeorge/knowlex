@@ -15,7 +15,7 @@ import {
   useTextStreamingMessageId,
   useRegenerateMessage
 } from '@renderer/stores/conversation/index'
-import { TEXT_CONSTANTS } from '@shared/constants/text'
+import { stripPlaceholder } from '@shared/utils/text'
 
 export interface AssistantMessageProps {
   /** Message data */
@@ -83,9 +83,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const textContent = getTextContent()
 
   // Calculate visible text (remove zero-width space placeholder)
-  const visibleText = textContent
-    .replace(new RegExp(TEXT_CONSTANTS.ZERO_WIDTH_SPACE, 'g'), '')
-    .trim()
+  const visibleText = stripPlaceholder(textContent).trim()
 
   // Handle copy
   const handleCopy = async () => {

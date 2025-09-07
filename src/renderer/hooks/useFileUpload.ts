@@ -10,7 +10,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '@renderer/components/ui'
 import type { TemporaryFileResult } from '@shared/types/file'
 import { FILE_CONSTRAINTS, SUPPORTED_FILE_TYPES } from '@shared/constants/file'
-import { formatBytes } from '@shared/utils/validation'
+import { validateFileConstraints } from '@shared/utils/validation'
 
 export interface ProcessedFile extends TemporaryFileResult {
   isImage?: boolean
@@ -81,18 +81,8 @@ const isBinaryExt = (ext: string): boolean =>
 const isImageMime = (mime?: string): boolean => Boolean(mime && mime.startsWith('image/'))
 
 const validateSingleFile = (file: File): string | null => {
-  if (file.size > MAX_FILE_SIZE)
-    return `File "${file.name}" is too large. Maximum size is ${formatBytes(MAX_FILE_SIZE)}.`
-  const ext = getExtension(file.name)
-  if (!(ALLOWED_TYPES as string[]).includes(ext)) {
-    return (
-      'File "' +
-      file.name +
-      '" is not supported. Supported formats: ' +
-      (ALLOWED_TYPES as string[]).join(', ')
-    )
-  }
-  return null
+  const res = validateFileConstraints([{ name: file.name, size: file.size }])
+  return res.valid ? null : (res.errors[0] ?? 'Invalid file')
 }
 
 const uniqueBatch = (files: File[]): File[] => {

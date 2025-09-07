@@ -138,13 +138,13 @@ All inter-process communication follows a standardized, type-safe pattern to ens
 
 The database architecture is designed for maintainability and directness, avoiding complex ORMs.
 
-- **Generic Entity Class**: A `DatabaseEntity` class in `@main/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`).
+- **Generic Entity Class**: A `DatabaseEntity` class in `@main/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`) with automatic timestamp management.
 - **Field Mapping System**: Uses `createFieldMapping` for property-to-column translation with automatic JSON serialization and camelCase to snake_case conversion.
-- **Schemas**: Entity schemas in `@main/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields.
+- **Schemas**: Entity schemas in `@main/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields like message content.
 - **Queries**: Optimized, raw SQL queries are centralized in `@main/database/queries.ts`. Services use these query functions rather than accessing the `DatabaseEntity` directly.
-- **Migrations**: Schema changes are managed through versioned SQL migration files with both `up` and `down` scripts, tracked in `schema_version` table.
+- **Migrations**: Simplified "consolidated" unidirectional upgrades with versioned SQL migration files tracked in `schema_version` table. Early FTS/Search and file chunking/vector tables removed for streamlined approach.
 - **Transactions**: Atomic multi-query operations via `executeTransaction` with automatic rollback on failure.
-- **Full-Text Search**: Integrated FTS with `messages_fts` table for conversation search capabilities.
+- **Connection Management**: Uses `@libsql/client` with connection pooling, timeout handling, and graceful shutdown via `closeDB()`.
 
 ### 4.3. State Management (Zustand)
 
@@ -162,12 +162,14 @@ State in the renderer is managed through domain-specific Zustand stores.
 
 The system uses an adapter pattern to provide a unified interface for multiple AI providers.
 
-- **Adapter**: `@main/services/openai-adapter.ts` integrates with the Vercel AI SDK and handles message format transformation.
-- **Service**: `@main/services/assistant-service.ts` manages the core logic for streaming responses, handling events, and managing cancellation.
+- **Adapter**: `@main/services/openai-adapter.ts` integrates with the Vercel AI SDK and handles message format transformation with unified `createOpenAICompatible` for official and OpenAI-compatible providers.
+- **Service**: `@main/services/assistant-service.ts` manages streaming responses with internal batch emitter to reduce IPC pressure by merging text and reasoning chunks.
+- **Model Resolution**: 3-layer priority system (explicit → conversation → user default → system default) handled internally by the adapter.
 - **Cancellation**: A `CancellationManager` (`@main/utils/cancellation.ts`) provides robust cancellation tokens with registration, cleanup, and active task tracking.
-- **Streaming Architecture**: Real-time streaming with `TEXT` and `REASONING` chunk events sent via IPC for live updates.
-- **Auto-Title Generation**: Automatic conversation titling triggered after first user-assistant exchange.
+- **Streaming Architecture**: Real-time streaming with `TEXT` and `REASONING` chunk events sent via IPC, using `TEXT_CONSTANTS.ZERO_WIDTH_SPACE` as placeholder.
+- **Auto-Title Generation**: One-shot, idempotent title generation triggered after first user-assistant exchange when title is placeholder.
 - **Error Enhancement**: AI errors are enhanced with user-friendly context and debugging information.
+- **Configuration Management**: Unified parameter builder with optional reasoning and smooth streaming configuration.
 
 ### 4.5. File Processing System
 
@@ -220,41 +222,51 @@ This section provides a high-level summary of key modules in the `src/` director
 
 Core business logic resides here. Services are self-contained and handle a specific domain.
 
-| **Module**             | **Description**                                              |
-| ---------------------- | ------------------------------------------------------------ |
-| `project-service.ts`   | Manages project CRUD operations with case-insensitive name uniqueness validation and cascade deletes of conversations. |
-| `conversation.ts`      | Handles conversation CRUD, pagination, project associations, and auto-title generation triggers. |
-| `message.ts`           | Manages message CRUD with multi-part content support (text, files, images, citations), content validation, and temporary file integration. |
-| `assistant-service.ts` | Orchestrates AI response generation with streaming events, cancellation management, and real-time IPC broadcasting. |
-| `file-temp.ts`         | Processes temporary file uploads with comprehensive validation, text extraction, and image optimization (data URLs). |
-| `file-parser.ts`       | Factory pattern for parsing multiple file types (PDF, Office, plain text) with encoding detection and metadata extraction. |
-| `title-generation.ts`  | Automatically generates conversation titles using AI after detecting first user-assistant exchange. |
-| `settings.ts`          | Manages application configuration from `app.env` with provider-specific settings and runtime updates. |
-| `openai-adapter.ts`    | Adapts application message format to AI SDK with streaming support, error enhancement, and configuration validation. |
+| **Module**             | **Description**                                              | **Key Functions**                                            |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `project-service.ts`   | Manages project CRUD operations with case-insensitive name uniqueness validation and cascade deletes of conversations. | `createProject`, `getProjectById`, `getAllProjects`, `updateProjectById`, `deleteProjectById`, `getProjectConversations` |
+| `conversation.ts`      | Handles conversation CRUD, pagination, project associations, and auto-title generation triggers. | `createConversation`, `listConversationsPaginated`, `generateConversationTitle`, `moveConversation` |
+| `message.ts`           | Manages message CRUD with multi-part content support (text, files, images, citations), content validation, and temporary file integration. | `addMessage`, `addTextMessage`, `addMultiPartMessage`, `convertTemporaryFilesToMessageParts`, `extractTextContent` |
+| `assistant-service.ts` | Orchestrates AI response generation with streaming events, cancellation management, and real-time IPC broadcasting. Uses internal batch emitter to reduce IPC pressure. | `streamAssistantReply`, `generateReplyForNewMessage`, `regenerateReply` |
+| `file-temp.ts`         | Processes temporary file uploads with comprehensive validation, text extraction, and image optimization (data URLs). | `processTemporaryFiles`, `processTemporaryFileContents`, `validateTemporaryFileConstraints`, `extractFileTextContent`, `cleanupTemporaryFiles` |
+| `file-parser.ts`       | Factory pattern for parsing multiple file types (PDF, Office, plain text) with encoding detection and metadata extraction. | `FileParser` (abstract), `PlainTextParser`, `PDFParser`, `OfficeParser`, `FileParserFactory`, `parseFile` |
+| `title-generation.ts`  | Automatically generates conversation titles using AI after detecting first user-assistant exchange. One-shot, idempotent strategy. | `generateTitleForConversation`, `attemptInitialTitleGeneration`, `isPlaceholderTitle` |
+| `settings.ts`          | Manages application configuration with SettingsService class for complete configuration management. | `SettingsService` class, `getSettings`, `updateSettings`, `settingsService` singleton |
+| `openai-adapter.ts`    | Adapts application message format to AI SDK with streaming support, error enhancement, and configuration validation. Unified OpenAI-compatible provider support. | `streamAIResponse`, `generateAIResponseOnce`, `testOpenAIConfig`, `getOpenAIConfigFromEnv`, `validateOpenAIConfig` |
+| `model-config-service.ts` | Comprehensive model configuration management with Zod validation and connection testing. | `ModelConfigService` class with `list`, `create`, `update`, `delete`, `testConnection`, `resolveDefaultModel` |
 
 #### Database (`@main/database`)
 
 The data persistence layer with advanced ORM-like functionality.
 
-| **Module**      | **Description**                                              |
-| --------------- | ------------------------------------------------------------ |
-| `index.ts`      | Manages the `libsql` client connection, transaction helpers, and query execution with error handling. |
-| `entity.ts`     | Generic `DatabaseEntity` class with field mapping, JSON serialization, and automatic timestamp management. |
-| `queries.ts`    | Optimized SQL queries for all entities, including FTS search and pagination support. |
-| `schemas.ts`    | Entity-to-table mapping with `createFieldMapping` for property translation and JSON field configuration. |
-| `migrations.ts` | Versioned schema migrations with bidirectional `up`/`down` scripts and rollback capabilities. |
+| **Module**      | **Description**                                              | **Key Functions**                                            |
+| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `index.ts`      | Manages the `libsql` client connection, transaction helpers, and query execution with error handling. | `getDB`, `closeDB`, `executeQuery`, `executeTransaction`, `isDatabaseReady`, `getCurrentDatabasePath` |
+| `entity.ts`     | Generic `DatabaseEntity` class with field mapping, JSON serialization, and automatic timestamp management. | `DatabaseEntity<T>` class with `create`, `get`, `list`, `update`, `delete` methods, `createFieldMapping` helper |
+| `queries.ts`    | Optimized SQL queries for all entities using generic CRUD tools. FTS-related queries removed in simplified migration. | `createConversation`, `listConversations`, `createMessage`, `createProject` (FTS search queries removed) |
+| `schemas.ts`    | Entity-to-table mapping with `createFieldMapping` for property translation and JSON field configuration. | `conversationSchema`, `messageSchema` (with JSON content), `projectSchema`, `modelConfigSchema` |
+| `migrations.ts` | Simplified "consolidated" unidirectional schema upgrades. Early FTS/Search and file chunking features removed for streamlined approach. | `runMigrations`, `getCurrentVersion`, `rollbackToVersion` (throws error), `getMigrationHistory` |
 
 #### IPC (`@main/ipc`)
 
 The communication bridge to the renderer process with comprehensive validation.
 
-| **Module**        | **Description**                                              |
-| ----------------- | ------------------------------------------------------------ |
-| `project.ts`      | Exposes project service functions with validation and error handling for all project operations. |
-| `conversation.ts` | Exposes conversation and message services with event broadcasting and real-time synchronization. |
-| `file.ts`         | Exposes temporary file processing with content and path-based handling modes. |
-| `settings.ts`     | Exposes settings service with read/update capabilities for configuration management. |
-| `common.ts`       | Provides `handleIPCCall` wrapper, validation patterns, and type guard utilities for secure IPC communication. |
+| **Module**        | **Description**                                              | **Key Functions**                                            |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `project.ts`      | Exposes project service functions with validation and error handling for all project operations. | `registerProjectIPCHandlers`, `unregisterProjectIPCHandlers` |
+| `conversation.ts` | Exposes conversation and message services with event broadcasting and real-time synchronization. | `registerConversationIPCHandlers`, `sendConversationEvent`, `sendMessageEvent` |
+| `file.ts`         | Exposes temporary file processing with content and path-based handling modes. | `registerFileIPCHandlers`, `unregisterFileIPCHandlers`      |
+| `settings.ts`     | Exposes settings service with read/update capabilities for configuration management. | `registerSettingsIPCHandlers`, `unregisterSettingsIPCHandlers` |
+| `model-config.ts` | Model configuration IPC with change broadcasting to all windows. | `registerModelConfigIPCHandlers`, `unregisterModelConfigIPCHandlers` |
+| `common.ts`       | Provides `handleIPCCall` wrapper, validation patterns, and type guard utilities for secure IPC communication. | `handleIPCCall`, `validateId`, `requireValidId`, `ValidationPatterns`, `ErrorMessages` |
+
+#### Utils (`@main/utils`)
+
+Utility modules for cross-cutting concerns.
+
+| **Module**        | **Description**                                              | **Key Functions**                                            |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `cancellation.ts` | Cancellation token system for long-running operations with ID-based token management. | `CancellationToken` class (`isCancelled`, `cancel`, `onCancel`), `CancellationManager` class (`createToken`) |
 
 ### 6.2. Renderer Process (`src/renderer`)
 
@@ -262,31 +274,34 @@ The communication bridge to the renderer process with comprehensive validation.
 
 Zustand stores for managing frontend state with persistence and real-time synchronization.
 
-| **Module**        | **Description**                                              |
-| ----------------- | ------------------------------------------------------------ |
-| `project.ts`      | Manages project data with persistent expand/collapse state via localStorage, loading states, and project IPC interactions. |
-| `conversation.ts` | Manages active conversation, message lists, streaming state, and real-time message events with IPC synchronization. |
-| `navigation.ts`   | Controls application views (home, project, conversation) with coordinated state transitions and current selection tracking. |
-| `settings.ts`     | Caches application settings, language preferences, and AI provider configurations with main process synchronization. |
-| `app.ts`          | Manages global initialization status, sidebar collapse state (persistent), and application-wide UI preferences. |
+| **Module**        | **Description**                                              | **Key Features**                                             |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `project.ts`      | Manages project data with persistent expand/collapse state via localStorage, loading states, and project IPC interactions. | `useProjects`, `useProjectExpansion` selectors             |
+| `conversation/`   | Modular conversation state management split across multiple files for maintainability. | `store.ts` (main Zustand store), `data.ts` (persistence), `events.ts` (IPC sync), `streaming.ts` (AI responses), `hooks.ts` (selectors), `utils.ts` (helpers) |
+| `navigation.ts`   | Controls application views (home, project, conversation) with coordinated state transitions and current selection tracking. | `useCurrentView`, `useCanGoBack` selectors                  |
+| `settings.ts`     | Caches application settings, language preferences, and AI provider configurations with main process synchronization. | `useDefaultModel` selector for AI preferences               |
+| `model-config.ts` | AI model configuration management with real-time updates.   | `useModelConfigs`, `useDefaultModel` selectors             |
+| `app.ts`          | Manages global initialization status, sidebar collapse state (persistent), and application-wide UI preferences. | `useTheme`, `useLanguage`, `useSidebarState` selectors     |
+| `index.ts`        | Central store coordination with unified initialization and error handling. | `initializeStores`, `resetAllStores` functions             |
 
 #### Hooks (`@renderer/hooks`)
 
 Reusable UI logic encapsulated in custom React hooks with sophisticated state management.
 
-| **Module**                     | **Description**                                              |
-| ------------------------------ | ------------------------------------------------------------ |
-| `useProjectManagement.ts`      | Encapsulates project UI logic with form state management, validation, and local UI state for create/edit/delete operations. |
-| `useConversationManagement.ts` | Manages conversation list with infinite scroll using `IntersectionObserver`, delete confirmations, and loading states. |
-| `useMessageBranching.ts`       | Handles complex conversation tree navigation with branch creation, switching, merging, and deletion with state synchronization. |
-| `useEditableMessage.ts`        | Manages editable message state with text editing, file attachment modification, undo/redo, and branch creation integration. |
-| `UserMessage.tsx` (inlined)    | Simplified message branch navigation is inlined; uses `useMessageBranching.getBranchInfo` for data. |
-| `useMessageContentDiff.ts`     | Efficient content comparison with text and file change detection, memoized for performance optimization. |
-| `useFileUpload.ts`             | Client-side file validation with debouncing (100ms), base64 encoding for binary files, and IPC integration for processing. |
-| `useInlineEdit.ts`             | Inline editing state management for titles with start/cancel/confirm workflows and validation. |
-| `useAutoScroll.ts`             | Smart scrolling with streaming follow control, user override detection, and smooth scroll animations. |
-| `useI18n.ts`                   | Internationalization with dynamic translation loading, parameter interpolation, and language preference persistence. |
-| `useNotifications.ts`          | Application notification queue management with auto-dismiss, different severity levels, and action button support. |
+| **Module**                     | **Description**                                              | **Key Returns**                                              |
+| ------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `useProjectManagement.ts`      | Encapsulates project UI logic with form state management, validation, and local UI state for create/edit/delete operations. | Form state, validation, CRUD operations                     |
+| `useConversationManagement.ts` | Manages conversation list with infinite scroll using `IntersectionObserver`, delete confirmations, and loading states. | Infinite scroll management, delete confirmations            |
+| `useMessageBranching.ts`       | Handles complex conversation tree navigation with branch creation, switching, merging, and deletion with state synchronization. | Tree traversal, branch operations, branch info data         |
+| `useEditableMessage.ts`        | Manages editable message state with text editing, file attachment modification, undo/redo, and branch creation integration. | Edit state, content validation, file attachment handling    |
+| `useMessageContentDiff.ts`     | Efficient content comparison with text and file change detection, memoized for performance optimization. | Memoized content comparison, change detection               |
+| `useFileUpload.ts`             | Client-side file validation with debouncing (100ms), base64 encoding for binary files, and IPC integration for processing. | File validation, drag-drop support, upload processing       |
+| `useInlineEdit.ts`             | Inline editing state management for titles with start/cancel/confirm workflows and validation. | Start/cancel/confirm workflow, validation                   |
+| `useAutoScroll.ts`             | Smart scrolling with streaming follow control, user override detection, and smooth scroll animations. | Auto-scroll with user override detection                    |
+| `useI18n.ts`                   | Internationalization with dynamic translation loading, parameter interpolation, and language preference persistence. | Translation functions, parameter interpolation              |
+| `useModelCapabilities.ts`      | Centralized model capability detection with caching.        | Cached capability resolution for model features             |
+| `useThemeSync.ts`              | Synchronizes app theme with OS theme, handling persistence and updates. | Theme synchronization, OS theme detection                   |
+| `useNotifications.ts`          | Application notification queue management with auto-dismiss, different severity levels, and 15 predefined notification presets. | `notify`, `success/error/warning/info`, `preset`, specific helpers like `messageCopied`, `aiGenerating`, `fileValidationError` |
 
 #### Components (`@renderer/components`)
 
@@ -314,12 +329,52 @@ Frontend engineers should adhere to the following principles when developing com
 
 Code used by both the Main and Renderer processes with comprehensive type safety and utilities.
 
-| **Module**   | **Description**                                              |
-| ------------ | ------------------------------------------------------------ |
-| `types/`     | Complete TypeScript type definitions for data models, IPC payloads, message content parts, AI configurations, and i18n types with string literal unions. |
-| `i18n/`      | Comprehensive internationalization system with dynamic loading, type-safe translation keys, parameter interpolation, and fallback strategies (EN/ZH). |
-| `utils/`     | Shared utility functions including ID generation (UUID, short IDs), validation (email, file types), time formatting, and message branching algorithms. |
-| `constants/` | Application-wide constants for file constraints (10MB per file, 100MB total), AI defaults, supported file types with MIME mappings, and chunk sizes. |
+#### Constants (`@shared/constants`)
+
+| **Module**   | **Description**                                              | **Key Exports**                                              |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `app.ts`     | Application metadata and configuration constants.            | `APP_NAME`, `APP_VERSION`, `WINDOW_CONFIG`, `DATABASE_CONFIG` |
+| `ai.ts`      | AI model definitions and configuration constants for OpenAI and Claude providers. | `AI_MODELS` (7 predefined models), `DEFAULT_AI_CONFIG`, `EMBEDDING_CONFIG`, `RAG_CONFIG` |
+| `file.ts`    | File handling constraints and supported formats with different limits for temporary vs project files. | `FILE_CONSTRAINTS` (temp: 10MB/100MB/10 files, project: 50MB/500MB/100 files), `SUPPORTED_FILE_TYPES`, `MIME_TYPES` |
+| `text.ts`    | Text-related constants for placeholder and formatting.      | `TEXT_CONSTANTS` with `ZERO_WIDTH_SPACE`                    |
+
+#### Types (`@shared/types`)
+
+| **Module**        | **Description**                                              | **Key Exports**                                              |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `ai.ts`           | AI model integration interfaces supporting multi-modal content and streaming. | `AIModel`, `AIMessage`, `AIResponse`, `AIStreamChunk`, `ModelCapabilities` |
+| `conversation.ts` | Conversation data structures with project associations.     | `Conversation`, `SessionSettings`                            |
+| `file.ts`         | File processing types for temporary and project files.      | `ProjectFile`, `TemporaryFile`, `ProcessingResult`, `FileStatus` |
+| `ipc.ts`          | IPC communication structures for main-renderer process communication. | `IPCResult<T>`, `ConversationCreateRequest`, `TemporaryFileRequest` |
+| `message.ts`      | Complex message structures supporting multi-part content and branching. | `Message`, `MessageContent`, `MessageContentPart`, `ContentType`, `CitationContent` |
+| `models.ts`       | Model configuration types with privacy-aware public/private separation. | `ModelConfigPublic`, `ModelConfig`, `isPrivateModelConfig`, `toPublicModelConfig` |
+| `notification.ts` | Notification system with 15 predefined presets for common scenarios. | `NotificationType`, `NotificationOptions`, `NOTIFICATION_PRESETS`, `NotificationPresetKey` |
+| `project.ts`      | Simple project data structures.                             | `Project`, `CreateProjectData`                               |
+
+#### Utils (`@shared/utils`)
+
+| **Module**             | **Description**                                              | **Key Exports**                                              |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `id.ts`                | Cryptographically secure ID generation using 32-character hex IDs. | `generateId`                                                 |
+| `message-branching.ts` | Conversation tree branching logic for alternative conversation paths. | `BranchSendOptions`, `buildUserMessageBranchSendOptions`, `canCreateBranch` |
+| `model-resolution.ts`  | Centralized model resolution service with 3-layer priority system. | `resolveModelContext`, `getModelCapabilities` (1min TTL cache), `getActiveModelId`, `validateModelResolution` |
+| `time.ts`              | Unified time management supporting SQLite timestamps and internationalization. | `formatTime` (using Intl.DateTimeFormat), `formatRelativeTime` |
+| `validation.ts`        | Comprehensive validation utilities for files, constraints, and data formats. | `isValidFileType`, `isValidFileSize`, `validateFileConstraints`, `formatBytes`, `isValidEmail`, `sanitizeFilename` |
+
+#### I18n (`@shared/i18n`)
+
+| **Module**   | **Description**                                              | **Key Exports**                                              |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `config.ts`  | i18next configuration with React integration and resource loading. | `i18n` instance                                              |
+| `types.ts`   | Language type definitions and supported language mappings.  | `Language` ('en' \| 'zh-CN'), `SUPPORTED_LANGUAGES`          |
+| `init.ts`    | Asynchronous initialization logic for setting initial language. | `initializeI18n`                                             |
+| `locales/`   | JSON translation files for all supported languages.         | Translation resources for EN/ZH                             |
+
+#### Schemas (`@shared/schemas`)
+
+| **Module**          | **Description**                                              | **Key Exports**                                              |
+| ------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `model-config.ts`   | Zod-based model configuration validation schemas.           | `BooleanishSchema`, `ModelConfigSchema`, `validateModelConfig`, `formatValidationError` |
 
 ## 7. Advanced Features & Patterns
 

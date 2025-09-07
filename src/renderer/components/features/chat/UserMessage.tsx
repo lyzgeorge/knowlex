@@ -1,5 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Box, VStack, HStack, useColorModeValue, IconButton, Text, Icon } from '@chakra-ui/react'
+import {
+  Box,
+  VStack,
+  HStack,
+  useColorModeValue,
+  IconButton,
+  Text,
+  Icon,
+  Tooltip
+} from '@chakra-ui/react'
 import {
   HiPencil,
   HiClipboard,
@@ -12,6 +21,7 @@ import {
 } from 'react-icons/hi2'
 import type { Message, MessageContentPart } from '@shared/types/message'
 import { formatTime } from '@shared/utils/time'
+// token formatting removed: display raw token numbers
 import { buildUserMessageBranchSendOptions } from '@shared/utils/message-branching'
 import { MarkdownContent } from '@renderer/utils/markdownComponents'
 import {
@@ -26,6 +36,10 @@ import { useSendMessage, useIsSending } from '@renderer/stores/conversation/inde
 import { useEditableMessage } from '@renderer/hooks/useEditableMessage'
 import { useMessageContentDiff } from '@renderer/hooks/useMessageContentDiff'
 import { getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import { useRequestTokenCount } from '@renderer/hooks/useRequestTokenCount'
+import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
+import { useCurrentConversation } from '@renderer/stores/conversation/index'
+import { useI18n } from '@renderer/hooks/useI18n'
 
 export interface BranchInfo {
   branches: Message[]
@@ -56,6 +70,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
+  const { t } = useI18n()
   const notifications = useNotifications()
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
@@ -86,6 +101,39 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
   // Content diffing
   const contentDiff = useMessageContentDiff(currentBranch.content)
+
+  // Get conversation and model context for token counting
+  const { currentConversation } = useCurrentConversation()
+  const { modelConfig: activeModel } = useActiveModelCapabilities(
+    currentConversation?.modelConfigId
+  )
+
+  // Convert new attachments to token count format
+  const tokenCountFiles = isEditing
+    ? editableMessage.attachments
+        .filter((att) => att.kind === 'new')
+        .map((att) => ({
+          id: att.id,
+          name: att.filename,
+          type: att.partType === 'image' ? ('image' as const) : ('text' as const),
+          content: att.content || '',
+          ...(att.partType === 'image' && att.content && { dataUrl: att.content })
+        }))
+    : []
+
+  // Token counting for edit mode - only calculate when editing
+  const tokenCount = useRequestTokenCount({
+    text: isEditing ? editableMessage.draftText : '',
+    processedFiles: tokenCountFiles,
+    model: activeModel
+  })
+
+  // Token count styling and formatting
+  // call hook unconditionally to satisfy rules-of-hooks
+  const tokenCountTertiary = useColorModeValue('text.tertiary', 'text.tertiary')
+  const tokenCountColor = tokenCount.overLimit ? 'red.500' : tokenCountTertiary
+
+  // token counts displayed as raw numbers
 
   // Initialize editing state when entering edit mode or switching branch while editing
   useEffect(() => {
@@ -197,11 +245,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         e.preventDefault()
         handleCancelEdit()
       } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        // Block if over token limit
+        if (tokenCount.overLimit) {
+          e.preventDefault()
+          return
+        }
         e.preventDefault()
         handleSendEdit()
       }
     },
-    [handleCancelEdit, handleSendEdit]
+    [handleCancelEdit, handleSendEdit, tokenCount.overLimit]
   )
 
   // Handle copy
@@ -230,7 +283,11 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
   // Determine if send button should be enabled
   const canSend =
-    editableMessage.isValid() && hasContentChanged() && !isSending && !editableMessage.isProcessing
+    editableMessage.isValid() &&
+    hasContentChanged() &&
+    !isSending &&
+    !editableMessage.isProcessing &&
+    !tokenCount.overLimit
 
   return (
     <HStack align="flex-start" spacing={2} width="100%" justify="flex-end" mb={2}>
@@ -346,10 +403,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         {/* Action bar */}
         {isEditing ? (
           /* Editing mode actions */
-          <HStack spacing={0} alignSelf="flex-end">
+          <HStack spacing={1} alignSelf="flex-end">
             {/* File Upload Button */}
             <IconButton
-              aria-label="Attach file"
+              aria-label={t('chat.attachFile')}
               icon={<HiPaperClip />}
               size="xs"
               variant="ghost"
@@ -357,9 +414,37 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               isDisabled={editableMessage.isProcessing || isSending}
               _hover={{ bg: 'surface.hover' }}
             />
+
+            {/* Token Count Display */}
+            {(editableMessage.draftText.trim() || editableMessage.attachments.length > 0) &&
+              activeModel && (
+                <Tooltip
+                  label={
+                    tokenCount.overLimit
+                      ? t('chat.tokenLimitExceeded')
+                      : t('chat.tokenCount', {
+                          total: tokenCount.total.toLocaleString(),
+                          limit: tokenCount.limit.toLocaleString()
+                        })
+                  }
+                  placement="top"
+                >
+                  <Text
+                    fontSize="xs"
+                    color={tokenCountColor}
+                    fontFamily="mono"
+                    minW="fit-content"
+                    textAlign="center"
+                    px={1}
+                  >
+                    {tokenCount.total.toLocaleString()} / {tokenCount.limit.toLocaleString()}
+                  </Text>
+                </Tooltip>
+              )}
+
             {/* Cancel Button */}
             <IconButton
-              aria-label="Cancel editing"
+              aria-label={t('chat.cancelEdit')}
               icon={<HiXMark />}
               size="xs"
               variant="ghost"
@@ -368,7 +453,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             />
             {/* Send Button */}
             <IconButton
-              aria-label="Send message"
+              aria-label={
+                tokenCount.overLimit ? t('chat.tokenLimitExceeded') : t('chat.sendMessage')
+              }
               icon={<HiArrowUp />}
               size="xs"
               variant="ghost"
@@ -392,7 +479,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               <HStack spacing={0}>
                 {/* Edit */}
                 <IconButton
-                  aria-label="Edit message"
+                  aria-label={t('chat.editMessage')}
                   icon={<HiPencil />}
                   size="xs"
                   variant="ghost"
@@ -401,7 +488,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 />
                 {/* Copy */}
                 <IconButton
-                  aria-label="Copy to clipboard"
+                  aria-label={t('chat.copyToClipboard')}
                   icon={<HiClipboard />}
                   size="xs"
                   variant="ghost"

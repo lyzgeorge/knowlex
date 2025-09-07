@@ -55,180 +55,121 @@ const initialState = {
 }
 
 export const useNavigationStore = create<NavigationState>()(
-  immer((set, get) => ({
-    ...initialState,
-
-    goHome: () => {
-      set((state) => {
-        // Add current state to history
-        if (state.currentView !== 'home') {
-          const historyEntry: {
-            view: MainView
-            projectId?: string
-            conversationId?: string
-            timestamp: number
-          } = {
-            view: state.currentView,
-            timestamp: Date.now()
-          }
-          if (state.selectedProjectId) {
-            historyEntry.projectId = state.selectedProjectId
-          }
-          if (state.currentConversationId) {
-            historyEntry.conversationId = state.currentConversationId
-          }
-          state.navigationHistory.push(historyEntry)
-
-          // Limit history to 20 items
-          if (state.navigationHistory.length > 20) {
-            state.navigationHistory.shift()
-          }
-        }
-
-        state.currentView = 'home'
-        state.selectedProjectId = null
-        state.currentConversationId = null
-      })
-
-      // Clear conversation selection
-      useConversationStore.getState().setCurrentConversation(null)
-    },
-
-    openProject: (projectId: string) => {
-      set((state) => {
-        // Add current state to history
-        if (state.currentView !== 'project' || state.selectedProjectId !== projectId) {
-          const historyEntry: {
-            view: MainView
-            projectId?: string
-            conversationId?: string
-            timestamp: number
-          } = {
-            view: state.currentView,
-            timestamp: Date.now()
-          }
-          if (state.selectedProjectId) {
-            historyEntry.projectId = state.selectedProjectId
-          }
-          if (state.currentConversationId) {
-            historyEntry.conversationId = state.currentConversationId
-          }
-          state.navigationHistory.push(historyEntry)
-
-          // Limit history to 20 items
-          if (state.navigationHistory.length > 20) {
-            state.navigationHistory.shift()
-          }
-        }
-
-        state.currentView = 'project'
-        state.selectedProjectId = projectId
-        state.currentConversationId = null
-      })
-
-      // Clear conversation selection when viewing project
-      useConversationStore.getState().setCurrentConversation(null)
-    },
-
-    openConversation: (conversationId: string, projectId?: string | null) => {
-      set((state) => {
-        // Add current state to history
-        if (
-          state.currentView !== 'conversation' ||
-          state.currentConversationId !== conversationId
-        ) {
-          const historyEntry: {
-            view: MainView
-            projectId?: string
-            conversationId?: string
-            timestamp: number
-          } = {
-            view: state.currentView,
-            timestamp: Date.now()
-          }
-          if (state.selectedProjectId) {
-            historyEntry.projectId = state.selectedProjectId
-          }
-          if (state.currentConversationId) {
-            historyEntry.conversationId = state.currentConversationId
-          }
-          state.navigationHistory.push(historyEntry)
-
-          // Limit history to 20 items
-          if (state.navigationHistory.length > 20) {
-            state.navigationHistory.shift()
-          }
-        }
-
-        state.currentView = 'conversation'
-        state.selectedProjectId = projectId || null
-        state.currentConversationId = conversationId
-      })
-
-      // Set conversation in store
-      useConversationStore.getState().setCurrentConversation(conversationId)
-    },
-
-    openSettings: (defaultTab = 0) => {
-      set((state) => {
-        state.isSettingsOpen = true
-        state.settingsDefaultTab = defaultTab
-      })
-    },
-
-    closeSettings: () => {
-      set((state) => {
-        state.isSettingsOpen = false
-        state.settingsDefaultTab = 0
-      })
-    },
-
-    navigateBack: () => {
-      set((state) => {
-        if (state.navigationHistory.length > 0) {
-          const previousState = state.navigationHistory.pop()!
-          state.currentView = previousState.view
-          state.selectedProjectId = previousState.projectId || null
-          state.currentConversationId = previousState.conversationId || null
-
-          // Update conversation store if needed
-          if (previousState.conversationId) {
-            useConversationStore.getState().setCurrentConversation(previousState.conversationId)
-          } else {
-            useConversationStore.getState().setCurrentConversation(null)
-          }
-        }
-      })
-    },
-
-    clearHistory: () => {
-      set((state) => {
-        state.navigationHistory = []
-      })
-    },
-
-    canGoBack: () => {
-      return get().navigationHistory.length > 0
-    },
-
-    getPreviousView: () => {
-      const history = get().navigationHistory
-      if (history.length === 0) return null
-
-      const previous = history[history.length - 1]
-      if (!previous) return null
-      const result: { view: MainView; projectId?: string; conversationId?: string } = {
-        view: previous.view
-      }
-      if (previous.projectId) {
-        result.projectId = previous.projectId
-      }
-      if (previous.conversationId) {
-        result.conversationId = previous.conversationId
-      }
-      return result
+  immer((set, get) => {
+    // Internal helper to push a history entry and enforce limits
+    const _pushHistory = (state: any, shouldPush: boolean) => {
+      if (!shouldPush) return
+      const entry: any = { view: state.currentView, timestamp: Date.now() }
+      if (state.selectedProjectId) entry.projectId = state.selectedProjectId
+      if (state.currentConversationId) entry.conversationId = state.currentConversationId
+      state.navigationHistory.push(entry)
+      if (state.navigationHistory.length > 20) state.navigationHistory.shift()
     }
-  }))
+
+    const impl: NavigationState = {
+      ...initialState,
+
+      goHome: () => {
+        set((state) => {
+          _pushHistory(state, state.currentView !== 'home')
+          state.currentView = 'home'
+          state.selectedProjectId = null
+          state.currentConversationId = null
+        })
+
+        useConversationStore.getState().setCurrentConversation(null)
+      },
+
+      openProject: (projectId: string) => {
+        set((state) => {
+          _pushHistory(
+            state,
+            state.currentView !== 'project' || state.selectedProjectId !== projectId
+          )
+          state.currentView = 'project'
+          state.selectedProjectId = projectId
+          state.currentConversationId = null
+        })
+
+        useConversationStore.getState().setCurrentConversation(null)
+      },
+
+      openConversation: (conversationId: string, projectId?: string | null) => {
+        set((state) => {
+          _pushHistory(
+            state,
+            state.currentView !== 'conversation' || state.currentConversationId !== conversationId
+          )
+          state.currentView = 'conversation'
+          state.selectedProjectId = projectId || null
+          state.currentConversationId = conversationId
+        })
+
+        useConversationStore.getState().setCurrentConversation(conversationId)
+      },
+
+      openSettings: (defaultTab = 0) => {
+        set((state) => {
+          state.isSettingsOpen = true
+          state.settingsDefaultTab = defaultTab
+        })
+      },
+
+      closeSettings: () => {
+        set((state) => {
+          state.isSettingsOpen = false
+          state.settingsDefaultTab = 0
+        })
+      },
+
+      navigateBack: () => {
+        set((state) => {
+          if (state.navigationHistory.length > 0) {
+            const previousState = state.navigationHistory.pop()!
+            state.currentView = previousState.view
+            state.selectedProjectId = previousState.projectId || null
+            state.currentConversationId = previousState.conversationId || null
+
+            if (previousState.conversationId) {
+              useConversationStore.getState().setCurrentConversation(previousState.conversationId)
+            } else {
+              useConversationStore.getState().setCurrentConversation(null)
+            }
+          }
+        })
+      },
+
+      clearHistory: () => {
+        set((state) => {
+          state.navigationHistory = []
+        })
+      },
+
+      canGoBack: () => {
+        return get().navigationHistory.length > 0
+      },
+
+      getPreviousView: () => {
+        const history = get().navigationHistory
+        if (history.length === 0) return null
+
+        const previous = history[history.length - 1]
+        if (!previous) return null
+        const result: { view: MainView; projectId?: string; conversationId?: string } = {
+          view: previous.view
+        }
+        if (previous.projectId) {
+          result.projectId = previous.projectId
+        }
+        if (previous.conversationId) {
+          result.conversationId = previous.conversationId
+        }
+        return result
+      }
+    }
+
+    return impl
+  })
 )
 
 // Convenience hooks with stable selectors

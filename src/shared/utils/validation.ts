@@ -107,3 +107,37 @@ export function getMimeTypeFromExtension(filename: string): string {
       return 'application/octet-stream'
   }
 }
+
+/**
+ * Validate a list of files (name + size) against shared constraints.
+ * Returns { valid, errors }.
+ */
+export function validateFileConstraints(files: Array<{ name: string; size: number }>): {
+  valid: boolean
+  errors: string[]
+} {
+  const errors: string[] = []
+
+  files.forEach((file, idx) => {
+    const ext = getFileExtension(file.name).toLowerCase()
+    if (!(SUPPORTED_FILE_TYPES as readonly string[]).includes(ext)) {
+      errors.push(
+        `File ${idx + 1} (${file.name}): Unsupported file type ${ext}. Supported: ${(
+          SUPPORTED_FILE_TYPES as readonly string[]
+        ).join(', ')}`
+      )
+    }
+
+    if (!isValidFileSize(file.size)) {
+      errors.push(
+        `File ${idx + 1} (${file.name}): File too large. Maximum is ${formatBytes(FILE_CONSTRAINTS.maxFileSize)}.`
+      )
+    }
+
+    if (file.size === 0) {
+      errors.push(`File ${idx + 1} (${file.name}): File is empty.`)
+    }
+  })
+
+  return { valid: errors.length === 0, errors }
+}

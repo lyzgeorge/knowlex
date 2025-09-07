@@ -17,13 +17,6 @@ import type { Message } from '@shared/types/message'
 import { testOpenAIConfig } from '@main/services/openai-adapter'
 import { regenerateReply } from '@main/services/assistant-service'
 import { cancellationManager } from '@main/utils/cancellation'
-// Title generation cancellation removed with simplified one-shot logic
-
-/**
- * Conversation and Message IPC Handler
- * Handles secure communication between renderer and main processes for conversation and message operations
- * Provides error handling and validation for all conversation and message-related IPC calls
- */
 
 import {
   handleIPCCall,
@@ -34,22 +27,16 @@ import {
   validateStringProperty,
   expectObject,
   expectString
-} from './common'
+} from '../common'
 import { ensurePlaceholder } from '@shared/utils/text'
 import { sendMessageEvent, MESSAGE_EVENTS } from '@main/utils/ipc-events'
 
-/**
- * Validates conversation creation request data
- */
 function validateConversationCreateRequest(data: unknown): data is ConversationCreateRequest {
   if (!validateObject(data)) return false
   const request = data as ConversationCreateRequest
   return request.title === undefined || typeof request.title === 'string'
 }
 
-/**
- * Validates conversation update data
- */
 function validateConversationUpdateData(data: unknown): data is {
   id: string
   title?: string
@@ -66,16 +53,8 @@ function validateConversationUpdateData(data: unknown): data is {
   )
 }
 
-/**
- * Registers all conversation and message-related IPC handlers
- * Called during application initialization
- */
 export function registerConversationIPCHandlers(): void {
   console.log('Registering conversation and message IPC handlers...')
-
-  // ============================================================================
-  // Conversation Handlers
-  // ============================================================================
 
   // Create conversation
   ipcMain.handle(
@@ -90,7 +69,6 @@ export function registerConversationIPCHandlers(): void {
 
         const createData: CreateConversationData = {}
         if (requestData.title !== undefined) createData.title = requestData.title
-        // Allow optional projectId passthrough if provided during creation
         if ((requestData as any).projectId !== undefined)
           (createData as any).projectId = (requestData as any).projectId
 
@@ -98,8 +76,6 @@ export function registerConversationIPCHandlers(): void {
       })
     }
   )
-
-  // Note: conversation:list removed - use conversation:list-paginated instead
 
   // List conversations with pagination
   ipcMain.handle(
@@ -145,9 +121,7 @@ export function registerConversationIPCHandlers(): void {
     'conversation:update',
     async (_, data: unknown): Promise<IPCResult<Conversation>> => {
       return handleIPCCall(async () => {
-        // Support both legacy signature (id, updates) and object form ({id, ...})
         const requestObj: any = data
-        // If called as (id, updates) ipcMain will pass only the second arg as data here.
         if (!requestObj || typeof requestObj !== 'object' || !('id' in requestObj)) {
           throw new Error('Invalid conversation update data')
         }
@@ -173,7 +147,6 @@ export function registerConversationIPCHandlers(): void {
   ipcMain.handle('conversation:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const conversationId = requireValidId(id, 'Conversation ID')
-      // Title generation no longer needs explicit cancellation (one-shot, fast)
       await deleteConversation(conversationId)
     })
   })
@@ -201,16 +174,6 @@ export function registerConversationIPCHandlers(): void {
       })
     }
   )
-
-  // ============================================================================
-  // Message Handlers
-  // ============================================================================
-
-  // Note: message:add removed - use message:send instead
-
-  // Note: message:add-text removed - use message:send instead
-
-  // Note: message:add-multipart removed - use message:send instead
 
   // Get message
   ipcMain.handle('message:get', async (_, id: unknown): Promise<IPCResult<Message | null>> => {
@@ -253,16 +216,13 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message content')
       }
 
-      return await updateMessage(request.id, {
-        content: request.content
-      })
+      return await updateMessage(request.id, { content: request.content })
     })
   })
 
   // Delete message
   ipcMain.handle('message:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
-      // Cancel potential streaming for this message
       cancellationManager.cancel(String(id))
       if (!ValidationPatterns.messageId(id)) {
         throw new Error('Invalid message ID')
@@ -279,16 +239,11 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message ID')
       }
 
-      // Attempt to cancel the streaming operation
       const cancelled = cancellationManager.cancel(messageId)
 
       if (cancelled) {
         console.log(`Cancelled streaming for message: ${messageId}`)
-
-        // Send cancellation event to renderer
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
-          messageId: messageId
-        })
+        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, { messageId: messageId })
       }
 
       return cancelled
@@ -311,7 +266,6 @@ export function registerConversationIPCHandlers(): void {
         throw new Error('Invalid message content')
       }
 
-      // Validate optional reasoningEffort if provided
       if (request.reasoningEffort !== undefined) {
         const val = request.reasoningEffort
         if (!(val === 'low' || val === 'medium' || val === 'high')) {
@@ -319,7 +273,6 @@ export function registerConversationIPCHandlers(): void {
         }
       }
 
-      // Delegate to workflow service
       const { sendMessageAndGenerateReply } = await import('@main/services/message-send')
       await sendMessageAndGenerateReply({
         content: request.content,
@@ -345,7 +298,6 @@ export function registerConversationIPCHandlers(): void {
             : undefined
       })
 
-      // Return empty list (UI updated via events by workflow)
       return []
     })
   })
@@ -359,7 +311,6 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Invalid message ID')
         }
 
-        // Get the message to regenerate for validation
         const message = await getMessage(messageId)
         if (!message) {
           throw new Error('Message not found')
@@ -369,22 +320,17 @@ export function registerConversationIPCHandlers(): void {
           throw new Error('Can only regenerate assistant messages')
         }
 
-        // Clear the current message content and reasoning, then set placeholder
         const clearedMessage = await updateMessage(messageId, {
-          content: [{ type: 'text' as const, text: ensurePlaceholder('') }], // placeholder
-          reasoning: '' // Clear any existing reasoning
+          content: [{ type: 'text' as const, text: ensurePlaceholder('') }],
+          reasoning: ''
         })
 
-        // Generate new response using the atomic module
         await regenerateReply(messageId)
 
         return clearedMessage
       })
     }
   )
-
-  // Edit message
-  // Note: legacy 'message:edit' removed; use 'message:update' unified handler
 
   // Test AI configuration
   ipcMain.handle(
@@ -399,22 +345,16 @@ export function registerConversationIPCHandlers(): void {
   console.log('Conversation and message IPC handlers registered successfully')
 }
 
-/**
- * Unregisters all conversation and message-related IPC handlers
- * Called during application shutdown for cleanup
- */
 export function unregisterConversationIPCHandlers(): void {
   console.log('Unregistering conversation and message IPC handlers...')
 
   const channels = [
-    // Conversation channels
     'conversation:create',
     'conversation:list-paginated',
     'conversation:get',
     'conversation:update',
     'conversation:delete',
     'conversation:generate-title',
-    // Message channels
     'message:get',
     'message:list',
     'message:update',
@@ -422,9 +362,6 @@ export function unregisterConversationIPCHandlers(): void {
     'message:stop',
     'message:send',
     'message:regenerate',
-    // 'message:edit' removed (use 'message:update')
-
-    // AI channels
     'ai:test-connection'
   ]
 

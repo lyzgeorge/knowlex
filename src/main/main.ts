@@ -8,7 +8,7 @@ import { runMigrations } from './database/migrations'
 import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
-} from './ipc/conversation'
+} from './ipc/handlers/conversation'
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'

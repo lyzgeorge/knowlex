@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useState } from 'react'
+import React, { useEffect, useMemo, useCallback } from 'react'
 import { Box, Heading, VStack, Text, HStack, Input, IconButton, Tooltip } from '@chakra-ui/react'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
 import { useConversations, useConversationStore } from '@renderer/stores/conversation/index'
@@ -7,6 +7,7 @@ import { useProjectStore } from '@renderer/stores/project'
 import ChatInputBox from '@renderer/components/features/chat/ChatInputBox'
 import { useNotifications } from '@renderer/components/ui'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import useEditableTitle from '@renderer/hooks/useEditableTitle'
 import type { Conversation } from '@shared/types/conversation'
 import type { Message } from '@shared/types/message'
 
@@ -41,50 +42,39 @@ interface ConversationCardProps {
 }
 
 const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpen, onDelete }) => {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState(conversation.title)
   const messages = useConversationStore((s) => s.messages[conversation.id] || [])
   const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
+  const {
+    editing: isEditing,
+    value: editTitle,
+    setValue: setEditTitle,
+    onStart,
+    onCancel,
+    onConfirm
+  } = useEditableTitle(conversation.id, conversation.title, updateConversationTitle)
 
   const latestReplyContent = getLatestReplyContent(messages)
-
-  const handleSaveTitle = useCallback(async () => {
-    if (editTitle.trim() && editTitle !== conversation.title) {
-      try {
-        await updateConversationTitle(conversation.id, editTitle.trim())
-      } catch (error) {
-        console.error('Failed to update title:', error)
-        setEditTitle(conversation.title)
-      }
-    }
-    setIsEditing(false)
-  }, [editTitle, conversation.id, conversation.title, updateConversationTitle])
-
-  const handleCancelEdit = useCallback(() => {
-    setEditTitle(conversation.title)
-    setIsEditing(false)
-  }, [conversation.title])
 
   const handleStartEdit = useCallback(
     (e?: React.MouseEvent) => {
       e?.stopPropagation()
-      setIsEditing(true)
+      onStart()
       setEditTitle(conversation.title)
     },
-    [conversation.title]
+    [onStart, setEditTitle, conversation.title]
   )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault()
-        handleSaveTitle()
+        void onConfirm()
       } else if (e.key === 'Escape') {
         e.preventDefault()
-        handleCancelEdit()
+        onCancel()
       }
     },
-    [handleSaveTitle, handleCancelEdit]
+    [onConfirm, onCancel]
   )
 
   return (
@@ -107,7 +97,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onKeyDown={handleKeyDown}
-              onBlur={handleSaveTitle}
+              onBlur={() => void onConfirm()}
               fontSize="sm"
               fontWeight="medium"
               variant="unstyled"
@@ -167,7 +157,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
               onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation()
-                handleSaveTitle()
+                void onConfirm()
               }}
             />
             <IconButton
@@ -180,7 +170,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
               onMouseDown={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.stopPropagation()
-                handleCancelEdit()
+                onCancel()
               }}
             />
           </HStack>

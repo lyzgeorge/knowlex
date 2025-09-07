@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { markdownComponents } from '@renderer/utils/markdownComponents'
 import { shadows } from '@renderer/utils/theme/shadows'
-import { TEXT_CONSTANTS } from '@shared/constants/text'
+import { stripPlaceholder } from '@shared/utils/text'
 
 export interface ReasoningBoxProps {
   /** Reasoning content to display */
@@ -77,7 +77,7 @@ export const ReasoningBox: React.FC<ReasoningBoxProps> = ({
   // Render text content with streaming cursor
   const renderReasoningContent = (text: string, showCursor: boolean = false) => {
     // Clean up zero-width space placeholder
-    const displayText = text.replace(new RegExp(TEXT_CONSTANTS.ZERO_WIDTH_SPACE, 'g'), '')
+    const displayText = stripPlaceholder(text)
 
     return (
       <Box as="div" display="inline-block" className="markdown-content">

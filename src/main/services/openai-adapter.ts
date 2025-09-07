@@ -34,11 +34,8 @@ function buildModelParams(
 ) {
   const { includeReasoningOptions = false, includeSmoothStreaming = false } = options
 
-  // Prepare provider options
-  const providerOptions: Record<string, any> = {}
-  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
-    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
-  }
+  // Prepare provider options via factory
+  const providerOptions = buildProviderOptions(config, includeReasoningOptions)
 
   const modelParams: any = {
     model,
@@ -82,6 +79,104 @@ export interface OpenAIConfig {
         chunking?: RegExp | 'word' | 'line' | undefined
       }
     | undefined
+}
+
+/**
+ * Build provider-specific options (keeps reasoning option construction in one place)
+ */
+function buildProviderOptions(config: OpenAIConfig, includeReasoningOptions: boolean) {
+  const providerOptions: Record<string, any> = {}
+  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
+    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
+  }
+  return providerOptions
+}
+
+/**
+ * Consumes fullStream async iterable and forwards events to callbacks while
+ * accumulating text and reasoning. Returns { text, reasoning } or throws on error.
+ */
+async function consumeFullStream(
+  fullStream: AsyncIterable<any>,
+  callbacks: StreamingCallbacks,
+  cancellationToken?: CancellationToken
+): Promise<{ text: string; reasoning?: string; cancelled?: boolean }> {
+  let accumulatedText = ''
+  let accumulatedReasoning = ''
+  let wasCancelled = false
+
+  try {
+    for await (const part of fullStream) {
+      if (cancellationToken?.isCancelled) {
+        wasCancelled = true
+        break
+      }
+
+      switch (part.type) {
+        case 'start':
+          callbacks.onStreamStart?.()
+          callbacks.onStart?.()
+          break
+
+        case 'text-start':
+          callbacks.onTextStart?.()
+          break
+
+        case 'text-delta':
+          if (part.text && part.text.length > 0) {
+            accumulatedText += part.text
+            callbacks.onTextChunk(part.text)
+          }
+          break
+
+        case 'text-end':
+          callbacks.onTextEnd?.()
+          break
+
+        case 'reasoning-start':
+          callbacks.onReasoningStart?.()
+          break
+
+        case 'reasoning-delta':
+          if (part.text && part.text.length > 0) {
+            accumulatedReasoning += part.text
+            callbacks.onReasoningChunk?.(part.text)
+          }
+          break
+
+        case 'reasoning-end':
+          callbacks.onReasoningEnd?.()
+          break
+
+        case 'finish':
+          callbacks.onStreamFinish?.()
+          break
+
+        case 'error':
+          console.error('AI streaming error:', part.error)
+          throw part.error
+
+        case 'start-step':
+        case 'finish-step':
+        case 'tool-call':
+        case 'tool-result':
+          // No-op
+          break
+
+        default:
+          console.log('[AI] Unknown fullStream part type:', part.type)
+      }
+    }
+  } catch (err) {
+    console.error('[AI] FullStream error:', err)
+    throw err
+  }
+
+  return {
+    text: accumulatedText,
+    ...(accumulatedReasoning ? { reasoning: accumulatedReasoning } : {}),
+    ...(wasCancelled ? { cancelled: true } : {})
+  }
 }
 
 /**
@@ -145,63 +240,71 @@ export function validateOpenAIConfig(config?: OpenAIConfig): {
  * Converts application messages to AI SDK format
  */
 function convertMessagesToAIFormat(messages: Message[]) {
+  // Define lightweight AI SDK part types
+  type AITextPart = { type: 'text'; text: string }
+  type AIImagePart = { type: 'image'; image: any; mediaType?: string }
+  type AIPart = AITextPart | AIImagePart
+  type AIMessage = { role: string; content: string | AIPart[] }
+
+  // Helper: detect single plain text fast-path
+  const isSinglePlainText = (m: Message) =>
+    m.content.length === 1 && m.content[0]?.type === 'text' && Boolean(m.content[0]?.text)
+
+  // Helper: convert a single application part to an AI SDK part or null
+  const convertPartToAI = (part: any): AIPart | null => {
+    switch (part.type) {
+      case 'text':
+        return part.text ? ({ type: 'text', text: part.text } as AITextPart) : null
+      case 'temporary-file':
+        if (part.temporaryFile) {
+          const text = `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
+          return { type: 'text', text }
+        }
+        return null
+      case 'citation':
+        if (part.citation) {
+          const text = `[Citation: ${part.citation.filename}]\n${part.citation.content}`
+          return { type: 'text', text }
+        }
+        return null
+      case 'image':
+        if (part.image && typeof part.image.image === 'string') {
+          return {
+            type: 'image',
+            image: part.image.image,
+            ...(part.image.mediaType ? { mediaType: part.image.mediaType } : {})
+          }
+        }
+        return null
+      default:
+        return null
+    }
+  }
+
+  // Helper: collapse parts to single text string when possible
+  const collapsePartsToText = (parts: AIPart[]) => {
+    if (parts.length === 0) return ''
+    if (parts.length === 1 && parts[0] && parts[0].type === 'text')
+      return (parts[0] as AITextPart).text
+    return null
+  }
+
   return messages.map((message) => {
-    // Fast-path: single plain text message
-    if (
-      message.content.length === 1 &&
-      message.content[0]?.type === 'text' &&
-      message.content[0]?.text
-    ) {
-      return { role: message.role, content: message.content[0].text }
+    if (isSinglePlainText(message)) {
+      return { role: message.role, content: message.content[0]!.text! } as AIMessage
     }
 
-    // If any part is non-text, build parts array for AI SDK
     const hasNonText = message.content.some((p) => p.type !== 'text')
 
     if (hasNonText) {
-      const parts = message.content
-        .map((part) => {
-          switch (part.type) {
-            case 'text':
-              return part.text ? { type: 'text' as const, text: part.text } : null
-            case 'temporary-file':
-              if (part.temporaryFile) {
-                const text = `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
-                return { type: 'text' as const, text }
-              }
-              return null
-            case 'citation':
-              if (part.citation) {
-                const text = `[Citation: ${part.citation.filename}]\n${part.citation.content}`
-                return { type: 'text' as const, text }
-              }
-              return null
-            case 'image':
-              if (part.image && typeof part.image.image === 'string') {
-                // Pass base64 (optionally data URL) directly to AI SDK
-                return {
-                  type: 'image' as const,
-                  image: part.image.image,
-                  ...(part.image.mediaType ? { mediaType: part.image.mediaType } : {})
-                }
-              }
-              return null
-            default:
-              return null
-          }
-        })
-        .filter(Boolean) as Array<
-        { type: 'text'; text: string } | { type: 'image'; image: any; mediaType?: string }
-      >
+      const parts = message.content.map(convertPartToAI).filter(Boolean) as AIPart[]
 
-      // If parts collapse to a single text, return as string for efficiency
-      if (parts.length === 1) {
-        const first: any = parts[0]
-        if (first && first.type === 'text') {
-          return { role: message.role, content: first.text }
-        }
+      const collapsed = collapsePartsToText(parts)
+      if (collapsed !== null) {
+        return { role: message.role, content: collapsed } as AIMessage
       }
-      return { role: message.role, content: parts }
+
+      return { role: message.role, content: parts } as AIMessage
     }
 
     // Fallback: join multiple text parts
@@ -209,7 +312,7 @@ function convertMessagesToAIFormat(messages: Message[]) {
       .map((p) => (p.type === 'text' ? p.text || '' : ''))
       .filter(Boolean)
       .join('\n\n')
-    return { role: message.role, content: text }
+    return { role: message.role, content: text } as AIMessage
   })
 }
 
@@ -330,48 +433,32 @@ export async function streamAIResponse(
 
   const modelConfig = resolution.modelConfig
 
-  let config: OpenAIConfig
-  if (modelConfig) {
-    // Use model configuration
-    config = {
-      apiKey: modelConfig.apiKey || '',
-      baseURL: modelConfig.apiEndpoint,
-      model: modelConfig.modelId,
-      temperature: modelConfig.temperature,
-      topP: modelConfig.topP,
-      frequencyPenalty: modelConfig.frequencyPenalty,
-      presencePenalty: modelConfig.presencePenalty,
-      reasoningEffort,
-      smooth: DEFAULT_SMOOTH_OPTIONS
-    }
-  } else {
-    // Fallback to environment configuration
-    const validation = validateOpenAIConfig()
-    if (!validation.isValid) {
-      throw new Error(validation.error || 'No model configured. Add a model in Settings → Models.')
-    }
-    config = getOpenAIConfigFromEnv()
-    if (reasoningEffort) {
-      config.reasoningEffort = reasoningEffort
-    }
+  // Prefer the resolved model configuration; fail fast if none available.
+  if (!modelConfig) {
+    throw new Error('No model resolved. Please configure a model in Settings → Models.')
+  }
+
+  const config: OpenAIConfig = {
+    apiKey: modelConfig.apiKey || '',
+    baseURL: modelConfig.apiEndpoint,
+    model: modelConfig.modelId,
+    temperature: modelConfig.temperature,
+    topP: modelConfig.topP,
+    frequencyPenalty: modelConfig.frequencyPenalty,
+    presencePenalty: modelConfig.presencePenalty,
+    reasoningEffort,
+    smooth: DEFAULT_SMOOTH_OPTIONS
   }
 
   const model = createOpenAIModel(config)
 
-  let streamedText = ''
-  let streamedReasoning = ''
-
+  // Convert messages to AI format once and reuse for attempts
+  const aiMessages = convertMessagesToAIFormat(conversationMessages)
   // Helper to attempt streaming with or without reasoning options
   async function attemptStream(withReasoning: boolean) {
-    streamedText = ''
-    streamedReasoning = ''
-
-    // Convert messages to AI format
-    const aiMessages = convertMessagesToAIFormat(conversationMessages)
-
     console.log(`[AI] Using model: ${config.model}`)
 
-    // Build model parameters
+    // Build model parameters (reuse aiMessages computed in outer scope)
     const modelParams = buildModelParams(model, aiMessages, config, {
       includeReasoningOptions: withReasoning,
       includeSmoothStreaming: true
@@ -380,108 +467,34 @@ export async function streamAIResponse(
     // Stream response
     const result = streamText(modelParams)
 
-    // Convert to StreamingCallbacks interface
     const streamCallbacks = callbacks as StreamingCallbacks
 
-    // Stream response using fullStream for reasoning support
-    let wasCancelled = false
+    // Consume fullStream using centralized handler
+    const consumed = await consumeFullStream(result.fullStream, streamCallbacks, cancellationToken)
 
-    // Use fullStream only (no fallback to textStream)
-    try {
-      for await (const part of result.fullStream) {
-        // Check for cancellation
-        if (cancellationToken?.isCancelled) {
-          console.log('AI streaming cancelled by user')
-          wasCancelled = true
-          break
-        }
-
-        switch (part.type) {
-          case 'start':
-            streamCallbacks.onStreamStart?.()
-            streamCallbacks.onStart?.()
-            break
-
-          case 'text-start':
-            streamCallbacks.onTextStart?.()
-            break
-
-          case 'text-delta':
-            if (part.text && part.text.length > 0) {
-              streamedText += part.text
-              streamCallbacks.onTextChunk(part.text)
-            }
-            break
-
-          case 'text-end':
-            streamCallbacks.onTextEnd?.()
-            break
-
-          case 'reasoning-start':
-            streamCallbacks.onReasoningStart?.()
-            break
-
-          case 'reasoning-delta':
-            if (part.text && part.text.length > 0) {
-              streamedReasoning += part.text
-              streamCallbacks.onReasoningChunk?.(part.text)
-            }
-            break
-
-          case 'reasoning-end':
-            streamCallbacks.onReasoningEnd?.()
-            break
-
-          case 'finish':
-            streamCallbacks.onStreamFinish?.()
-            break
-
-          case 'error':
-            console.error('AI streaming error:', part.error)
-            throw part.error
-
-          case 'start-step':
-          case 'finish-step':
-          case 'tool-call':
-          case 'tool-result':
-            // No-op cases - handled silently
-            break
-
-          default:
-            console.log('[AI] Unknown fullStream part type:', part.type)
-        }
-      }
-    } catch (error) {
-      console.error('[AI] FullStream error:', error)
-      throw error
-    }
-
-    // If cancelled, return immediately with streamed content
-    if (wasCancelled) {
+    if (consumed.cancelled) {
       console.log('[AI] Returning partial content due to cancellation')
       return {
         content: [
           {
             type: 'text' as const,
-            text: streamedText
+            text: consumed.text
           }
         ],
-        ...(streamedReasoning && { reasoning: streamedReasoning })
+        ...(consumed.reasoning && { reasoning: consumed.reasoning })
       }
     }
 
-    // Wait for completion and get final results only if not cancelled
-    const [text, reasoningText] = await Promise.all([result.text, result.reasoningText])
-
-    // Convert final response to application format
+    // If not cancelled, use the consumed accumulation as the authoritative final text
+    // (Mode B: consumeFullStream is the single source of truth for streamed content)
     return {
       content: [
         {
           type: 'text' as const,
-          text
+          text: consumed.text
         }
       ],
-      ...(reasoningText !== undefined && { reasoning: reasoningText })
+      ...(consumed.reasoning !== undefined && { reasoning: consumed.reasoning })
     }
   }
 

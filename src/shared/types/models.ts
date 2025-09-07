@@ -12,6 +12,7 @@ export interface ModelConfigPublic {
   topP?: number | undefined
   frequencyPenalty?: number | undefined
   presencePenalty?: number | undefined
+  maxInputTokens?: number | undefined
   supportsReasoning: boolean
   supportsVision: boolean
   supportsToolUse: boolean
@@ -50,6 +51,7 @@ export interface CreateModelConfigInput {
   topP?: number | undefined
   frequencyPenalty?: number | undefined
   presencePenalty?: number | undefined
+  maxInputTokens?: number | undefined
   supportsReasoning?: boolean | undefined
   supportsVision?: boolean | undefined
   supportsToolUse?: boolean | undefined
