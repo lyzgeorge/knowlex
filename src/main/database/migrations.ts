@@ -35,8 +35,6 @@ const migrations: Migration[] = [
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )`,
 
-      // (Project files, memories, notes removed — feature not implemented)
-
       // Conversations and messages
       `CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
@@ -61,8 +59,6 @@ const migrations: Migration[] = [
         FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
         FOREIGN KEY (parent_message_id) REFERENCES messages (id) ON DELETE SET NULL
       )`,
-
-      // (File chunks and vector storage removed — feature not implemented)
 
       // Model configs
       `CREATE TABLE IF NOT EXISTS model_configs (

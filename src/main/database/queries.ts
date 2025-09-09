@@ -1,4 +1,3 @@
-// executeQuery removed from here; queries file uses entity helpers only
 import type { Conversation } from '@shared/types/conversation'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'
@@ -147,8 +146,6 @@ export async function listConversationsByProject(projectId: string): Promise<Con
     direction: 'DESC'
   })
 }
-
-// (FTS search removed — messages_fts table/triggers not included in simplified schema)
 
 // ============================================================================
 // Model Config Queries (Using Generic CRUD)

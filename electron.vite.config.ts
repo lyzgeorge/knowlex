@@ -40,6 +40,9 @@ export default defineConfig({
       }
     },
     plugins: [react()],
+    optimizeDeps: {
+      include: ['js-tiktoken']
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/renderer/index.html')

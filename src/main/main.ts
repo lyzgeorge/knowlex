@@ -17,7 +17,6 @@ import {
   unregisterModelConfigIPCHandlers
 } from './ipc/model-config'
 import { cancellationManager } from '@main/utils/cancellation'
-// TODO: Add AI initialization when needed (Vercel AI SDK doesn't require initialization)
 
 // Application lifecycle management
 class Application {

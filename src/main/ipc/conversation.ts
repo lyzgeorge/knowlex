@@ -17,7 +17,6 @@ import type { Message } from '@shared/types/message'
 import { testOpenAIConfig } from '@main/services/openai-adapter'
 import { regenerateReply } from '@main/services/assistant-service'
 import { cancellationManager } from '@main/utils/cancellation'
-// Title generation cancellation removed with simplified one-shot logic
 
 /**
  * Conversation and Message IPC Handler
@@ -99,8 +98,6 @@ export function registerConversationIPCHandlers(): void {
     }
   )
 
-  // Note: conversation:list removed - use conversation:list-paginated instead
-
   // List conversations with pagination
   ipcMain.handle(
     'conversation:list-paginated',
@@ -173,7 +170,6 @@ export function registerConversationIPCHandlers(): void {
   ipcMain.handle('conversation:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const conversationId = requireValidId(id, 'Conversation ID')
-      // Title generation no longer needs explicit cancellation (one-shot, fast)
       await deleteConversation(conversationId)
     })
   })
@@ -205,12 +201,6 @@ export function registerConversationIPCHandlers(): void {
   // ============================================================================
   // Message Handlers
   // ============================================================================
-
-  // Note: message:add removed - use message:send instead
-
-  // Note: message:add-text removed - use message:send instead
-
-  // Note: message:add-multipart removed - use message:send instead
 
   // Get message
   ipcMain.handle('message:get', async (_, id: unknown): Promise<IPCResult<Message | null>> => {
@@ -383,9 +373,6 @@ export function registerConversationIPCHandlers(): void {
     }
   )
 
-  // Edit message
-  // Note: legacy 'message:edit' removed; use 'message:update' unified handler
-
   // Test AI configuration
   ipcMain.handle(
     'ai:test-connection',
@@ -422,7 +409,6 @@ export function unregisterConversationIPCHandlers(): void {
     'message:stop',
     'message:send',
     'message:regenerate',
-    // 'message:edit' removed (use 'message:update')
 
     // AI channels
     'ai:test-connection'

@@ -74,7 +74,6 @@ export function useSystemThemeListener(callback: (theme: 'light' | 'dark') => vo
     return () => mediaQuery.removeEventListener('change', listener)
   }
 
-  // Legacy browsers
   mediaQuery.addListener(listener)
   return () => mediaQuery.removeListener(listener)
 }
@@ -138,7 +137,6 @@ export class ThemeManager {
       mediaQuery.addEventListener('change', listener)
       this.systemThemeListener = () => mediaQuery.removeEventListener('change', listener)
     } else {
-      // Legacy browsers
       mediaQuery.addListener(listener)
       this.systemThemeListener = () => mediaQuery.removeListener(listener)
     }

@@ -18,8 +18,6 @@ export function isPlaceholderTitle(title: string | null | undefined): boolean {
   return PLACEHOLDER_TITLES.has(title.trim())
 }
 
-// Removed legacy shouldTriggerAutoGeneration helper (logic now inline & one-shot)
-
 /**
  * Extracts text content from a message's content parts for title generation
  * Reuses the standard extractTextContent function with title-specific formatting
@@ -102,7 +100,6 @@ export async function generateTitleForConversation(conversationId: string): Prom
       }
     ]
 
-    // Generate title (single blocking call – cooperative cancellation removed for simplicity)
     const response = await generateAIResponseOnce(titleMessages)
 
     // Clean and validate generated title
@@ -160,4 +157,3 @@ export async function attemptInitialTitleGeneration(conversationId: string): Pro
  * Allows external callers (e.g., when a conversation is deleted) to cancel an in-flight
  * title generation task to avoid wasted AI calls.
  */
-// cancelTitleGeneration removed – no longer needed with one-shot logic.

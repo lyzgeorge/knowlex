@@ -7,7 +7,6 @@
 
 import { useMemo } from 'react'
 import { useModelConfigStore } from '@renderer/stores/model-config'
-import { useDefaultModel } from '@renderer/stores/settings'
 import { getModelCapabilities, type ModelCapabilities } from '@shared/utils/model-resolution'
 
 export interface ModelCapabilitiesResult {
@@ -51,10 +50,14 @@ export function useActiveModelCapabilities(
   conversationModelId?: string | null,
   explicitModelId?: string | null
 ): ModelCapabilitiesResult {
-  const { defaultModelId } = useDefaultModel()
+  const getDefaultModel = useModelConfigStore((s) => s.getDefaultModel)
 
-  // Determine which model ID to use based on priority
-  const activeModelId = explicitModelId || conversationModelId || defaultModelId
+  // Determine which model ID to use based on priority:
+  // 1. Explicit model ID (passed directly)
+  // 2. Conversation's model ID
+  // 3. Default model from store (first available model)
+  const defaultModel = getDefaultModel()
+  const activeModelId = explicitModelId || conversationModelId || defaultModel?.id
 
   return useModelCapabilities(activeModelId)
 }

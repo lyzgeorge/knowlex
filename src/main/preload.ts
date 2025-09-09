@@ -115,9 +115,6 @@ export interface KnowlexAPI {
     }) => void
   ) => void
 
-  // Legacy Migration IPC
-  // (removed)
-
   // Event listeners
   events: {
     on: (channel: string, callback: (...args: any[]) => void) => void
@@ -174,7 +171,6 @@ const knowlexAPI: KnowlexAPI = {
     get: (id) => ipcRenderer.invoke('conversation:get', id),
     update: (data) => ipcRenderer.invoke('conversation:update', data),
     updateTitle: (conversationId, title) =>
-      // Legacy convenience API mapped to unified conversation:update
       ipcRenderer.invoke('conversation:update', { id: conversationId, title }),
     updateSettings: (conversationId, settings) =>
       ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
@@ -249,8 +245,6 @@ const knowlexAPI: KnowlexAPI = {
   onModelConfigChanged: (callback) => {
     ipcRenderer.on('model-config:changed', (_, payload) => callback(payload))
   },
-
-  // (legacy migration API removed)
 
   // Event listeners
   events: {

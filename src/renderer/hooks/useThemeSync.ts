@@ -37,7 +37,6 @@ export function useThemeSync() {
       mediaQuery.addEventListener('change', handleSystemThemeChange)
       return () => mediaQuery.removeEventListener('change', handleSystemThemeChange)
     } else {
-      // Legacy browsers
       mediaQuery.addListener(handleSystemThemeChange)
       return () => mediaQuery.removeListener(handleSystemThemeChange)
     }
