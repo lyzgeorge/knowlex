@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react'
-import { Box, IconButton, useColorModeValue, Icon, Text, Tooltip } from '@chakra-ui/react'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
+import { Box, IconButton, Icon, Text, Tooltip } from '@chakra-ui/react'
 import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
 import { keyframes } from '@emotion/react'
 // token formatting removed: display raw token numbers
@@ -38,6 +38,14 @@ const spinAnimation = keyframes`
 
 export type ChatInputVariant = 'main-entrance' | 'conversation' | 'project-entrance'
 
+type SendMessageOptions = {
+  conversationId?: string
+  parentMessageId?: string
+  projectId?: string
+  modelConfigId?: string
+  reasoningEffort?: ReasoningEffort
+}
+
 export interface ChatInputBoxProps {
   /** Input variant determines styling and behavior */
   variant?: ChatInputVariant
@@ -75,7 +83,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 }) => {
   const { t } = useI18n()
   const [input, setInput] = useState('')
-  const [isHoveringStreamButton, setIsHoveringStreamButton] = useState(false)
+  const [showStopIcon, setShowStopIcon] = useState(false)
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort | undefined>(undefined)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
@@ -93,50 +101,58 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   // Reset reasoning effort when model doesn't support reasoning
   React.useEffect(() => {
-    if (!reasoningSupported && reasoningEffort !== undefined) {
-      setReasoningEffort(undefined)
-    }
+    if (reasoningSupported || reasoningEffort === undefined) return
+    setReasoningEffort(undefined)
   }, [reasoningSupported, reasoningEffort])
   // Resolve branching: always call the hook (hooks must be unconditional)
-  const internalBranch = !branching
   const branchingResult = useMessageBranching(currentMessages)
-  const filteredMessages = internalBranch
-    ? branchingResult.filteredMessages
-    : branching!.filteredMessages
+  const filteredMessages = branching?.filteredMessages ?? branchingResult.filteredMessages
+
+  // Memoized last assistant message lookup for performance (no array copy)
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = filteredMessages.length - 1; i >= 0; i--) {
+      const message = filteredMessages[i]
+      if (message?.role === 'assistant') {
+        return message
+      }
+    }
+    return undefined
+  }, [filteredMessages])
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
   // File constraints (removed MAX_FILES as file count is no longer limited)
 
-  // Convert processed files to token count format with unique IDs
-  const tokenCountFiles = fileUpload.state.processedFiles.map((file, index) => ({
-    id: `${file.filename}-${file.size}-${index}`, // Create unique ID with filename, size, and index
-    name: file.filename,
-    type: file.isImage ? ('image' as const) : ('text' as const),
-    content: file.content,
-    ...(file.isImage && file.content && { dataUrl: file.content })
-  }))
+  // Helper to convert processed files to token count format
+  const convertFilesForTokenCount = useCallback(
+    (processedFiles: ProcessedFile[]) =>
+      processedFiles.map((file, index) => ({
+        id: `${file.filename}-${file.size}-${index}`,
+        name: file.filename,
+        type: file.isImage ? ('image' as const) : ('text' as const),
+        content: file.content,
+        ...(file.isImage && file.content && { dataUrl: file.content })
+      })),
+    []
+  )
 
   // Token counting hook
   const tokenCount = useRequestTokenCount({
     text: input,
-    processedFiles: tokenCountFiles,
+    processedFiles: convertFilesForTokenCount(fileUpload.state.processedFiles),
     model: activeModel
   })
 
   // Theme colors
-  // call hooks unconditionally to satisfy rules-of-hooks
-  const bgColor = useColorModeValue('surface.primary', 'surface.primary')
-  const placeholderColor = useColorModeValue('text.tertiary', 'text.tertiary')
-  const tokenCountTertiary = useColorModeValue('text.tertiary', 'text.tertiary')
-  const tokenCountColor = tokenCount.overLimit ? 'red.500' : tokenCountTertiary
+  const bgColor = 'surface.primary'
+  const tokenCountColor = tokenCount.overLimit ? 'red.500' : 'text.tertiary'
 
   // token counts displayed as raw numbers
 
   // Build message content from text and processed files using shared builder
   const buildMessageContent = useCallback(
     (text: string, processedFiles: ProcessedFile[] = []): MessageContent => {
-      const files = processedFiles
+      const validFiles = processedFiles
         .filter((f) => !f.error)
         .map((f) => ({
           filename: f.filename,
@@ -145,34 +161,19 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           mimeType: f.mimeType,
           isImage: !!f.isImage
         }))
-      return buildFromUserInput({ text: text.trim(), files })
+      return buildFromUserInput({ text: text.trim(), files: validFiles })
     },
     []
   )
 
-  // Get default placeholder based on variant
-  const getDefaultPlaceholder = (): string => {
-    switch (variant) {
-      case 'main-entrance':
-        return t('chat.typeMessage')
-      case 'project-entrance':
-        return t('chat.startConversation')
-      case 'conversation':
-        return t('chat.typeMessage')
-      default:
-        return t('chat.typeMessage')
-    }
-  }
-
-  const effectivePlaceholder = placeholder ?? getDefaultPlaceholder()
+  // Simplified placeholder logic
+  const effectivePlaceholder =
+    placeholder ??
+    (variant === 'project-entrance' ? t('chat.startConversation') : t('chat.typeMessage'))
 
   // Handle file upload - simplified since hook handles deduplication
   const handleFileUpload = useCallback(
     (newFiles: FileList) => {
-      console.log(
-        'handleFileUpload called with files:',
-        Array.from(newFiles).map((f) => f.name)
-      )
       fileUpload.addFiles(newFiles)
     },
     [fileUpload]
@@ -194,132 +195,84 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     }
   }, [streamingMessageId, reasoningStreamingMessageId, stopStreaming])
 
+  // Helper to build unified send options across variants
+  const buildSendOptions = useCallback(
+    (modelAtSend: string | undefined) => {
+      const sendOptions: SendMessageOptions = {}
+
+      // Route based on variant and context
+      if (variant === 'project-entrance' && projectId) {
+        // Create new conversation under this project
+        sendOptions.projectId = projectId
+      } else if (currentConversation?.id) {
+        // Send to current conversation
+        sendOptions.conversationId = currentConversation.id
+        if (lastAssistantMessage?.id) {
+          sendOptions.parentMessageId = lastAssistantMessage.id
+        }
+      }
+
+      // Set model config for new conversations (both project-entrance and main-entrance)
+      if (!sendOptions.conversationId && modelAtSend) {
+        sendOptions.modelConfigId = modelAtSend
+      }
+
+      return sendOptions
+    },
+    [variant, projectId, currentConversation, lastAssistantMessage]
+  )
+
+  // Create single guard for send capability
+  const isBusy = isSending || isStreaming || isReasoningStreaming
+  const hasTextContent = input.trim().length > 0
+  const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
+  const canSend =
+    (hasTextContent || hasSuccessfulFiles) &&
+    !disabled &&
+    !fileUpload.state.isProcessing &&
+    !isBusy &&
+    !tokenCount.overLimit
+
   // Handle send message - unified logic for both variants
   const handleSend = useCallback(async () => {
-    const trimmedInput = input.trim()
-    const hasFiles = fileUpload.state.files.length > 0
-    const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
+    if (!canSend) return
 
-    // Can only send if we have text content OR successful files
-    if (
-      (!trimmedInput && !hasSuccessfulFiles) ||
-      isSending ||
-      disabled ||
-      fileUpload.state.isProcessing
-    )
-      return
+    // Capture model at send time to prevent races
+    const modelAtSend = activeModel?.id
 
     // Store original values for potential error recovery
     const originalInput = input
     const originalFiles = [...fileUpload.state.files]
 
     try {
-      console.log('handleSend: Starting message send process', {
-        trimmedInput,
-        hasFiles,
-        fileCount: fileUpload.state.files.length,
-        variant
-      })
-
       // Process temporary files if any
       let processedFiles: ProcessedFile[] = []
-      if (hasFiles) {
-        console.log('handleSend: Processing files...')
+      if (fileUpload.state.files.length > 0) {
         processedFiles = await fileUpload.processFiles()
-        console.log(
-          'handleSend: Files processed:',
-          processedFiles.map((f) => ({ filename: f.filename, error: f.error }))
-        )
-      } else {
-        console.log('handleSend: No files to process')
       }
 
       // Clear input and files immediately for better UX
       setInput('')
       fileUpload.clearFiles()
-      // height will auto-reset by the AutoResizeTextarea effect when value clears
 
       // Build message content using internal utility
-      const content = buildMessageContent(trimmedInput, processedFiles)
+      const content = buildMessageContent(input.trim(), processedFiles)
 
-      console.log(
-        'handleSend: Final message content structure:',
-        content.map((c) => {
-          if (c.type === 'text') {
-            return { type: c.type, textLength: c.text?.length }
-          }
-          if (c.type === 'image') {
-            return {
-              type: c.type,
-              imageType: typeof c.image,
-              mediaType: c.image?.mediaType,
-              isDataUrl: typeof c.image?.image === 'string' && c.image.image.startsWith('data:')
-            }
-          }
-          // temporary-file
-          return { type: c.type, filename: c.temporaryFile?.filename || 'file' }
-        })
-      )
+      // Build unified send options (uses memoized lastAssistantMessage)
+      const sendOptions = buildSendOptions(modelAtSend)
 
-      // Find parent message ID for new message in current conversation chain
-      const lastAssistantMessage = filteredMessages
-        .slice()
-        .reverse()
-        .find((msg) => msg.role === 'assistant')
-
-      // Determine routing for the message based on variant/context
-      const sendOptions: {
-        conversationId?: string
-        parentMessageId?: string
-        projectId?: string
-        reasoningEffort?: ReasoningEffort
-        modelConfigId?: string
-      } = {}
-
-      if (variant === 'project-entrance' && projectId) {
-        // Always create a new conversation under this project.
-        // Do not thread into any previously selected conversation.
-        sendOptions.projectId = projectId
-        // Intentionally avoid setting parentMessageId to start a fresh thread
-        if (reasoningEffort !== undefined) {
-          sendOptions.reasoningEffort = reasoningEffort
-        }
-      } else if (currentConversation?.id) {
-        // Normal behavior: send to currently selected conversation
-        sendOptions.conversationId = currentConversation.id
-        if (lastAssistantMessage?.id) {
-          sendOptions.parentMessageId = lastAssistantMessage.id
-        }
-        if (reasoningEffort !== undefined) {
-          sendOptions.reasoningEffort = reasoningEffort
-        }
-      } else if (variant === 'main-entrance') {
-        // Main entrance: create new conversation with reasoning effort and active model
-        if (reasoningEffort !== undefined) {
-          sendOptions.reasoningEffort = reasoningEffort
-        }
-        if (activeModel?.id) {
-          sendOptions.modelConfigId = activeModel.id
-        }
-      }
-
-      // Resolve reasoning effort via strategy before sending
+      // Resolve and apply reasoning effort only once
       const resolvedReasoning = resolveReasoningEffort(reasoningEffort, activeModelCapabilities)
-      if (resolvedReasoning !== undefined) sendOptions.reasoningEffort = resolvedReasoning
-
-      console.log('handleSend: Sending with options:', sendOptions)
-
-      try {
-        // Send message through store - works for both variants
-        await sendMessage(content, sendOptions)
-      } finally {
-        // No cleanup needed for main-entrance variant anymore
+      if (resolvedReasoning !== undefined) {
+        sendOptions.reasoningEffort = resolvedReasoning
       }
+
+      // Send message through store
+      await sendMessage(content, sendOptions)
     } catch (error) {
       // If error, restore the input and files
       setInput(originalInput)
-      // Clear current files and restore original files
-      fileUpload.clearFiles()
+      // Restore original files
       if (originalFiles.length > 0) {
         // Extract File objects from FileUploadItem
         const filesToRestore = originalFiles.map((item) => item.file)
@@ -328,18 +281,15 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       console.error('Failed to send message:', error)
     }
   }, [
+    canSend,
+    activeModel,
     input,
     fileUpload,
-    isSending,
-    disabled,
-    sendMessage,
     buildMessageContent,
-    currentConversation,
-    filteredMessages,
-    variant,
-    projectId,
+    buildSendOptions,
     reasoningEffort,
-    activeModel
+    activeModelCapabilities,
+    sendMessage
   ])
 
   // Handle keyboard shortcuts
@@ -347,9 +297,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         // Enter key sends message for all variants (Shift+Enter for new line)
-        // Block during any refreshing state or token limit exceeded
-        const isRefreshing = isSending || isStreaming || isReasoningStreaming
-        if (isRefreshing || tokenCount.overLimit) {
+        if (!canSend) {
           e.preventDefault()
           return
         }
@@ -357,26 +305,8 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         handleSend()
       }
     },
-    [handleSend, isSending, isStreaming, isReasoningStreaming, tokenCount.overLimit]
+    [handleSend, canSend]
   )
-
-  // Button state logic (simple and single-purpose)
-  const hasTextContent = input.trim().length > 0
-  const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
-  const isRefreshing = isSending || isStreaming || isReasoningStreaming
-
-  // Can send if:
-  // 1. Has text content (always allowed)
-  // 2. Or has successful processed files
-  // 3. Not currently processing files
-  // 4. Not currently refreshing/sending
-  // 5. Not over token limit
-  const canSend =
-    (hasTextContent || hasSuccessfulFiles) &&
-    !disabled &&
-    !fileUpload.state.isProcessing &&
-    !isRefreshing &&
-    !tokenCount.overLimit
 
   // Unified render - single implementation for all variants
   return (
@@ -428,7 +358,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               onKeyDown={handleKeyDown}
               placeholder={effectivePlaceholder}
               maxRows={3}
-              _placeholder={{ color: placeholderColor }}
+              _placeholder={{ color: 'text.tertiary' }}
               isDisabled={disabled}
             />
           </Box>
@@ -467,14 +397,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               )}
 
               {/* Reasoning Effort Selector (icon trigger) */}
-              {(variant === 'conversation' || variant === 'main-entrance') && (
-                <ReasoningEffortSelector
-                  value={reasoningEffort}
-                  onChange={setReasoningEffort}
-                  variant="icon"
-                  isDisabled={!reasoningSupported}
-                />
-              )}
+              <ReasoningEffortSelector
+                value={reasoningEffort}
+                onChange={setReasoningEffort}
+                variant="icon"
+                isDisabled={!reasoningSupported}
+              />
             </Box>
 
             {/* Right side controls */}
@@ -504,12 +432,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                 </Tooltip>
               )}
 
-              {/* Send / Refreshing-Stop Button */}
-              {isRefreshing ? (
+              {/* Send / Busy-Stop Button */}
+              {isBusy ? (
                 <IconButton
-                  aria-label={isHoveringStreamButton ? t('chat.stop') : t('chat.refreshing')}
+                  aria-label={showStopIcon ? t('chat.stop') : t('chat.refreshing')}
                   icon={
-                    isHoveringStreamButton ? (
+                    showStopIcon ? (
                       <HiStop />
                     ) : (
                       <Icon
@@ -519,14 +447,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                     )
                   }
                   variant="solid"
-                  {...(isHoveringStreamButton
-                    ? { colorScheme: 'red' as const }
-                    : { bg: 'gray.300' as const })}
+                  {...(showStopIcon ? { colorScheme: 'red' } : { bg: 'gray.300' })}
                   size="sm"
                   borderRadius="md"
                   onClick={handleStop}
-                  onMouseEnter={() => setIsHoveringStreamButton(true)}
-                  onMouseLeave={() => setIsHoveringStreamButton(false)}
+                  onMouseEnter={() => setShowStopIcon(true)}
+                  onMouseLeave={() => setShowStopIcon(false)}
                   cursor="pointer"
                 />
               ) : (

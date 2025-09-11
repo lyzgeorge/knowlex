@@ -5,6 +5,7 @@ import { useConversations, useConversationStore } from '@renderer/stores/convers
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
 import ChatInputBox from '@renderer/components/features/chat/ChatInputBox'
+import { ModelSelector } from '@renderer/components/features/models/ModelSelector'
 import { useNotifications } from '@renderer/components/ui'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
@@ -237,7 +238,12 @@ const ProjectPage: React.FC<Props> = ({ projectId }) => {
       <Box maxWidth="780px" width="100%">
         {/* Project Title + Chat Input */}
         <VStack align="stretch" spacing={3} mb={6}>
-          <Heading size="md">{project?.name || 'Project'}</Heading>
+          <HStack justify="space-between">
+            <Heading size="md">{project?.name || 'Project'}</Heading>
+            <Box>
+              <ModelSelector />
+            </Box>
+          </HStack>
           <ChatInputBox variant="project-entrance" projectId={projectId} />
         </VStack>
 
