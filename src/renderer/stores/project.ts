@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Project } from '@shared/types/project'
+import { unwrapIPCResult, assertIPCResult } from '@shared/utils/api-response'
 
 interface ProjectState {
   projects: Project[]
@@ -39,8 +40,7 @@ export const useProjectStore = create<ProjectState>()(
         })
         try {
           const res = await window.knowlex.project.list()
-          if (!res?.success) throw new Error(res?.error || 'Failed to load projects')
-          const items = (res.data as Project[]) || []
+          const items = (unwrapIPCResult(res, 'load projects') as Project[]) || []
           set((s) => {
             s.projects = items
             s.isLoading = false
@@ -55,8 +55,7 @@ export const useProjectStore = create<ProjectState>()(
 
       addProject: async (name: string) => {
         const res = await window.knowlex.project.create(name)
-        if (!res?.success || !res.data) throw new Error(res?.error || 'Failed to create project')
-        const proj = res.data as Project
+        const proj = unwrapIPCResult(res, 'create project') as Project
         set((s) => {
           s.projects.unshift(proj)
         })
@@ -65,8 +64,7 @@ export const useProjectStore = create<ProjectState>()(
 
       editProject: async (id: string, name: string) => {
         const res = await window.knowlex.project.update(id, { name })
-        if (!res?.success || !res.data) throw new Error(res?.error || 'Failed to update project')
-        const updated = res.data as Project
+        const updated = unwrapIPCResult(res, 'update project') as Project
         set((s) => {
           const idx = s.projects.findIndex((p) => p.id === id)
           if (idx >= 0) s.projects[idx] = updated
@@ -75,7 +73,7 @@ export const useProjectStore = create<ProjectState>()(
 
       removeProject: async (id: string) => {
         const res = await window.knowlex.project.delete(id)
-        if (!res?.success) throw new Error(res?.error || 'Failed to delete project')
+        assertIPCResult(res, 'delete project')
         set((s) => {
           s.projects = s.projects.filter((p) => p.id !== id)
           delete s.expanded[id]

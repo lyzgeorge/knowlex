@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 import { getFileExtension, getMimeTypeFromExtension } from '@shared/utils/validation'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 /**
  * File Parser Interface
@@ -102,11 +103,7 @@ export class PlainTextParser extends FileParser {
         }
       }
     } catch (error) {
-      throw new Error(
-        `Failed to parse plain text file ${this.filename}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      )
+      throw new Error(`Failed to parse plain text file ${this.filename}: ${getErrorMessage(error)}`)
     }
   }
 
@@ -189,11 +186,7 @@ export class PDFParser extends FileParser {
       }
     } catch (error) {
       console.error(`[PDFParser] Error parsing ${this.filename}:`, error)
-      throw new Error(
-        `Failed to parse PDF document ${this.filename}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      )
+      throw new Error(`Failed to parse PDF document ${this.filename}: ${getErrorMessage(error)}`)
     }
   }
 }
@@ -240,11 +233,7 @@ export class OfficeParser extends FileParser {
       }
     } catch (error) {
       console.error(`[OfficeParser] Error parsing ${this.filename}:`, error)
-      throw new Error(
-        `Failed to parse office document ${this.filename}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      )
+      throw new Error(`Failed to parse office document ${this.filename}: ${getErrorMessage(error)}`)
     }
   }
 }

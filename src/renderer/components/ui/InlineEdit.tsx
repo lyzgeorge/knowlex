@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { HStack, Input, IconButton, Tooltip, Text } from '@chakra-ui/react'
 import { HiCheck, HiXMark } from 'react-icons/hi2'
+import { isNonEmptyString } from '@renderer/utils/validation'
 
 interface InlineEditProps {
   /** Current value to display and edit */
@@ -37,7 +38,7 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   onCancelEdit,
   onConfirmEdit,
   placeholder = 'Enter text...',
-  validator = (val) => val.trim().length > 0,
+  validator = (val) => isNonEmptyString(val),
   tooltipLabel,
   tooltipPlacement = 'right',
   children,

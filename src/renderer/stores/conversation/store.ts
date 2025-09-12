@@ -9,6 +9,7 @@ import { immer } from 'zustand/middleware/immer'
 import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
 import { getActiveModelId } from '@shared/utils/model-resolution'
+import { unwrapIPCResult, assertIPCResult } from '@shared/utils/api-response'
 
 // Local consolidated modules
 import {
@@ -155,11 +156,7 @@ export const useConversationStore = create<ConversationState>()(
             const res = await conversationApi.create({
               title: title || CONVERSATION_CONSTANTS.DEFAULT_CONVERSATION_TITLE
             })
-            if (!res?.success || !res.data) {
-              throw new Error(res?.error || 'Failed to create conversation')
-            }
-
-            const conv = res.data
+            const conv = unwrapIPCResult(res, 'create conversation')
             set((s) => {
               if (!s.conversations.find((c) => c.id === conv.id)) {
                 s.conversations.unshift(conv)
@@ -247,12 +244,10 @@ export const useConversationStore = create<ConversationState>()(
               limit: CONVERSATION_CONSTANTS.CONVERSATIONS_PAGE_SIZE,
               offset: currentState.conversations.length
             })
-
-            if (!res?.success) {
-              throw new Error(res?.error || 'Failed to load more conversations')
-            }
-
-            const { conversations: newConversations, hasMore } = res.data as {
+            const { conversations: newConversations, hasMore } = unwrapIPCResult(
+              res,
+              'load more conversations'
+            ) as {
               conversations: Conversation[]
               hasMore: boolean
             }
@@ -307,10 +302,7 @@ export const useConversationStore = create<ConversationState>()(
               ...(options?.modelConfigId && { modelConfigId: options.modelConfigId }),
               content
             })
-
-            if (!res?.success) {
-              throw new Error(res?.error || 'Failed to send message')
-            }
+            assertIPCResult(res, 'send message')
           },
           { setLoading: loadingSetters.isSending }
         )
@@ -355,10 +347,7 @@ export const useConversationStore = create<ConversationState>()(
           set,
           async () => {
             const res = await messageApi.list(conversationId)
-            if (!res?.success) {
-              throw new Error(res?.error || 'Failed to load messages')
-            }
-            const msgs = (res.data as Message[]) || []
+            const msgs = (unwrapIPCResult(res, 'load messages') as Message[]) || []
             set((s) => {
               ingestMessages(s, conversationId, msgs, { replace: true })
               const conv = s.conversations.find((c) => c.id === conversationId)
@@ -407,10 +396,10 @@ export const useConversationStore = create<ConversationState>()(
               limit: CONVERSATION_CONSTANTS.CONVERSATIONS_PAGE_SIZE,
               offset: 0
             })
-            if (!res?.success) {
-              throw new Error(res?.error || 'Failed to load conversations')
-            }
-            const { conversations: recentConversations, hasMore } = res.data as {
+            const { conversations: recentConversations, hasMore } = unwrapIPCResult(
+              res,
+              'load conversations'
+            ) as {
               conversations: Conversation[]
               hasMore: boolean
             }

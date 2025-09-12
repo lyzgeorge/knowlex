@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDisclosure } from '@chakra-ui/react'
 import { useProjectStore } from '@renderer/stores/project'
+import { ensureNonEmptyString } from '@renderer/utils/validation'
 import { useNavigationActions } from '@renderer/stores/navigation'
 
 export function useProjectManagement() {
@@ -36,11 +37,15 @@ export function useProjectManagement() {
   }, [fetchProjects])
 
   const handleCreateProject = useCallback(async () => {
-    if (!newProjectName.trim()) return
-    const proj = await addProject(newProjectName.trim())
-    setIsCreatingProject(false)
-    setNewProjectName('')
-    openProject(proj.id)
+    try {
+      const name = ensureNonEmptyString(newProjectName, 'Project name')
+      const proj = await addProject(name)
+      setIsCreatingProject(false)
+      setNewProjectName('')
+      openProject(proj.id)
+    } catch {
+      // noop; UI already guards; keep behavior consistent
+    }
   }, [newProjectName, addProject, openProject])
 
   const handleStartCreateProject = useCallback(() => {
@@ -60,10 +65,14 @@ export function useProjectManagement() {
 
   const handleConfirmEditProject = useCallback(
     async (projectId: string) => {
-      if (!editingProjectName.trim()) return
-      await editProject(projectId, editingProjectName.trim())
-      setEditingProjectId(null)
-      setEditingProjectName('')
+      try {
+        const name = ensureNonEmptyString(editingProjectName, 'Project name')
+        await editProject(projectId, name)
+        setEditingProjectId(null)
+        setEditingProjectName('')
+      } catch {
+        // noop; keep UX consistent
+      }
     },
     [editingProjectName, editProject]
   )

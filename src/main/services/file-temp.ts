@@ -11,6 +11,7 @@ import {
 } from '@shared/utils/validation'
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
 import { parseFile, FileParserFactory } from './file-parser'
+import { formatOperationError } from '@shared/utils/error-handling'
 import { processingErrorMessage, criticalErrorMessage } from '@main/utils/error'
 
 /**
@@ -68,7 +69,7 @@ export async function processTemporaryFiles(filePaths: string[]): Promise<Tempor
           filename: path.basename(filePath),
           size: 0,
           filePath,
-          error: `Failed to read file: ${error instanceof Error ? error.message : 'Unknown error'}`
+          error: formatOperationError('read file', error)
         }
       }
     })
@@ -214,7 +215,7 @@ async function _processSingleFile(file: ProcessableFile): Promise<TemporaryFileR
       content: '',
       size: file.size,
       mimeType,
-      error: `Failed to process: ${error instanceof Error ? error.message : 'Unknown error'}`
+      error: formatOperationError('process', error)
     }
   }
 }

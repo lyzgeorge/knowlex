@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { settingsService } from '@main/services/settings'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 /**
  * Settings IPC handlers
@@ -22,7 +23,7 @@ export function registerSettingsIPCHandlers() {
       console.error('Failed to get settings:', error)
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to get settings'
+        error: getErrorMessage(error, 'Failed to get settings')
       }
     }
   })
@@ -41,7 +42,7 @@ export function registerSettingsIPCHandlers() {
       console.error('Failed to update settings:', error)
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update settings'
+        error: getErrorMessage(error, 'Failed to update settings')
       }
     }
   })

@@ -3,6 +3,7 @@ import { processTemporaryFiles, processTemporaryFileContents } from '@main/servi
 import type { IPCResult, TemporaryFileRequest } from '@shared/types/ipc'
 import type { TemporaryFileResult } from '@shared/types/file'
 import { handleIPCCall, validateRequest, validateObject } from './common'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 /**
  * Simplified File IPC Handler
@@ -125,7 +126,7 @@ export function registerFileIPCHandlers(): void {
         console.error('[IPC] Error in file:process-temp-content handler:', error)
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error occurred'
+          error: getErrorMessage(error, 'Unknown error occurred')
         }
       }
     }

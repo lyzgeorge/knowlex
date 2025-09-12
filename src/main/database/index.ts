@@ -1,5 +1,6 @@
 import { createClient, Client, InArgs } from '@libsql/client'
 import { app } from 'electron'
+import { formatOperationError } from '@shared/utils/error-handling'
 import * as path from 'path'
 import * as fs from 'fs'
 
@@ -66,9 +67,7 @@ export async function getDB(): Promise<Client> {
     return db
   } catch (error) {
     console.error('Failed to initialize database:', error)
-    throw new Error(
-      `Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('initialize database', error))
   }
 }
 
@@ -112,9 +111,7 @@ export async function executeQuery(
     }
   } catch (error) {
     console.error('Database query failed:', { sql, params, error })
-    throw new Error(
-      `Query execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('execute query', error))
   }
 }
 
@@ -150,9 +147,7 @@ export async function executeTransaction(
     }
 
     console.error('Transaction failed:', { queries, error })
-    throw new Error(
-      `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('execute transaction', error))
   }
 }
 

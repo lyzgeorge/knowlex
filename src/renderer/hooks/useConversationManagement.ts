@@ -3,6 +3,7 @@ import { useDisclosure } from '@chakra-ui/react'
 import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useNotifications } from '@renderer/components/ui'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 export function useConversationManagement() {
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null)
@@ -84,9 +85,7 @@ export function useConversationManagement() {
       notifications.conversationDeleted()
       onDeleteClose()
     } catch (error) {
-      notifications.conversationDeleteFailed(
-        error instanceof Error ? error.message : 'An error occurred'
-      )
+      notifications.conversationDeleteFailed(getErrorMessage(error, 'An error occurred'))
     } finally {
       setIsDeleting(false)
     }

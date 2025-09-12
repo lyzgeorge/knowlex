@@ -4,6 +4,7 @@ import type { Message, MessageContent } from '@shared/types/message'
 import type { CancellationToken } from '@main/utils/cancellation'
 import type { ReasoningEffort } from '@shared/types/models'
 import { modelConfigService } from './model-config-service'
+import { formatOperationError, getErrorMessage } from '@shared/utils/error-handling'
 import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
 import { StreamingCallbacks, consumeFullStream } from './ai-streaming'
 import { buildModelParams, convertMessagesToAIFormat } from './ai-params'
@@ -314,9 +315,7 @@ export async function testOpenAIConfig(config?: OpenAIConfig): Promise<{
   } catch (error) {
     return {
       success: false,
-      ...(error instanceof Error
-        ? { error: error.message }
-        : { error: 'Unknown error during AI configuration test' })
+      error: getErrorMessage(error, 'Unknown error during AI configuration test')
     }
   }
 }
@@ -344,5 +343,5 @@ function enhanceError(error: unknown): Error {
     return new Error(`OpenAI service error: ${error.message}`)
   }
 
-  return new Error(`AI service error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  return new Error(formatOperationError('AI service', error))
 }

@@ -1,4 +1,5 @@
 import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
+import { IMAGE_EXTENSIONS, EXTENSION_TO_MIME, DEFAULT_MIME } from '@shared/constants/file-types'
 
 export function isValidFileType(filename: string): boolean {
   const extension = getFileExtension(filename).toLowerCase()
@@ -45,67 +46,12 @@ export function sanitizeFilename(filename: string): string {
 
 export function isImageFile(filename: string): boolean {
   const extension = getFileExtension(filename).toLowerCase()
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
-  return imageExtensions.includes(extension)
+  return (IMAGE_EXTENSIONS as readonly string[]).includes(extension)
 }
 
 export function getMimeTypeFromExtension(filename: string): string {
   const extension = getFileExtension(filename).toLowerCase()
-
-  switch (extension) {
-    // Plain text files
-    case '.txt':
-      return 'text/plain'
-    case '.md':
-      return 'text/markdown'
-    case '.html':
-    case '.htm':
-      return 'text/html'
-    case '.json':
-      return 'application/json'
-    case '.csv':
-      return 'text/csv'
-    case '.xml':
-      return 'application/xml'
-
-    // PDF files
-    case '.pdf':
-      return 'application/pdf'
-
-    // Microsoft Office files
-    case '.docx':
-      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    case '.pptx':
-      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    case '.xlsx':
-      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-
-    // OpenDocument files
-    case '.odt':
-      return 'application/vnd.oasis.opendocument.text'
-    case '.odp':
-      return 'application/vnd.oasis.opendocument.presentation'
-    case '.ods':
-      return 'application/vnd.oasis.opendocument.spreadsheet'
-
-    // Image files
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg'
-    case '.png':
-      return 'image/png'
-    case '.gif':
-      return 'image/gif'
-    case '.bmp':
-      return 'image/bmp'
-    case '.webp':
-      return 'image/webp'
-    case '.svg':
-      return 'image/svg+xml'
-
-    default:
-      return 'application/octet-stream'
-  }
+  return EXTENSION_TO_MIME[extension] || DEFAULT_MIME
 }
 
 /**

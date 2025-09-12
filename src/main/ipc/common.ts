@@ -4,6 +4,7 @@
  */
 
 import type { IPCResult } from '@shared/types/ipc'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 /**
  * Wraps service calls with consistent error handling and response format
@@ -20,7 +21,7 @@ export async function handleIPCCall<T>(operation: () => Promise<T>): Promise<IPC
     console.error('IPC operation failed:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: getErrorMessage(error, 'Unknown error occurred')
     }
   }
 }

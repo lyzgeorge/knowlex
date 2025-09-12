@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { ensureNonEmptyString } from '@renderer/utils/validation'
 
 /**
  * Lightweight wrapper around inline-edit behaviour for a single titled item.
@@ -33,7 +34,8 @@ export function useEditableTitle(
     const err = validate(value)
     if (err) return err
     try {
-      await onSave(id, value.trim())
+      const clean = ensureNonEmptyString(value, 'Title')
+      await onSave(id, clean)
     } catch (e) {
       // let caller handle notifications; return a generic error
       return (e instanceof Error && e.message) || 'Failed to save'

@@ -11,6 +11,7 @@ import InlineEdit from '@renderer/components/ui/InlineEdit'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
 import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 interface Props {
   projectId: string
@@ -136,9 +137,7 @@ const ProjectPage: React.FC<Props> = ({ projectId }) => {
         await deleteConversation(id)
         notifications.conversationDeleted()
       } catch (error) {
-        notifications.conversationDeleteFailed(
-          error instanceof Error ? error.message : 'An error occurred'
-        )
+        notifications.conversationDeleteFailed(getErrorMessage(error, 'An error occurred'))
       }
     },
     [deleteConversation, notifications]

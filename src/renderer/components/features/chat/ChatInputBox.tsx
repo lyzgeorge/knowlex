@@ -35,6 +35,7 @@ import { resolveReasoningEffort } from '@shared/reasoning/policy'
 import { FileAttachmentList, SendButton, TokenCounter } from '@renderer/components/ui'
 import type { Message } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
+import { isNonEmptyString } from '@renderer/utils/validation'
 
 export type ChatInputVariant = 'main-entrance' | 'conversation' | 'project-entrance'
 
@@ -187,7 +188,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   // Create single guard for send capability
   const isBusy = isSending || isStreaming || isReasoningStreaming
-  const hasTextContent = input.trim().length > 0
+  const hasTextContent = isNonEmptyString(input)
   const hasSuccessfulFiles = fileUpload.state.successfulFilesCount > 0
   const canSend =
     (hasTextContent || hasSuccessfulFiles) &&

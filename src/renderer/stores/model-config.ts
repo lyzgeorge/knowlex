@@ -8,6 +8,7 @@ import type {
   ModelConnectionTestResult
 } from '@shared/types/models'
 import { clearModelCapabilitiesCache } from '@shared/utils/model-resolution'
+import { unwrapIPCResult } from '@shared/utils/api-response'
 import { runAsync, runApiCall, createLoadingSetter } from '@renderer/utils/store-helpers'
 
 // Enable Map/Set support in Immer for Map-based caches used by this store
@@ -112,9 +113,8 @@ export const useModelConfigStore = create<ModelConfigState>()(
         set,
         async () => {
           const res = await window.knowlex.modelConfig.list()
-          if (!res?.success) throw new Error(res?.error || 'Failed to load model configurations')
-
-          const publicModels = (res.data as ModelConfigPublic[]) || []
+          const publicModels =
+            (unwrapIPCResult(res, 'load model configurations') as ModelConfigPublic[]) || []
           set((s) => {
             s.models = publicModels
             s.initialized = true
@@ -134,10 +134,10 @@ export const useModelConfigStore = create<ModelConfigState>()(
         set,
         async () => {
           const res = await window.knowlex.modelConfig.create(input)
-          if (!res?.success || !res.data) {
-            throw new Error(res?.error || 'Failed to create model configuration')
-          }
-          const publicModel = res.data as ModelConfigPublic
+          const publicModel = unwrapIPCResult(
+            res,
+            'create model configuration'
+          ) as ModelConfigPublic
           set((s) => {
             s.models.push(publicModel)
             s.modelsById.set(publicModel.id, publicModel)
@@ -157,10 +157,10 @@ export const useModelConfigStore = create<ModelConfigState>()(
         set,
         async () => {
           const res = await window.knowlex.modelConfig.update(id, updates)
-          if (!res?.success || !res.data) {
-            throw new Error(res?.error || 'Failed to update model configuration')
-          }
-          const publicUpdated = res.data as ModelConfigPublic
+          const publicUpdated = unwrapIPCResult(
+            res,
+            'update model configuration'
+          ) as ModelConfigPublic
           set((s) => {
             const idx = s.models.findIndex((m) => m.id === id)
             if (idx >= 0) {
@@ -207,10 +207,7 @@ export const useModelConfigStore = create<ModelConfigState>()(
         set,
         async () => {
           const res = await window.knowlex.modelConfig.test(id)
-          if (!res?.success || !res.data) {
-            throw new Error(res?.error || 'Connection test failed')
-          }
-          return res.data as ModelConnectionTestResult
+          return unwrapIPCResult(res, 'test model connection') as ModelConnectionTestResult
         },
         { setLoading: (loading) => modelLoadingSetters.isTesting(id, loading) }
       )

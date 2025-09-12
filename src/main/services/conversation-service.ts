@@ -6,6 +6,7 @@ import {
   deleteConversation as dbDeleteConversation
 } from '@main/database/queries'
 import { generateId } from '@shared/utils/id'
+import { formatOperationError } from '@shared/utils/error-handling'
 import type { Conversation, SessionSettings } from '@shared/types/conversation-types'
 
 /**
@@ -61,9 +62,7 @@ export async function createConversation(data: CreateConversationData): Promise<
     return newConversation
   } catch (error) {
     console.error('Failed to create conversation:', error)
-    throw new Error(
-      `Failed to create conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('create conversation', error))
   }
 }
 
@@ -81,9 +80,7 @@ export async function getConversation(id: string): Promise<Conversation | null> 
     return conversation
   } catch (error) {
     console.error(`Failed to get conversation ${id}:`, error)
-    throw new Error(
-      `Failed to retrieve conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('retrieve conversation', error))
   }
 }
 
@@ -97,9 +94,7 @@ export async function listConversations(): Promise<Conversation[]> {
     return conversations
   } catch (error) {
     console.error('Failed to list conversations:', error)
-    throw new Error(
-      `Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('list conversations', error))
   }
 }
 
@@ -123,9 +118,7 @@ export async function listConversationsPaginated(
     }
   } catch (error) {
     console.error('Failed to list conversations with pagination:', error)
-    throw new Error(
-      `Failed to list conversations: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('list conversations', error))
   }
 }
 
@@ -192,9 +185,7 @@ export async function updateConversation(
     return updatedConversation
   } catch (error) {
     console.error(`Failed to update conversation ${id}:`, error)
-    throw new Error(
-      `Failed to update conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('update conversation', error))
   }
 }
 
@@ -219,9 +210,7 @@ export async function deleteConversation(id: string): Promise<void> {
     console.log(`Conversation deleted successfully: ${id} - ${existingConversation.title}`)
   } catch (error) {
     console.error(`Failed to delete conversation ${id}:`, error)
-    throw new Error(
-      `Failed to delete conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('delete conversation', error))
   }
 }
 

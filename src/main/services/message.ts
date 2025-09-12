@@ -6,6 +6,7 @@ import {
   deleteMessage as dbDeleteMessage
 } from '@main/database/queries'
 import { generateId } from '@shared/utils/id'
+import { formatOperationError } from '@shared/utils/error-handling'
 import type {
   Message,
   MessageContent,
@@ -171,9 +172,7 @@ export async function addMessage(data: CreateMessageData): Promise<Message> {
     return newMessage
   } catch (error) {
     console.error('Failed to add message:', error)
-    throw new Error(
-      `Failed to add message: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('add message', error))
   }
 }
 
@@ -191,9 +190,7 @@ export async function getMessage(id: string): Promise<Message | null> {
     return message
   } catch (error) {
     console.error(`Failed to get message ${id}:`, error)
-    throw new Error(
-      `Failed to retrieve message: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('retrieve message', error))
   }
 }
 
@@ -211,9 +208,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
     return messages
   } catch (error) {
     console.error(`Failed to get messages for conversation ${conversationId}:`, error)
-    throw new Error(
-      `Failed to retrieve messages: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('retrieve messages', error))
   }
 }
 
@@ -252,9 +247,7 @@ export async function updateMessage(id: string, data: UpdateMessageData): Promis
     return updatedMessage
   } catch (error) {
     console.error(`Failed to update message ${id}:`, error)
-    throw new Error(
-      `Failed to update message: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('update message', error))
   }
 }
 
@@ -278,9 +271,7 @@ export async function deleteMessage(id: string): Promise<void> {
     console.log(`Message deleted successfully: ${id}`)
   } catch (error) {
     console.error(`Failed to delete message ${id}:`, error)
-    throw new Error(
-      `Failed to delete message: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    throw new Error(formatOperationError('delete message', error))
   }
 }
 

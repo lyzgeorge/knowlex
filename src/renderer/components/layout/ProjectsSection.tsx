@@ -17,6 +17,7 @@ import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { useConversationStore } from '@renderer/stores/conversation/store'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import InlineEdit from '@renderer/components/ui/InlineEdit'
+import { isNonEmptyString } from '@renderer/utils/validation'
 import { HiPlus, HiCheck, HiXMark, HiBars3, HiFolder, HiFolderOpen } from 'react-icons/hi2'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
 import { useProjectManagement } from '@renderer/hooks/useProjectManagement'
@@ -97,7 +98,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             onKeyDown={async (e) => {
-              if (e.key === 'Enter' && newProjectName.trim()) {
+              if (e.key === 'Enter' && isNonEmptyString(newProjectName)) {
                 await handleCreateProject()
               } else if (e.key === 'Escape') {
                 handleCancelCreateProject()
@@ -110,7 +111,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             icon={<HiCheck />}
             size="xs"
             variant="ghost"
-            isDisabled={!newProjectName.trim()}
+            isDisabled={!isNonEmptyString(newProjectName)}
             onClick={handleCreateProject}
           />
           <IconButton

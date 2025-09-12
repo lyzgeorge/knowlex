@@ -1,4 +1,5 @@
 import type { Draft } from 'immer'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 export interface AsyncOperationOptions<T> {
   setLoading?: ((loading: boolean) => (draft: any) => void) | undefined
@@ -29,7 +30,7 @@ export async function runAsync<T>(
 
     return result
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Operation failed'
+    const errorMessage = getErrorMessage(error, 'Operation failed')
 
     if (onError) {
       onError(errorMessage)

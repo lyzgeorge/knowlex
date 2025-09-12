@@ -99,6 +99,20 @@ function sortByCreatedAtAsc(a: { createdAt?: string }, b: { createdAt?: string }
   return ta - tb
 }
 
+// Find the insertion index for a message given its createdAt time using binary search
+function findInsertIndexByCreatedAt(messages: Message[], createdAt?: string): number {
+  const t = createdAt ? new Date(createdAt).getTime() : 0
+  let left = 0
+  let right = messages.length
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2)
+    const midTime = messages[mid]?.createdAt ? new Date(messages[mid]!.createdAt!).getTime() : 0
+    if (midTime <= t) left = mid + 1
+    else right = mid
+  }
+  return left
+}
+
 export function rebuildMessageIndex(store: MessageStore, conversationId: string): void {
   const messages = store.messages[conversationId]
   if (!messages) return
@@ -160,22 +174,8 @@ export function addMessage(store: MessageStore, conversationId: string, message:
     messages.push(message)
     store.messageIndex[message.id] = { conversationId, idx: newIndex }
   } else {
-    let left = 0
-    let right = messages.length
-
-    while (left < right) {
-      const mid = Math.floor((left + right) / 2)
-      const midMsg = messages[mid]
-      const midTime = midMsg && midMsg.createdAt ? new Date(midMsg.createdAt).getTime() : 0
-
-      if (midTime <= messageTime) {
-        left = mid + 1
-      } else {
-        right = mid
-      }
-    }
-
-    messages.splice(left, 0, message)
+    const insertAt = findInsertIndexByCreatedAt(messages, message.createdAt)
+    messages.splice(insertAt, 0, message)
     rebuildMessageIndex(store, conversationId)
   }
 }

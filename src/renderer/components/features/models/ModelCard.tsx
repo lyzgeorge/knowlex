@@ -25,6 +25,7 @@ import {
 import type { ModelConfigPublic, ModelConnectionTestResult } from '@shared/types/models'
 import { useModelConfigStore } from '@renderer/stores/model-config'
 import { Modal } from '@renderer/components/ui'
+import { getErrorMessage } from '@shared/utils/error-handling'
 
 interface ModelCardProps {
   model: ModelConfigPublic
@@ -53,7 +54,7 @@ export function ModelCard({ model, onEdit, isDefault = false }: ModelCardProps) 
         endpointReachable: false,
         authValid: null,
         modelAvailable: null,
-        errorMessage: error instanceof Error ? error.message : 'Test failed'
+        errorMessage: getErrorMessage(error, 'Test failed')
       })
       setShowTestResult(true)
     }
