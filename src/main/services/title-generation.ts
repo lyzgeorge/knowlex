@@ -128,7 +128,9 @@ export async function generateTitleForConversation(conversationId: string): Prom
  */
 export async function attemptInitialTitleGeneration(conversationId: string): Promise<void> {
   try {
-    const { getConversation, updateConversation } = await import('@main/services/conversation')
+    const { getConversation, updateConversation } = await import(
+      '@main/services/conversation-service'
+    )
     const conversation = await getConversation(conversationId)
     if (!conversation) return
     if (!isPlaceholderTitle(conversation.title)) return // Already set by user or previous auto gen

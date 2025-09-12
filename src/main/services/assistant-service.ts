@@ -138,7 +138,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
       // Get conversation model ID for resolution context
       let conversationModelId: string | undefined
       try {
-        const { getConversation } = await import('@main/services/conversation')
+        const { getConversation } = await import('@main/services/conversation-service')
         const conv = await getConversation(config.conversationId)
         conversationModelId = conv?.modelConfigId || undefined
       } catch (e) {

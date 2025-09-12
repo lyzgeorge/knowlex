@@ -86,23 +86,40 @@ export function useEditableMessage(): UseEditableMessageResult {
 
   const initialize = useCallback(
     (message: Message) => {
-      // Extract text content
+      // Extract text content (normalized)
       const textContent = message.content
         .filter((part: MessageContentPart) => part.type === 'text')
         .map((part: MessageContentPart) => part.text || '')
         .join('\n')
-      setDraftText(textContent)
+
+      // Only update if changed to avoid triggering parent effects repeatedly
+      setDraftText((prev) => (prev !== textContent ? textContent : prev))
 
       // Extract existing attachments
       const attachmentParts = message.content.filter(
         (part: MessageContentPart) => part.type === 'temporary-file' || part.type === 'image'
       )
-      setExistingAttachments(attachmentParts)
+      setExistingAttachments((prev) => {
+        // Shallow compare lengths & ids to skip unnecessary state updates
+        if (prev.length === attachmentParts.length) {
+          let same = true
+          for (let i = 0; i < prev.length; i++) {
+            if (prev[i] !== attachmentParts[i]) {
+              same = false
+              break
+            }
+          }
+          if (same) return prev
+        }
+        return attachmentParts
+      })
 
-      // Clear file upload state for new attachments
-      fileUpload.clearFiles()
+      // Clear file upload state for new attachments (only if there are residual processed files)
+      if (fileUpload.state.processedFiles.length > 0 || fileUpload.state.files.length > 0) {
+        fileUpload.clearFiles()
+      }
     },
-    [fileUpload.clearFiles]
+    [fileUpload.state.processedFiles.length, fileUpload.state.files.length, fileUpload.clearFiles]
   )
 
   const buildContent = useCallback((): MessageContent => {
@@ -181,10 +198,12 @@ export function useEditableMessage(): UseEditableMessageResult {
   )
 
   const reset = useCallback(() => {
-    setDraftText('')
-    setExistingAttachments([])
-    fileUpload.clearFiles()
-  }, [fileUpload.clearFiles])
+    setDraftText((prev) => (prev !== '' ? '' : prev))
+    setExistingAttachments((prev) => (prev.length ? [] : prev))
+    if (fileUpload.state.processedFiles.length > 0 || fileUpload.state.files.length > 0) {
+      fileUpload.clearFiles()
+    }
+  }, [fileUpload.state.processedFiles.length, fileUpload.state.files.length, fileUpload.clearFiles])
 
   const isValid = useCallback((): boolean => {
     const content = buildContent()

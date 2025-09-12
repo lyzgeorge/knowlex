@@ -40,6 +40,7 @@
     "editMessage": "编辑",
     "copyToClipboard": "复制",
     "sendMessage": "发送消息",
+    "cancelEdit": "取消编辑",
     "stop": "停止",
     "refreshing": "刷新中",
     "thinking": "思考中...",

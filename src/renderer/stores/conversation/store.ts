@@ -6,7 +6,7 @@
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { Conversation } from '@shared/types/conversation'
+import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
 import { getActiveModelId } from '@shared/utils/model-resolution'
 
@@ -21,16 +21,14 @@ import {
 } from './data'
 import {
   CONVERSATION_CONSTANTS,
-  runAsync,
-  runApiCall,
-  loadingSetters,
-  updateConversationTimestampByMessageId,
+  updateConversation,
   clearStreamingFlagsForMessage,
   dedupeById,
   hasMeaningfulContent,
-  updateConversation,
-  EMPTY_MESSAGES
+  EMPTY_MESSAGES,
+  updateConversationTimestampByMessageId
 } from './utils'
+import { runAsync, runApiCall, loadingSetters } from '@renderer/utils/store-helpers'
 import { applyTextChunkToDraft } from './streaming'
 import { registerAllEvents, type EventCleanupFunction } from './events'
 import type { ConversationState } from './types'

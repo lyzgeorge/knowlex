@@ -2,9 +2,8 @@
  * Consolidated utils: constants + async helpers + utility functions
  */
 
-import type { Conversation } from '@shared/types/conversation'
+import type { Conversation } from '@shared/types/conversation-types'
 import type { MessageContent } from '@shared/types/message'
-import type { Draft } from 'immer'
 import { TEXT_CONSTANTS } from '@shared/constants/text'
 
 // --- constants ---
@@ -103,87 +102,3 @@ export function clearStreamingFlagsForMessage(draft: any, messageId: string) {
 }
 
 export const EMPTY_MESSAGES: any[] = []
-
-// --- async-utils (runAsync + loadingSetters) ---
-export interface AsyncOperationOptions<T> {
-  setLoading?: ((loading: boolean) => (draft: any) => void) | undefined
-  onError?: (error: string) => void
-  onSuccess?: (result: T) => void
-}
-
-export async function runAsync<T>(
-  set: (updater: (draft: Draft<any>) => void) => void,
-  operation: () => Promise<T>,
-  options: AsyncOperationOptions<T> = {}
-): Promise<T> {
-  const { setLoading, onError, onSuccess } = options
-
-  if (setLoading) {
-    set(setLoading(true))
-  }
-  set((s) => {
-    s.error = null
-  })
-
-  try {
-    const result = await operation()
-
-    if (onSuccess) {
-      onSuccess(result)
-    }
-
-    return result
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Operation failed'
-
-    if (onError) {
-      onError(errorMessage)
-    } else {
-      set((s) => {
-        s.error = errorMessage
-      })
-    }
-
-    throw error
-  } finally {
-    if (setLoading) {
-      set(setLoading(false))
-    }
-  }
-}
-
-export function createLoadingSetter(property: string) {
-  return (loading: boolean) => (draft: any) => {
-    draft[property] = loading
-  }
-}
-
-export const loadingSetters = {
-  isLoading: createLoadingSetter('isLoading'),
-  isLoadingMessages: createLoadingSetter('isLoadingMessages'),
-  isSending: createLoadingSetter('isSending'),
-  isLoadingMore: createLoadingSetter('isLoadingMore')
-}
-
-// Helper for common API call pattern with error handling
-export async function runApiCall<T = void>(
-  set: (updater: (draft: Draft<any>) => void) => void,
-  apiCall: () => Promise<{ success: boolean; data?: T; error?: string }>,
-  errorMessage: string,
-  onSuccess?: (data: T | undefined) => void,
-  options: AsyncOperationOptions<any> = {}
-): Promise<void> {
-  return runAsync(
-    set,
-    async () => {
-      const res = await apiCall()
-      if (!res?.success) {
-        throw new Error(res?.error || errorMessage)
-      }
-      if (onSuccess) {
-        onSuccess(res.data)
-      }
-    },
-    options
-  )
-}

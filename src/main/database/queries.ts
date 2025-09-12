@@ -1,4 +1,4 @@
-import type { Conversation } from '@shared/types/conversation'
+import type { Conversation } from '@shared/types/conversation-types'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'
 import { conversationEntity, messageEntity, projectEntity, modelConfigEntity } from './schemas'

@@ -83,7 +83,7 @@ export interface OpenAIConfig {
   topP?: number | undefined
   frequencyPenalty?: number | undefined
   presencePenalty?: number | undefined
-  reasoningEffort?: 'low' | 'medium' | 'high' | undefined
+  reasoningEffort?: ReasoningEffort | undefined
   smooth?:
     | {
         enabled: boolean
@@ -109,11 +109,7 @@ export function getOpenAIConfigFromEnv(): OpenAIConfig {
   }
 
   // Only add reasoningEffort if it's set in environment
-  const reasoningEffort = process.env.OPENAI_REASONING_EFFORT as
-    | 'low'
-    | 'medium'
-    | 'high'
-    | undefined
+  const reasoningEffort = process.env.OPENAI_REASONING_EFFORT as ReasoningEffort | undefined
   if (reasoningEffort) {
     config.reasoningEffort = reasoningEffort
   }

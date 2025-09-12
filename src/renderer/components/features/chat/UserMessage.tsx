@@ -1,11 +1,5 @@
 /**
- * User message component - right-aligned bubble with centralized branching
- *
- * Features:
- * - Uses MessageBranchingContext instead of manual prop passing
- * - Uses unified token counting hook
- * - Uses shared message utilities for content extraction
- * - Uses normalized view model to reduce prop surface
+ * User message component with editing and branching support
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
@@ -117,12 +111,14 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
   // Token count styling (simplified)
   const tokenCountColor = tokenCount.overLimit ? 'red.500' : 'text.tertiary'
 
-  // Initialize editing state when entering edit mode or switching branch while editing
+  // Initialize draft only when entering edit mode OR branch identity changes.
+  // Avoid depending on entire editableMessage object (unstable) to prevent re-init each render.
+  const initializeEditable = messageActions.editableMessage.initialize
   useEffect(() => {
     if (isEditing) {
-      messageActions.editableMessage.initialize(currentBranch)
+      initializeEditable(currentBranch)
     }
-  }, [isEditing, currentBranch, messageActions.editableMessage])
+  }, [isEditing, currentBranch.id, initializeEditable])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {

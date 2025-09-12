@@ -23,4 +23,19 @@ export function resolveReasoningEffort(
   return undefined
 }
 
-export default { resolveReasoningEffort }
+/**
+ * Validate and parse a reasoning effort value from unknown input.
+ * Returns the validated ReasoningEffort or undefined if invalid.
+ */
+export function validateReasoningEffort(value: unknown): ReasoningEffort | undefined {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const trimmed = value.trim() as ReasoningEffort
+    const allowed: ReasoningEffort[] = ['low', 'medium', 'high']
+    if (allowed.includes(trimmed)) {
+      return trimmed
+    }
+  }
+  return undefined
+}
+
+export default { resolveReasoningEffort, validateReasoningEffort }

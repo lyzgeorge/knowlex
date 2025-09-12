@@ -3,7 +3,7 @@
  * Defines the mapping between TypeScript entities and database tables
  */
 
-import type { Conversation } from '@shared/types/conversation'
+import type { Conversation } from '@shared/types/conversation-types'
 import type { Project } from '@shared/types/project'
 import type { Message } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'

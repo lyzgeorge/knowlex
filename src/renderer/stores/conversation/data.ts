@@ -10,7 +10,7 @@
  */
 
 // --- api ---
-import type { Conversation, SessionSettings } from '@shared/types/conversation'
+import type { Conversation, SessionSettings } from '@shared/types/conversation-types'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
 

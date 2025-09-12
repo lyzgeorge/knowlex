@@ -6,12 +6,10 @@ import {
   deleteConversation as dbDeleteConversation
 } from '@main/database/queries'
 import { generateId } from '@shared/utils/id'
-import type { Conversation, SessionSettings } from '@shared/types/conversation'
+import type { Conversation, SessionSettings } from '@shared/types/conversation-types'
 
 /**
- * Conversation Management Service
- * Handles business logic for conversation CRUD operations
- * Provides validation, error handling, and coordination between different components
+ * Conversation management service
  */
 
 export interface CreateConversationData {
@@ -33,8 +31,7 @@ export interface UpdateConversationDataWithModel extends UpdateConversationData 
 }
 
 /**
- * Creates a new conversation with generated ID and default values
- * Validates input data and ensures business rules are met
+ * Creates a new conversation
  */
 export async function createConversation(data: CreateConversationData): Promise<Conversation> {
   // Input validation
@@ -107,8 +104,7 @@ export async function listConversations(): Promise<Conversation[]> {
 }
 
 /**
- * Lists conversations with pagination support
- * Returns conversations ordered by last updated date with hasMore flag
+ * Lists conversations with pagination
  */
 export async function listConversationsPaginated(
   limit: number,
@@ -134,8 +130,7 @@ export async function listConversationsPaginated(
 }
 
 /**
- * Updates an existing conversation
- * Validates input and ensures conversation exists
+ * Updates a conversation
  */
 export async function updateConversation(
   id: string,
@@ -204,8 +199,7 @@ export async function updateConversation(
 }
 
 /**
- * Deletes a conversation and all its related messages
- * Includes confirmation of deletion by checking if conversation exists first
+ * Deletes a conversation
  */
 export async function deleteConversation(id: string): Promise<void> {
   if (!id || id.trim().length === 0) {
@@ -232,8 +226,7 @@ export async function deleteConversation(id: string): Promise<void> {
 }
 
 /**
- * Generates a meaningful title for a conversation based on its content
- * Uses the independent title generation service
+ * Generates a title for a conversation
  */
 export async function generateConversationTitle(id: string): Promise<string> {
   if (!id || id.trim().length === 0) {
@@ -260,7 +253,7 @@ export async function generateConversationTitle(id: string): Promise<string> {
 }
 
 /**
- * Moves a conversation to a project (or uncategorized when projectId is null)
+ * Moves a conversation to a project
  */
 export async function moveConversation(
   conversationId: string,

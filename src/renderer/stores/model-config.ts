@@ -8,9 +8,22 @@ import type {
   ModelConnectionTestResult
 } from '@shared/types/models'
 import { clearModelCapabilitiesCache } from '@shared/utils/model-resolution'
+import { runAsync, runApiCall, createLoadingSetter } from '@renderer/utils/store-helpers'
 
 // Enable Map/Set support in Immer for Map-based caches used by this store
 enableMapSet()
+
+// Specific loading setters for this store
+const modelLoadingSetters = {
+  isLoading: createLoadingSetter('loading'),
+  isTesting: (id: string, testing: boolean) => (draft: any) => {
+    if (testing) {
+      draft.testing[id] = true
+    } else {
+      delete draft.testing[id]
+    }
+  }
+}
 
 interface ModelConfigState {
   models: ModelConfigPublic[]
@@ -63,6 +76,13 @@ const initial: Pick<
   lastDefaultUpdate: 0
 }
 
+const _getOldestModel = (models: ModelConfigPublic[]) => {
+  if (models.length === 0) return undefined
+  return [...models].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )[0]
+}
+
 export const useModelConfigStore = create<ModelConfigState>()(
   immer((set, get) => ({
     ...initial,
@@ -88,118 +108,112 @@ export const useModelConfigStore = create<ModelConfigState>()(
     fetchModels: async () => {
       if (get().loading) return
 
-      set((s) => {
-        s.loading = true
-        s.error = null
-      })
+      await runAsync(
+        set,
+        async () => {
+          const res = await window.knowlex.modelConfig.list()
+          if (!res?.success) throw new Error(res?.error || 'Failed to load model configurations')
 
-      try {
-        const res = await window.knowlex.modelConfig.list()
-        if (!res?.success) throw new Error(res?.error || 'Failed to load model configurations')
-
-        const publicModels = (res.data as ModelConfigPublic[]) || []
-        set((s) => {
-          s.models = publicModels
-          s.loading = false
-          s.initialized = true
-          // Rebuild performance indexes
-          s.modelsById = new Map(publicModels.map((model) => [model.id, model]))
-          // Invalidate cached default
-          s.defaultModelCache = null
-          s.lastDefaultUpdate = 0
-        })
-      } catch (e) {
-        set((s) => {
-          s.error = e instanceof Error ? e.message : 'Failed to load model configurations'
-          s.loading = false
-        })
-      }
+          const publicModels = (res.data as ModelConfigPublic[]) || []
+          set((s) => {
+            s.models = publicModels
+            s.initialized = true
+            // Rebuild performance indexes
+            s.modelsById = new Map(publicModels.map((model) => [model.id, model]))
+            // Invalidate cached default
+            s.defaultModelCache = null
+            s.lastDefaultUpdate = 0
+          })
+        },
+        { setLoading: modelLoadingSetters.isLoading }
+      )
     },
 
     createModel: async (input: CreateModelConfigInput) => {
-      const res = await window.knowlex.modelConfig.create(input)
-      if (!res?.success || !res.data) {
-        throw new Error(res?.error || 'Failed to create model configuration')
-      }
-
-      const publicModel = res.data as ModelConfigPublic
-      set((s) => {
-        s.models.push(publicModel)
-        s.modelsById.set(publicModel.id, publicModel)
-        // Invalidate default cache as this might be the new default
-        s.defaultModelCache = null
-        s.lastDefaultUpdate = 0
-      })
-
-      // Capabilities for this model may have changed
-      clearModelCapabilitiesCache(publicModel.id)
-
-      return publicModel as any
+      return runAsync(
+        set,
+        async () => {
+          const res = await window.knowlex.modelConfig.create(input)
+          if (!res?.success || !res.data) {
+            throw new Error(res?.error || 'Failed to create model configuration')
+          }
+          const publicModel = res.data as ModelConfigPublic
+          set((s) => {
+            s.models.push(publicModel)
+            s.modelsById.set(publicModel.id, publicModel)
+            // Invalidate default cache as this might be the new default
+            s.defaultModelCache = null
+            s.lastDefaultUpdate = 0
+          })
+          clearModelCapabilitiesCache(publicModel.id)
+          return publicModel
+        },
+        { setLoading: modelLoadingSetters.isLoading }
+      )
     },
 
     updateModel: async (id: string, updates: UpdateModelConfigInput) => {
-      const res = await window.knowlex.modelConfig.update(id, updates)
-      if (!res?.success || !res.data) {
-        throw new Error(res?.error || 'Failed to update model configuration')
-      }
-
-      const publicUpdated = res.data as ModelConfigPublic
-      set((s) => {
-        const idx = s.models.findIndex((m) => m.id === id)
-        if (idx >= 0) {
-          s.models[idx] = publicUpdated
-          // Update Map cache
-          s.modelsById.set(id, publicUpdated)
-          // Invalidate default cache if this was the default model
-          if (s.defaultModelId === id) {
-            s.defaultModelCache = null
-            s.lastDefaultUpdate = 0
+      return runAsync(
+        set,
+        async () => {
+          const res = await window.knowlex.modelConfig.update(id, updates)
+          if (!res?.success || !res.data) {
+            throw new Error(res?.error || 'Failed to update model configuration')
           }
-        }
-      })
-
-      clearModelCapabilitiesCache(id)
-
-      return publicUpdated as any
+          const publicUpdated = res.data as ModelConfigPublic
+          set((s) => {
+            const idx = s.models.findIndex((m) => m.id === id)
+            if (idx >= 0) {
+              s.models[idx] = publicUpdated
+              // Update Map cache
+              s.modelsById.set(id, publicUpdated)
+              // Invalidate default cache if this was the default model
+              if (s.defaultModelId === id) {
+                s.defaultModelCache = null
+                s.lastDefaultUpdate = 0
+              }
+            }
+          })
+          clearModelCapabilitiesCache(id)
+          return publicUpdated
+        },
+        { setLoading: modelLoadingSetters.isLoading }
+      )
     },
 
     deleteModel: async (id: string) => {
-      const res = await window.knowlex.modelConfig.delete(id)
-      if (!res?.success) {
-        throw new Error(res?.error || 'Failed to delete model configuration')
-      }
-
-      set((s) => {
-        s.models = s.models.filter((m) => m.id !== id)
-        // Update Map cache
-        s.modelsById.delete(id)
-        // Invalidate default cache if this was the default model
-        if (s.defaultModelId === id) {
-          s.defaultModelCache = null
-          s.lastDefaultUpdate = 0
+      return runApiCall(
+        set,
+        () => window.knowlex.modelConfig.delete(id),
+        'Failed to delete model configuration',
+        () => {
+          set((s) => {
+            s.models = s.models.filter((m) => m.id !== id)
+            // Update Map cache
+            s.modelsById.delete(id)
+            // Invalidate default cache if this was the default model
+            if (s.defaultModelId === id) {
+              s.defaultModelCache = null
+              s.lastDefaultUpdate = 0
+            }
+          })
+          clearModelCapabilitiesCache(id)
         }
-      })
-
-      clearModelCapabilitiesCache(id)
+      )
     },
 
     testModel: async (id: string) => {
-      set((s) => {
-        s.testing[id] = true
-      })
-
-      try {
-        const res = await window.knowlex.modelConfig.test(id)
-        if (!res?.success || !res.data) {
-          throw new Error(res?.error || 'Connection test failed')
-        }
-
-        return res.data as ModelConnectionTestResult
-      } finally {
-        set((s) => {
-          delete s.testing[id]
-        })
-      }
+      return runAsync(
+        set,
+        async () => {
+          const res = await window.knowlex.modelConfig.test(id)
+          if (!res?.success || !res.data) {
+            throw new Error(res?.error || 'Connection test failed')
+          }
+          return res.data as ModelConnectionTestResult
+        },
+        { setLoading: (loading) => modelLoadingSetters.isTesting(id, loading) }
+      )
     },
 
     getModelById: (id: string) => {
@@ -217,30 +231,13 @@ export const useModelConfigStore = create<ModelConfigState>()(
       }
 
       // Recalculate default model without caching during render
-      if (state.models.length === 0) return undefined
-
-      // First model by creation time (oldest first)
-      const defaultModel = [...state.models].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )[0]
-
-      return defaultModel
+      return _getOldestModel(state.models)
     },
     updateDefaultModelCache: () => {
       const state = get()
       const now = Date.now()
 
-      if (state.models.length === 0) {
-        set((s) => {
-          s.defaultModelCache = null
-          s.lastDefaultUpdate = now
-        })
-        return
-      }
-
-      const defaultModel = [...state.models].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )[0]
+      const defaultModel = _getOldestModel(state.models)
 
       set((s) => {
         s.defaultModelCache = defaultModel || null

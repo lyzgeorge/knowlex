@@ -1,19 +1,10 @@
 /**
- * Message Send Workflow Service
- *
- * Encapsulates the multi-step workflow previously embedded in the IPC layer:
- * 1. Ensure (or create) conversation
- * 2. Create user message
- * 3. Create assistant placeholder message
- * 4. Trigger assistant reply generation (streaming)
- * 5. Emit necessary events
- *
- * Keeping this here keeps the IPC layer thin (validation + delegation) while
- * centralising business logic and making it easier to test.
+ * Message send workflow service
  */
 import type { Message } from '@shared/types/message'
-import type { Conversation } from '@shared/types/conversation'
-import { createConversation } from './conversation'
+import type { Conversation } from '@shared/types/conversation-types'
+import type { ReasoningEffort } from '@shared/types/models'
+import { createConversation } from './conversation-service'
 import { addMessage } from './message'
 import { generateReplyForNewMessage } from './assistant-service'
 import {
@@ -26,7 +17,7 @@ import { ensurePlaceholder } from '@shared/utils/text'
 
 export interface SendMessageInput {
   content: any
-  reasoningEffort?: 'low' | 'medium' | 'high' | undefined
+  reasoningEffort?: ReasoningEffort | undefined
   conversationId?: string | undefined
   parentMessageId?: string | undefined
   projectId?: string | undefined
@@ -47,7 +38,7 @@ async function ensureConversationExists(params: {
 }): Promise<{ conversation: Conversation; newlyCreated: boolean }> {
   if (params.conversationId) {
     // Lazy import to avoid circular deps (conversation.ts imports this service)
-    const { getConversation } = await import('./conversation')
+    const { getConversation } = await import('./conversation-service')
     const conv = await getConversation(params.conversationId)
     if (!conv) throw new Error('Conversation not found')
     return { conversation: conv, newlyCreated: false }

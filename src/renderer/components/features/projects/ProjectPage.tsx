@@ -9,7 +9,7 @@ import { ModelSelector } from '@renderer/components/features/models/ModelSelecto
 import { useNotifications } from '@renderer/components/ui'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
-import type { Conversation } from '@shared/types/conversation'
+import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
 
 interface Props {

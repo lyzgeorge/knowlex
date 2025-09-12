@@ -13,3 +13,13 @@ export const DEFAULT_AI_CONFIG = {
   frequencyPenalty: 0,
   presencePenalty: 0
 } as const
+
+/**
+ * Reasoning effort level mappings
+ * Maps user-friendly levels to specific values for AI providers
+ */
+export const REASONING_RESOLUTIONS = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high'
+} as const
