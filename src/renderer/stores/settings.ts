@@ -44,7 +44,7 @@ export const useSettingsStore = create<SettingsState>()(
   )
 )
 
-export const useDefaultModel = () => {
+export const useUserDefaultModelPreference = () => {
   const defaultModelId = useSettingsStore((state) => state.generalSettings.defaultModelId)
   const setDefaultModelId = useSettingsStore((state) => state.setDefaultModelId)
   return { defaultModelId, setDefaultModelId }

@@ -5,6 +5,7 @@ import type { CancellationToken } from '@main/utils/cancellation'
 import type { ReasoningEffort } from '@shared/types/models'
 import { modelConfigService } from './model-config-service'
 import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
+import { StreamingCallbacks, consumeFullStream } from './ai-streaming'
 
 /**
  * OpenAI Adapter Service using official AI SDK
@@ -19,6 +20,17 @@ const DEFAULT_SMOOTH_OPTIONS = {
   delayInMs: 20,
   chunking: /[\u4E00-\u9FFF]|\S+\s+/
 } as const
+
+/**
+ * Build provider-specific options (keeps reasoning option construction in one place)
+ */
+function buildProviderOptions(config: OpenAIConfig, includeReasoningOptions: boolean) {
+  const providerOptions: Record<string, any> = {}
+  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
+    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
+  }
+  return providerOptions
+}
 
 /**
  * Builds model parameters with consistent configuration
@@ -79,104 +91,6 @@ export interface OpenAIConfig {
         chunking?: RegExp | 'word' | 'line' | undefined
       }
     | undefined
-}
-
-/**
- * Build provider-specific options (keeps reasoning option construction in one place)
- */
-function buildProviderOptions(config: OpenAIConfig, includeReasoningOptions: boolean) {
-  const providerOptions: Record<string, any> = {}
-  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
-    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
-  }
-  return providerOptions
-}
-
-/**
- * Consumes fullStream async iterable and forwards events to callbacks while
- * accumulating text and reasoning. Returns { text, reasoning } or throws on error.
- */
-async function consumeFullStream(
-  fullStream: AsyncIterable<any>,
-  callbacks: StreamingCallbacks,
-  cancellationToken?: CancellationToken
-): Promise<{ text: string; reasoning?: string; cancelled?: boolean }> {
-  let accumulatedText = ''
-  let accumulatedReasoning = ''
-  let wasCancelled = false
-
-  try {
-    for await (const part of fullStream) {
-      if (cancellationToken?.isCancelled) {
-        wasCancelled = true
-        break
-      }
-
-      switch (part.type) {
-        case 'start':
-          callbacks.onStreamStart?.()
-          callbacks.onStart?.()
-          break
-
-        case 'text-start':
-          callbacks.onTextStart?.()
-          break
-
-        case 'text-delta':
-          if (part.text && part.text.length > 0) {
-            accumulatedText += part.text
-            callbacks.onTextChunk(part.text)
-          }
-          break
-
-        case 'text-end':
-          callbacks.onTextEnd?.()
-          break
-
-        case 'reasoning-start':
-          callbacks.onReasoningStart?.()
-          break
-
-        case 'reasoning-delta':
-          if (part.text && part.text.length > 0) {
-            accumulatedReasoning += part.text
-            callbacks.onReasoningChunk?.(part.text)
-          }
-          break
-
-        case 'reasoning-end':
-          callbacks.onReasoningEnd?.()
-          break
-
-        case 'finish':
-          callbacks.onStreamFinish?.()
-          break
-
-        case 'error':
-          console.error('AI streaming error:', part.error)
-          throw part.error
-
-        case 'start-step':
-        case 'finish-step':
-        case 'tool-call':
-        case 'tool-result':
-          // No-op
-          break
-
-        default:
-          console.log('[AI] Unknown fullStream part type:', part.type)
-      }
-    }
-  } catch (err) {
-    console.error('[AI] FullStream error:', err)
-    throw err
-  }
-
-  return {
-    text: accumulatedText,
-    ...(accumulatedReasoning ? { reasoning: accumulatedReasoning } : {}),
-    ...(wasCancelled ? { cancelled: true } : {})
-  }
 }
 
 /**
@@ -372,26 +286,7 @@ export async function generateAIResponseOnce(
   }
 }
 
-/**
- * Callback interface for streaming events
- */
-export interface StreamingCallbacks {
-  // Fired when fullStream emits 'start'. Useful to lazily create resources (e.g., conversations/messages).
-  onStreamStart?: () => void
-  // Fired when fullStream emits 'start' for UI feedback (e.g., sparkle animation)
-  onStart?: () => void
-  // Text lifecycle
-  onTextStart?: () => void
-  // Fired for each assistant text delta
-  onTextChunk: (chunk: string) => void
-  onTextEnd?: () => void
-  // Reasoning lifecycle
-  onReasoningChunk?: (chunk: string) => void
-  onReasoningStart?: () => void
-  onReasoningEnd?: () => void
-  // Fired when fullStream emits 'finish' (before awaiting final text)
-  onStreamFinish?: () => void
-}
+// Streaming callbacks and consumeFullStream are imported from './ai-streaming'
 
 /**
  * Generates an AI response with streaming support

@@ -1,21 +1,21 @@
+/**
+ * Assistant message component - left-aligned with avatar and reasoning support
+ *
+ * Features:
+ * - Uses shared copyMessageText utility
+ * - Uses normalized view model to reduce calculations
+ * - Cleaner prop surface with view model pattern
+ */
+
 import React, { useState, useCallback } from 'react'
 import { Box, VStack, HStack, Text, useColorModeValue, Icon, IconButton } from '@chakra-ui/react'
 import { HiSparkles, HiClipboard, HiArrowPath } from 'react-icons/hi2'
-import { formatTime } from '@shared/utils/time'
-import type { Message, MessageContentPart } from '@shared/types/message'
+import type { Message } from '@shared/types/message'
+import { createAssistantMessageViewModel } from '@shared/utils/message-view-models'
 import ReasoningBox from './ReasoningBox'
 import { MarkdownContent } from '@renderer/utils/markdownComponents'
-import { useNotifications } from '@renderer/components/ui'
-import {
-  useIsReasoningStreaming,
-  useReasoningStreamingMessageId,
-  useIsStartStreaming,
-  useStartStreamingMessageId,
-  useIsTextStreaming,
-  useTextStreamingMessageId,
-  useRegenerateMessage
-} from '@renderer/stores/conversation/index'
-import { stripPlaceholder } from '@shared/utils/text'
+import { useMessageActions } from '@renderer/hooks/useMessageActions'
+import { useStreamingPhase } from '@renderer/hooks/useStreamingPhase'
 
 export interface AssistantMessageProps {
   /** Message data */
@@ -38,24 +38,13 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   isLatestAssistantMessage = false
 }) => {
   const [isHovered, setIsHovered] = useState(false)
-  const notifications = useNotifications()
-  const regenerateMessage = useRegenerateMessage()
+  const messageActions = useMessageActions()
 
-  // Reasoning streaming state
-  const isReasoningStreaming = useIsReasoningStreaming()
-  const reasoningStreamingMessageId = useReasoningStreamingMessageId()
-  const isReasoningStreamingForMessage =
-    isReasoningStreaming && reasoningStreamingMessageId === message.id
+  // Create normalized view model
+  const viewModel = createAssistantMessageViewModel(message)
 
-  // Start streaming state
-  const isStartStreaming = useIsStartStreaming()
-  const startStreamingMessageId = useStartStreamingMessageId()
-  const isStartStreamingForMessage = isStartStreaming && startStreamingMessageId === message.id
-
-  // Text streaming state
-  const isTextStreaming = useIsTextStreaming()
-  const textStreamingMessageId = useTextStreamingMessageId()
-  const isTextStreamingForMessage = isTextStreaming && textStreamingMessageId === message.id
+  // Unified streaming state
+  const streaming = useStreamingPhase(message.id)
 
   // Color mode values
   const avatarBg = useColorModeValue('gray.100', 'gray.700')
@@ -63,66 +52,18 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
   const iconColor = useColorModeValue('gray.600', 'gray.300')
   const assistantTextColor = useColorModeValue('text.primary', 'text.primary')
 
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered((prev) => (prev ? prev : true))
-  }, [])
+  const handleMouseEnter = () => setIsHovered(true)
+  const handleMouseLeave = () => setIsHovered(false)
 
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered((prev) => (prev ? false : prev))
-  }, [])
+  // Handle copy using unified message actions
+  const handleCopy = useCallback(async () => {
+    await messageActions.copy(message)
+  }, [message, messageActions])
 
-  // Get text content only
-  const getTextContent = () => {
-    return message.content
-      .filter((part: MessageContentPart) => part.type === 'text')
-      .map((part: MessageContentPart) => part.text || '')
-      .join('\n')
-  }
-
-  // Get text content for rendering
-  const textContent = getTextContent()
-
-  // Calculate visible text (remove zero-width space placeholder)
-  const visibleText = stripPlaceholder(textContent).trim()
-
-  // Handle copy
-  const handleCopy = async () => {
-    try {
-      const content = getTextContent()
-      await navigator.clipboard.writeText(content)
-      notifications.success({
-        title: 'Copied',
-        description: 'Text content copied to clipboard',
-        duration: 2000
-      })
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-      notifications.error({
-        title: 'Copy failed',
-        description: 'Failed to copy',
-        duration: 3000
-      })
-    }
-  }
-
-  // Handle regenerate
-  const handleRegenerate = async () => {
-    try {
-      await regenerateMessage(message.id)
-      notifications.success({
-        title: 'Regenerating',
-        description: 'Message is being regenerated',
-        duration: 2000
-      })
-    } catch (error) {
-      console.error('Failed to regenerate message:', error)
-      notifications.error({
-        title: 'Regeneration failed',
-        description: 'Failed to regenerate message',
-        duration: 3000
-      })
-    }
-  }
+  // Handle regenerate using unified message actions
+  const handleRegenerate = useCallback(async () => {
+    await messageActions.regenerate(message.id)
+  }, [message.id, messageActions])
 
   return (
     <HStack align="flex-start" spacing={3} width="100%" justify="flex-start" mb={4}>
@@ -147,19 +88,19 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
       {/* Message Content */}
       <VStack align="flex-start" spacing={2} maxWidth="70%" flex={1}>
         {/* Reasoning Box - Show before main content for assistant messages */}
-        {(message.reasoning || isReasoningStreamingForMessage) && (
+        {(viewModel.hasReasoning || streaming.isReasoningStreaming) && (
           <Box alignSelf="flex-start">
             <ReasoningBox
-              {...(message.reasoning ? { reasoning: message.reasoning } : {})}
-              isReasoningStreaming={isReasoningStreamingForMessage}
-              isTextStreaming={isTextStreamingForMessage}
-              showWhenEmpty={isReasoningStreamingForMessage}
+              {...(viewModel.reasoning ? { reasoning: viewModel.reasoning } : {})}
+              isReasoningStreaming={streaming.isReasoningStreaming}
+              isTextStreaming={streaming.isTextStreaming}
+              showWhenEmpty={streaming.isReasoningStreaming}
             />
           </Box>
         )}
 
-        {/* Text content */}
-        {(visibleText || isTextStreamingForMessage) && (
+        {/* Text content using view model */}
+        {(viewModel.visibleText || streaming.isTextStreaming) && (
           <Box
             bg="transparent"
             color={assistantTextColor}
@@ -171,12 +112,12 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
             maxWidth="100%"
             overflow="hidden"
           >
-            <MarkdownContent text={visibleText} />
+            <MarkdownContent text={viewModel.visibleText} />
           </Box>
         )}
 
         {/* Streaming indicator (blinking HiSparkles) when streaming starts */}
-        {isStartStreamingForMessage && (
+        {streaming.isStartStreaming && (
           <HStack spacing={2} px={2} align="center" alignSelf="flex-start">
             <Icon
               as={HiSparkles}
@@ -204,7 +145,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
         >
           <HStack spacing={1} display={isHovered ? 'flex' : 'none'}>
             {/* Only show regenerate button for the latest assistant message */}
-            {isLatestAssistantMessage && (
+            {messageActions.canRegenerate(message, isLatestAssistantMessage) && (
               <IconButton
                 aria-label="Regenerate message"
                 icon={<HiArrowPath />}
@@ -223,9 +164,9 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({
               _hover={{ bg: 'surface.hover' }}
             />
           </HStack>
-          <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-            <Text variant="timestamp">{formatTime(message.updatedAt)}</Text>
-          </Box>
+          {!isHovered && showTimestamp && (
+            <Text variant="timestamp">{viewModel.formattedTimestamp}</Text>
+          )}
         </HStack>
       </VStack>
     </HStack>

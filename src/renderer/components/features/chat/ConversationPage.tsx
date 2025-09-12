@@ -1,3 +1,13 @@
+/**
+ * Conversation page component with MessageBranchingProvider
+ *
+ * Features:
+ * - Uses MessageBranchingProvider to wrap message components
+ * - No longer needs to manually pass branchInfo and onBranchChange
+ * - Uses shared getLastAssistantMessage utility
+ * - Cleaner component structure with centralized branching logic
+ */
+
 import React, { useMemo } from 'react'
 import { Box, VStack, IconButton } from '@chakra-ui/react'
 import { useCurrentConversation } from '@renderer/stores/conversation/index'
@@ -6,7 +16,7 @@ import UserMessage from './UserMessage'
 import AssistantMessage from './AssistantMessage'
 import { ConversationHeader } from './ConversationHeader'
 import { useAutoScroll } from '@renderer/hooks/useAutoScroll'
-import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
+import { MessageBranchingProvider, useBranching } from '@renderer/contexts/MessageBranchingContext'
 import { HiArrowDown } from 'react-icons/hi2'
 
 export interface ConversationPageProps {
@@ -15,46 +25,47 @@ export interface ConversationPageProps {
 }
 
 /**
- * Conversation page component
- *
- * Shows the active conversation with messages and input box.
- * Features:
- * - Message list with auto-scroll
- * - Floating conversation input box
- * - Scroll-to-bottom button when not at bottom
+ * Inner component that uses the branching context
  */
-export const ConversationPage: React.FC<ConversationPageProps> = ({ className }) => {
-  const { currentMessages } = useCurrentConversation()
+const ConversationContent: React.FC<ConversationPageProps> = ({ className }) => {
+  const { filteredMessages } = useBranching()
 
-  // Use message branching hook to filter messages based on active branches
-  const { filteredMessages, setBranchIndex, getBranchInfo } = useMessageBranching(currentMessages)
+  // Optimized dependencies - derive metrics in single pass to avoid multiple scans
+  const { scrollMetrics, latestAssistantMessage } = useMemo(() => {
+    let assistantCount = 0
+    let lastAssistant = null
 
-  // Optimized dependencies - track actual content changes for auto-scroll
-  const scrollDependencies = useMemo(() => {
-    const assistantMessages = filteredMessages.filter((msg: any) => msg.role === 'assistant')
-    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]
+    // Single pass through messages
+    for (const message of filteredMessages) {
+      if (message.role === 'assistant') {
+        assistantCount++
+        lastAssistant = message
+      }
+    }
 
     // Calculate total text length for streaming detection
     const totalTextLength =
-      lastAssistantMessage?.content?.reduce((total: number, part: any) => {
+      lastAssistant?.content?.reduce((total: number, part: any) => {
         if (part.type === 'text' && typeof part.text === 'string') {
           return total + part.text.length
         }
         return total
       }, 0) || 0
 
-    return [
-      filteredMessages.length, // Total message count (includes user messages)
-      assistantMessages.length, // Number of assistant messages
-      lastAssistantMessage?.id, // ID of last assistant message
-      lastAssistantMessage?.content?.length, // Number of content parts
+    const metrics = [
+      filteredMessages.length, // Total message count
+      assistantCount, // Number of assistant messages
+      lastAssistant?.id, // ID of last assistant message
+      lastAssistant?.content?.length, // Number of content parts
       totalTextLength // Total text length (grows during streaming)
     ]
+
+    return { scrollMetrics: metrics, latestAssistantMessage: lastAssistant }
   }, [filteredMessages])
 
   // Auto-scroll with optimized sticky detection
   const { scrollRef, anchorRef, forceScrollToBottom, isAtBottom } = useAutoScroll<HTMLDivElement>(
-    scrollDependencies,
+    scrollMetrics,
     {
       threshold: 128, // 8rem range for hiding scroll button (8 * 16px = 128px)
       enabled: true,
@@ -69,11 +80,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
     [filteredMessages]
   )
 
-  // Get the latest assistant message
-  const latestAssistantMessage = useMemo(() => {
-    const assistantMessages = filteredMessages.filter((msg: any) => msg.role === 'assistant')
-    return assistantMessages[assistantMessages.length - 1] || null
-  }, [filteredMessages])
+  // latestAssistantMessage already computed above in scrollMetrics memo
 
   // Also scroll when user message count increases (additional trigger)
   React.useEffect(() => {
@@ -111,7 +118,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
           scrollBehavior: 'auto' // Let our hook control scroll behavior
         }}
       >
-        {/* Message List - Inline rendering with branching */}
+        {/* Message List - No more manual prop passing */}
         <VStack spacing={4} align="stretch">
           {filteredMessages.map((message) => {
             const isLatestAssistantMessage =
@@ -125,11 +132,7 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
                   <UserMessage
                     message={message}
                     showTimestamp={true}
-                    branchInfo={getBranchInfo(message)}
-                    onBranchChange={(index) => {
-                      const parentKey = message.parentMessageId ?? '__ROOT__'
-                      setBranchIndex(parentKey, index)
-                    }}
+                    // No more branchInfo or onBranchChange props needed!
                   />
                 ) : (
                   <Box minH={isLatestAssistantMessage ? 'calc(100vh - 20rem)' : 'auto'}>
@@ -177,10 +180,24 @@ export const ConversationPage: React.FC<ConversationPageProps> = ({ className })
         )}
 
         <Box pointerEvents="auto">
-          <ChatInputBox variant="conversation" branching={{ filteredMessages }} />
+          {/* No more redundant branching prop needed! */}
+          <ChatInputBox variant="conversation" />
         </Box>
       </Box>
     </Box>
+  )
+}
+
+/**
+ * Conversation page component with MessageBranchingProvider
+ */
+export const ConversationPage: React.FC<ConversationPageProps> = ({ className }) => {
+  const { currentMessages } = useCurrentConversation()
+
+  return (
+    <MessageBranchingProvider messages={currentMessages}>
+      <ConversationContent className={className} />
+    </MessageBranchingProvider>
   )
 }
 

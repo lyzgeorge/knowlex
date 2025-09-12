@@ -18,7 +18,7 @@ import {
 } from '@chakra-ui/react'
 import { HiPlus, HiLightBulb, HiEye, HiWrench, HiMagnifyingGlass } from 'react-icons/hi2'
 import { useModelConfigStore } from '@renderer/stores/model-config'
-import { useDefaultModel } from '@renderer/stores/settings'
+import { useUserDefaultModelPreference } from '@renderer/stores/settings'
 import { ModelCard } from './ModelCard'
 import { EditModelModal } from './EditModelModal'
 import type { ModelConfigPublic } from '@shared/types/models'
@@ -26,7 +26,7 @@ import type { ModelConfigPublic } from '@shared/types/models'
 export function ModelSettingsPanel() {
   const { models, loading, initialized, error: modelError, fetchModels } = useModelConfigStore()
   const { defaultModelId: currentDefaultFromStore, setDefaultModelId: setDefaultInStore } =
-    useDefaultModel()
+    useUserDefaultModelPreference()
 
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [editingModel, setEditingModel] = useState<ModelConfigPublic | null>(null)

@@ -226,7 +226,7 @@ Core business logic resides here. Services are self-contained and handle a speci
 | ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `project-service.ts`   | Manages project CRUD operations with case-insensitive name uniqueness validation and cascade deletes of conversations. | `createProject`, `getProjectById`, `getAllProjects`, `updateProjectById`, `deleteProjectById`, `getProjectConversations` |
 | `conversation.ts`      | Handles conversation CRUD, pagination, project associations, and auto-title generation triggers. | `createConversation`, `listConversationsPaginated`, `generateConversationTitle`, `moveConversation` |
-| `message.ts`           | Manages message CRUD with multi-part content support (text, files, images, citations), content validation, and temporary file integration. | `addMessage`, `addTextMessage`, `addMultiPartMessage`, `convertTemporaryFilesToMessageParts`, `extractTextContent` |
+| `message.ts`           | Manages message CRUD with multi-part content support (text, files, images, citations), content validation, and temporary file integration. | `addMessage`, `convertTemporaryFilesToMessageParts`, `extractTextContent` |
 | `assistant-service.ts` | Orchestrates AI response generation with streaming events, cancellation management, and real-time IPC broadcasting. Uses internal batch emitter to reduce IPC pressure. | `streamAssistantReply`, `generateReplyForNewMessage`, `regenerateReply` |
 | `file-temp.ts`         | Processes temporary file uploads with comprehensive validation, text extraction, and image optimization (data URLs). | `processTemporaryFiles`, `processTemporaryFileContents`, `validateTemporaryFileConstraints`, `extractFileTextContent`, `cleanupTemporaryFiles` |
 | `file-parser.ts`       | Factory pattern for parsing multiple file types (PDF, Office, plain text) with encoding detection and metadata extraction. | `FileParser` (abstract), `PlainTextParser`, `PDFParser`, `OfficeParser`, `FileParserFactory`, `parseFile` |
@@ -279,8 +279,8 @@ Zustand stores for managing frontend state with persistence and real-time synchr
 | `project.ts`      | Manages project data with persistent expand/collapse state via localStorage, loading states, and project IPC interactions. | `useProjects`, `useProjectExpansion` selectors             |
 | `conversation/`   | Modular conversation state management split across multiple files for maintainability. | `store.ts` (main Zustand store), `data.ts` (persistence), `events.ts` (IPC sync), `streaming.ts` (AI responses), `hooks.ts` (selectors), `utils.ts` (helpers) |
 | `navigation.ts`   | Controls application views (home, project, conversation) with coordinated state transitions and current selection tracking. | `useCurrentView`, `useCanGoBack` selectors                  |
-| `settings.ts`     | Caches application settings, language preferences, and AI provider configurations with main process synchronization. | `useDefaultModel` selector for AI preferences               |
-| `model-config.ts` | AI model configuration management with real-time updates.   | `useModelConfigs`, `useDefaultModel` selectors             |
+| `settings.ts`     | Caches application settings, language preferences, and AI provider configurations with main process synchronization. | `useUserDefaultModelPreference` selector for AI preferences |
+| `model-config.ts` | AI model configuration management with real-time updates.   | `useModelConfigs` selector, `getDefaultModel` method       |
 | `app.ts`          | Manages global initialization status, sidebar collapse state (persistent), and application-wide UI preferences. | `useTheme`, `useLanguage`, `useSidebarState` selectors     |
 | `index.ts`        | Central store coordination with unified initialization and error handling. | `initializeStores`, `resetAllStores` functions             |
 
@@ -294,7 +294,7 @@ Reusable UI logic encapsulated in custom React hooks with sophisticated state ma
 | `useConversationManagement.ts` | Manages conversation list with infinite scroll using `IntersectionObserver`, delete confirmations, and loading states. | Infinite scroll management, delete confirmations            |
 | `useMessageBranching.ts`       | Handles complex conversation tree navigation with branch creation, switching, merging, and deletion with state synchronization. | Tree traversal, branch operations, branch info data         |
 | `useEditableMessage.ts`        | Manages editable message state with text editing, file attachment modification, undo/redo, and branch creation integration. | Edit state, content validation, file attachment handling    |
-| `useMessageContentDiff.ts`     | Efficient content comparison with text and file change detection, memoized for performance optimization. | Memoized content comparison, change detection               |
+<!-- `useMessageContentDiff` hook removed: content diffing utilities deprecated and removed. -->
 | `useFileUpload.ts`             | Client-side file validation with debouncing (100ms), base64 encoding for binary files, and IPC integration for processing. | File validation, drag-drop support, upload processing       |
 | `useInlineEdit.ts`             | Inline editing state management for titles with start/cancel/confirm workflows and validation. | Start/cancel/confirm workflow, validation                   |
 | `useAutoScroll.ts`             | Smart scrolling with streaming follow control, user override detection, and smooth scroll animations. | Auto-scroll with user override detection                    |

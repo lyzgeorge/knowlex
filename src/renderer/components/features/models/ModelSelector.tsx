@@ -13,7 +13,7 @@ import {
 import { HiChevronDown, HiCog6Tooth, HiMiniCheck } from 'react-icons/hi2'
 import { useModelConfigStore } from '@renderer/stores/model-config'
 import { useConversationStore } from '@renderer/stores/conversation/store'
-import { useDefaultModel } from '@renderer/stores/settings'
+import { useUserDefaultModelPreference } from '@renderer/stores/settings'
 import { useNavigationActions } from '@renderer/stores/navigation'
 
 export function ModelSelector() {
@@ -22,7 +22,7 @@ export function ModelSelector() {
 
   const { setActiveModel, getActiveModelId } = useConversationStore()
   const currentConversationId = useConversationStore((s) => s.currentConversationId)
-  const { defaultModelId } = useDefaultModel()
+  const { defaultModelId } = useUserDefaultModelPreference()
 
   const { openSettings } = useNavigationActions()
 

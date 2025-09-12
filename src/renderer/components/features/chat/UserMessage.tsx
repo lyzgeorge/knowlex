@@ -1,4 +1,14 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+/**
+ * User message component - right-aligned bubble with centralized branching
+ *
+ * Features:
+ * - Uses MessageBranchingContext instead of manual prop passing
+ * - Uses unified token counting hook
+ * - Uses shared message utilities for content extraction
+ * - Uses normalized view model to reduce prop surface
+ */
+
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Box,
   VStack,
@@ -19,10 +29,8 @@ import {
   HiChevronRight,
   HiLightBulb
 } from 'react-icons/hi2'
-import type { Message, MessageContentPart } from '@shared/types/message'
-import { formatTime } from '@shared/utils/time'
-// token formatting removed: display raw token numbers
-import { buildUserMessageBranchSendOptions } from '@shared/utils/message-branching'
+import type { Message } from '@shared/types/message'
+import { createUserMessageViewModel } from '@shared/utils/message-view-models'
 import { MarkdownContent } from '@renderer/utils/markdownComponents'
 import {
   TempFileCard,
@@ -30,58 +38,52 @@ import {
   TempFileCardList
 } from '@renderer/components/ui/TempFileCard'
 import AutoResizeTextarea from '@renderer/components/ui/AutoResizeTextarea'
-import { useNotifications } from '@renderer/components/ui'
-import { useSendMessage, useIsSending } from '@renderer/stores/conversation/index'
-// Inline branch navigation logic; remove dependency on useMessageBranch hook
-import { useEditableMessage } from '@renderer/hooks/useEditableMessage'
-import { useMessageContentDiff } from '@renderer/hooks/useMessageContentDiff'
+import { useIsSending, useCurrentConversation } from '@renderer/stores/conversation/index'
+import { useMessageActions } from '@renderer/hooks/useMessageActions'
 import { getFileAcceptString } from '@renderer/hooks/useFileUpload'
-import { useRequestTokenCount } from '@renderer/hooks/useRequestTokenCount'
+import { useMessageTokenEstimate } from '@renderer/hooks/useMessageTokenEstimate'
 import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
-import { useCurrentConversation } from '@renderer/stores/conversation/index'
+import {
+  useMessageBranchInfo,
+  useMessageBranchChange
+} from '@renderer/contexts/MessageBranchingContext'
 import { useI18n } from '@renderer/hooks/useI18n'
-
-export interface BranchInfo {
-  branches: Message[]
-  currentIndex: number
-  totalCount: number
-}
 
 export interface UserMessageProps {
   /** Message data */
   message: Message
   /** Whether to show the timestamp */
   showTimestamp?: boolean
-  /** Branch information for this message */
-  branchInfo?: BranchInfo
-  /** Callback when branch is changed */
-  onBranchChange?: (index: number) => void
 }
 
 /**
- * User message component - right-aligned bubble
+ * User message component - right-aligned bubble with centralized branching
  */
-export const UserMessage: React.FC<UserMessageProps> = ({
-  message,
-  showTimestamp = true,
-  branchInfo,
-  onBranchChange
-}) => {
+export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp = true }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
   const { t } = useI18n()
-  const notifications = useNotifications()
-  const sendMessage = useSendMessage()
   const isSending = useIsSending()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Unified message actions with editing callbacks
+  const messageActions = useMessageActions({
+    onEditStart: () => setIsEditing(true),
+    onEditCancel: () => setIsEditing(false),
+    onEditSent: () => setIsEditing(false)
+  })
 
   // Theme colors
   const userBg = useColorModeValue('rgba(74, 124, 74, 0.08)', 'rgba(74, 124, 74, 0.12)')
   const userTextColor = useColorModeValue('text.primary', 'text.primary')
 
-  // Branch management (inline replacement of useMessageBranch)
+  // Use branching context instead of props
+  const branchInfo = useMessageBranchInfo(message)
+  const onBranchChange = useMessageBranchChange(message)
+
+  // Branch management from context
   const branches = branchInfo?.branches || [message]
   const activeIndex = branchInfo?.currentIndex || 0
   const currentBranch = branches[activeIndex] || message
@@ -89,58 +91,38 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const canGoNext = activeIndex < branches.length - 1
   const goToPrevious = useCallback(() => {
     const newIndex = Math.max(0, activeIndex - 1)
-    onBranchChange?.(newIndex)
+    onBranchChange(newIndex)
   }, [activeIndex, onBranchChange])
   const goToNext = useCallback(() => {
     const newIndex = Math.min(branches.length - 1, activeIndex + 1)
-    onBranchChange?.(newIndex)
+    onBranchChange(newIndex)
   }, [activeIndex, branches.length, onBranchChange])
 
-  // Editable message state
-  const editableMessage = useEditableMessage()
+  // Create normalized view model
+  const viewModel = createUserMessageViewModel(currentBranch)
 
-  // Content diffing
-  const contentDiff = useMessageContentDiff(currentBranch.content)
-
-  // Get conversation and model context for token counting
+  // Get conversation and model context
   const { currentConversation } = useCurrentConversation()
   const { modelConfig: activeModel } = useActiveModelCapabilities(
     currentConversation?.modelConfigId
   )
 
-  // Convert new attachments to token count format
-  const tokenCountFiles = isEditing
-    ? editableMessage.attachments
-        .filter((att) => att.kind === 'new')
-        .map((att) => ({
-          id: att.id,
-          name: att.filename,
-          type: att.partType === 'image' ? ('image' as const) : ('text' as const),
-          content: att.content || '',
-          ...(att.partType === 'image' && att.content && { dataUrl: att.content })
-        }))
-    : []
-
-  // Token counting for edit mode - only calculate when editing
-  const tokenCount = useRequestTokenCount({
-    text: isEditing ? editableMessage.draftText : '',
-    processedFiles: tokenCountFiles,
+  // Unified token counting with new hook
+  const tokenCount = useMessageTokenEstimate({
+    text: isEditing ? messageActions.editableMessage.draftText : '',
+    attachments: isEditing ? messageActions.editableMessage.attachments : [],
     model: activeModel
   })
 
-  // Token count styling and formatting
-  // call hook unconditionally to satisfy rules-of-hooks
-  const tokenCountTertiary = useColorModeValue('text.tertiary', 'text.tertiary')
-  const tokenCountColor = tokenCount.overLimit ? 'red.500' : tokenCountTertiary
-
-  // token counts displayed as raw numbers
+  // Token count styling (simplified)
+  const tokenCountColor = tokenCount.overLimit ? 'red.500' : 'text.tertiary'
 
   // Initialize editing state when entering edit mode or switching branch while editing
   useEffect(() => {
     if (isEditing) {
-      editableMessage.initialize(currentBranch)
+      messageActions.editableMessage.initialize(currentBranch)
     }
-  }, [isEditing, currentBranch.id, activeIndex, editableMessage.initialize])
+  }, [isEditing, currentBranch, messageActions.editableMessage])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {
@@ -154,12 +136,6 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     }
   }, [isEditing])
 
-  // Check if content has changed
-  const hasContentChanged = useCallback((): boolean => {
-    const newContent = editableMessage.buildContent()
-    return contentDiff.compare(newContent)
-  }, [editableMessage.buildContent, contentDiff.compare])
-
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true)
   }, [])
@@ -168,74 +144,28 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     setIsHovered(false)
   }, [])
 
-  // Derived values
-  const fileParts = useMemo(() => {
-    return currentBranch.content.filter(
-      (part) => part.type === 'temporary-file' || part.type === 'image'
-    )
-  }, [currentBranch.content])
-
-  const textParts = useMemo(() => {
-    return currentBranch.content.filter((part) => part.type === 'text')
-  }, [currentBranch.content])
-
-  const textContent = useMemo(() => {
-    return textParts.map((part) => part.text || '').join('\n')
-  }, [textParts])
-
-  // Handle edit message
+  // Handle edit message using unified actions
   const handleEdit = useCallback(() => {
-    setIsEditing(true)
-  }, [])
+    messageActions.edit(currentBranch)
+  }, [messageActions, currentBranch])
 
-  // Handle cancel editing
+  // Handle cancel editing using unified actions
   const handleCancelEdit = useCallback(() => {
-    setIsEditing(false)
-    editableMessage.reset()
-  }, [editableMessage.reset])
+    messageActions.cancelEdit()
+  }, [messageActions])
 
-  // Handle send edited message
+  // Handle send edited message using unified actions
   const handleSendEdit = useCallback(async () => {
-    if (!editableMessage.isValid() || !hasContentChanged() || isSending) {
-      return
-    }
-
-    try {
-      const content = editableMessage.buildContent()
-      const sendOptions = buildUserMessageBranchSendOptions(currentBranch)
-
-      await sendMessage(content, sendOptions)
-
-      // Exit editing mode
-      setIsEditing(false)
-      editableMessage.reset()
-
-      // Note: New branch auto-switch handled by the message branching hook
-    } catch (error) {
-      console.error('Failed to send edited message:', error)
-      notifications.error({
-        title: 'Send failed',
-        description: 'Failed to send edited message',
-        duration: 3000
-      })
-    }
-  }, [
-    editableMessage.isValid,
-    editableMessage.buildContent,
-    editableMessage.reset,
-    hasContentChanged,
-    isSending,
-    sendMessage,
-    currentBranch,
-    notifications
-  ])
+    if (!messageActions.canSendEdited() || isSending) return
+    await messageActions.sendEdited(currentBranch)
+  }, [isSending, messageActions, currentBranch])
 
   // Handle file upload
   const handleFileUpload = useCallback(
     (files: FileList) => {
-      editableMessage.addFiles(files)
+      messageActions.editableMessage.addFiles(files)
     },
-    [editableMessage.addFiles]
+    [messageActions.editableMessage]
   )
 
   // Handle keyboard shortcuts
@@ -257,36 +187,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     [handleCancelEdit, handleSendEdit, tokenCount.overLimit]
   )
 
-  // Handle copy
+  // Handle copy using unified actions
   const handleCopy = useCallback(async () => {
-    try {
-      // Copy visible text from the currently selected branch
-      const content = currentBranch.content
-        .filter((part) => part.type === 'text')
-        .map((part) => part.text || '')
-        .join('\n')
-      await navigator.clipboard.writeText(content)
-      notifications.success({
-        title: 'Copied',
-        description: 'Text content copied to clipboard',
-        duration: 2000
-      })
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-      notifications.error({
-        title: 'Copy failed',
-        description: 'Failed to copy',
-        duration: 3000
-      })
-    }
-  }, [currentBranch.content, notifications])
+    await messageActions.copy(currentBranch)
+  }, [currentBranch, messageActions])
 
   // Determine if send button should be enabled
   const canSend =
-    editableMessage.isValid() &&
-    hasContentChanged() &&
+    messageActions.canSendEdited() &&
     !isSending &&
-    !editableMessage.isProcessing &&
+    !messageActions.editableMessage.isProcessing &&
     !tokenCount.overLimit
 
   return (
@@ -295,9 +205,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         {/* File parts - render first with horizontal layout */}
         {isEditing
           ? /* EDITING MODE - Attachments */
-            editableMessage.attachments.length > 0 && (
+            messageActions.editableMessage.attachments.length > 0 && (
               <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {editableMessage.attachments.map((attachment) => {
+                {messageActions.editableMessage.attachments.map((attachment) => {
                   if (attachment.kind === 'existing' && attachment.originalPart) {
                     const messageFile = toMessageFileLikeFromMessagePart(attachment.originalPart)
                     return messageFile ? (
@@ -305,7 +215,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                         key={attachment.id}
                         variant="compact"
                         messageFile={messageFile}
-                        onRemove={() => editableMessage.removeAttachment(attachment.id)}
+                        onRemove={() =>
+                          messageActions.editableMessage.removeAttachment(attachment.id)
+                        }
                       />
                     ) : null
                   }
@@ -320,17 +232,19 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                     <TempFileCard
                       key={attachment.id}
                       messageFile={messageFile}
-                      onRemove={() => editableMessage.removeAttachment(attachment.id)}
+                      onRemove={() =>
+                        messageActions.editableMessage.removeAttachment(attachment.id)
+                      }
                       variant="compact"
                     />
                   )
                 })}
               </TempFileCardList>
             )
-          : /* NORMAL VIEW MODE - File parts */
-            fileParts.length > 0 && (
+          : /* NORMAL VIEW MODE - File parts using view model */
+            viewModel.hasFiles && (
               <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {fileParts.map((part: MessageContentPart, index: number) => {
+                {viewModel.fileParts.map((part, index: number) => {
                   const messageFile = toMessageFileLikeFromMessagePart(part)
                   return messageFile ? (
                     <TempFileCard
@@ -344,7 +258,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             )}
 
         {/* Text content bubble - editable or normal */}
-        {(isEditing || textContent.trim()) && (
+        {(isEditing || viewModel.hasText) && (
           <Box
             bg={userBg}
             color={userTextColor}
@@ -359,8 +273,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                 {/* Text Editor */}
                 <AutoResizeTextarea
                   ref={textareaRef}
-                  value={editableMessage.draftText}
-                  onChange={(e) => editableMessage.setDraftText(e.target.value)}
+                  value={messageActions.editableMessage.draftText}
+                  onChange={(e) => messageActions.editableMessage.setDraftText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Edit your message..."
                   maxRows={3}
@@ -387,12 +301,12 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               </>
             ) : (
               <>
-                <MarkdownContent text={textContent} />
+                <MarkdownContent text={viewModel.textContent} />
                 {/* Reasoning badge: show transient per-message reasoning selection if available */}
-                {currentBranch?.reasoningEffort && (
+                {viewModel.reasoningEffort && (
                   <HStack spacing={1} justify="flex-end" mt={1} color="gray.500">
                     <Icon as={HiLightBulb} boxSize={3} />
-                    <Text fontSize="xs">Reasoning: {currentBranch.reasoningEffort}</Text>
+                    <Text fontSize="xs">Reasoning: {viewModel.reasoningEffort}</Text>
                   </HStack>
                 )}
               </>
@@ -411,12 +325,13 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               size="xs"
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
-              isDisabled={editableMessage.isProcessing || isSending}
+              isDisabled={messageActions.editableMessage.isProcessing || isSending}
               _hover={{ bg: 'surface.hover' }}
             />
 
             {/* Token Count Display */}
-            {(editableMessage.draftText.trim() || editableMessage.attachments.length > 0) &&
+            {(messageActions.editableMessage.draftText.trim() ||
+              messageActions.editableMessage.attachments.length > 0) &&
               activeModel && (
                 <Tooltip
                   label={
@@ -498,7 +413,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               </HStack>
             </Box>
             <Box display={!isHovered && showTimestamp ? 'block' : 'none'}>
-              <Text variant="timestamp">{formatTime(currentBranch.updatedAt)}</Text>
+              <Text variant="timestamp">{viewModel.formattedTimestamp}</Text>
             </Box>
             {/* Branch Switcher - always show when multiple branches exist */}
             {branches.length > 1 && (

@@ -288,62 +288,9 @@ export async function deleteMessage(id: string): Promise<void> {
  * Creates a simple text message
  * Convenience method for creating text-only messages
  */
-export async function addTextMessage(
-  conversationId: string,
-  role: 'user' | 'assistant',
-  text: string,
-  parentMessageId?: string
-): Promise<Message> {
-  if (!text || text.trim().length === 0) {
-    throw new Error('Text content cannot be empty')
-  }
-
-  const content: MessageContent = [
-    {
-      type: 'text',
-      text: text.trim()
-    }
-  ]
-
-  const messageData: CreateMessageData = {
-    conversationId,
-    role,
-    content
-  }
-
-  if (parentMessageId !== undefined) {
-    messageData.parentMessageId = parentMessageId
-  }
-
-  return await addMessage(messageData)
-}
-
-/**
- * Creates a message with multiple content parts
- * Convenience method for creating complex multi-part messages
- */
-export async function addMultiPartMessage(
-  conversationId: string,
-  role: 'user' | 'assistant',
-  parts: MessageContentPart[],
-  parentMessageId?: string
-): Promise<Message> {
-  if (!parts || parts.length === 0) {
-    throw new Error('At least one content part is required')
-  }
-
-  const messageData: CreateMessageData = {
-    conversationId,
-    role,
-    content: parts
-  }
-
-  if (parentMessageId !== undefined) {
-    messageData.parentMessageId = parentMessageId
-  }
-
-  return await addMessage(messageData)
-}
+// Convenience creators `addTextMessage` and `addMultiPartMessage` have been
+// removed. Callers should construct a `CreateMessageData` object and call
+// `addMessage` directly.
 
 /**
  * Gets the text content from a message by combining all text parts

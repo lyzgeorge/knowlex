@@ -1,8 +1,18 @@
+/**
+ * Unified chat input box component with refactored utilities
+ *
+ * Features:
+ * - Uses unified token counting hook
+ * - Uses shared message utilities for content building
+ * - Uses reasoning effort hook
+ * - Uses shared getLastAssistantMessage utility
+ * - Uses optional MessageBranchingContext when available
+ */
+
 import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { Box, IconButton, Icon, Text, Tooltip } from '@chakra-ui/react'
 import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
 import { keyframes } from '@emotion/react'
-// token formatting removed: display raw token numbers
 import { useI18n } from '@renderer/hooks/useI18n'
 import {
   useSendMessage,
@@ -14,20 +24,16 @@ import {
   useIsReasoningStreaming,
   useReasoningStreamingMessageId
 } from '@renderer/stores/conversation/index'
-import { useMessageBranching } from '@renderer/hooks/useMessageBranching'
+import { useOptionalBranching } from '@renderer/contexts/MessageBranchingContext'
 import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
 import { ReasoningEffortSelector } from '../models/ReasoningEffortSelector'
 import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
-import {
-  useFileUpload,
-  FileUploadItem,
-  ProcessedFile,
-  getFileAcceptString
-} from '@renderer/hooks/useFileUpload'
-import { fromUserInput as buildFromUserInput } from '@shared/message/content-builder'
+import { useFileUpload, FileUploadItem, getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import { buildUserMessageContent, getLastAssistantMessage } from '@shared/utils/message-utils'
+import { useMessageTokenEstimate } from '@renderer/hooks/useMessageTokenEstimate'
+import { useReasoningEffort } from '@renderer/hooks/useReasoningEffort'
 import { resolveReasoningEffort } from '@shared/reasoning/policy'
-import { useRequestTokenCount } from '@renderer/hooks/useRequestTokenCount'
-import type { Message, MessageContent } from '@shared/types/message'
+import type { Message } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
 
 // Animation for refresh icon
@@ -66,11 +72,7 @@ export interface ChatInputBoxProps {
 }
 
 /**
- * Unified chat input box component
- *
- * Variants:
- * - main-entrance: Centered, rounded design for main app entrance
- * - conversation: Bottom-positioned with full features for existing chats
+ * Unified chat input box component with refactored utilities
  */
 export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   variant = 'conversation',
@@ -83,8 +85,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 }) => {
   const { t } = useI18n()
   const [input, setInput] = useState('')
-  const [showStopIcon, setShowStopIcon] = useState(false)
-  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort | undefined>(undefined)
+  const [isStopHovered, setIsStopHovered] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
@@ -94,77 +95,42 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const isReasoningStreaming = useIsReasoningStreaming()
   const reasoningStreamingMessageId = useReasoningStreamingMessageId()
   const { currentConversation, currentMessages } = useCurrentConversation()
+
   // Use centralized capability detection
   const { capabilities: activeModelCapabilities, modelConfig: activeModel } =
     useActiveModelCapabilities(currentConversation?.modelConfigId)
-  const reasoningSupported = activeModelCapabilities.supportsReasoning
 
-  // Reset reasoning effort when model doesn't support reasoning
-  React.useEffect(() => {
-    if (reasoningSupported || reasoningEffort === undefined) return
-    setReasoningEffort(undefined)
-  }, [reasoningSupported, reasoningEffort])
-  // Resolve branching: always call the hook (hooks must be unconditional)
-  const branchingResult = useMessageBranching(currentMessages)
-  const filteredMessages = branching?.filteredMessages ?? branchingResult.filteredMessages
+  // Use reasoning effort hook
+  const { reasoningEffort, setReasoningEffort, reasoningSupported } =
+    useReasoningEffort(activeModelCapabilities)
 
-  // Memoized last assistant message lookup for performance (no array copy)
-  const lastAssistantMessage = useMemo(() => {
-    for (let i = filteredMessages.length - 1; i >= 0; i--) {
-      const message = filteredMessages[i]
-      if (message?.role === 'assistant') {
-        return message
-      }
-    }
-    return undefined
-  }, [filteredMessages])
+  // Resolve branching with clear precedence order:
+  // 1. MessageBranchingContext (when inside provider)
+  // 2. branching prop (externally managed)
+  // 3. currentMessages (fallback to raw messages)
+  const branchingContext = useOptionalBranching()
+  const filteredMessages =
+    branchingContext?.filteredMessages ?? branching?.filteredMessages ?? currentMessages
+
+  // Use shared utility for last assistant message lookup
+  const lastAssistantMessage = useMemo(
+    () => getLastAssistantMessage(filteredMessages),
+    [filteredMessages]
+  )
 
   // Use the file upload hook
   const fileUpload = useFileUpload()
-  // File constraints (removed MAX_FILES as file count is no longer limited)
 
-  // Helper to convert processed files to token count format
-  const convertFilesForTokenCount = useCallback(
-    (processedFiles: ProcessedFile[]) =>
-      processedFiles.map((file, index) => ({
-        id: `${file.filename}-${file.size}-${index}`,
-        name: file.filename,
-        type: file.isImage ? ('image' as const) : ('text' as const),
-        content: file.content,
-        ...(file.isImage && file.content && { dataUrl: file.content })
-      })),
-    []
-  )
-
-  // Token counting hook
-  const tokenCount = useRequestTokenCount({
+  // Unified token counting hook
+  const tokenCount = useMessageTokenEstimate({
     text: input,
-    processedFiles: convertFilesForTokenCount(fileUpload.state.processedFiles),
+    attachments: fileUpload.state.processedFiles,
     model: activeModel
   })
 
   // Theme colors
   const bgColor = 'surface.primary'
   const tokenCountColor = tokenCount.overLimit ? 'red.500' : 'text.tertiary'
-
-  // token counts displayed as raw numbers
-
-  // Build message content from text and processed files using shared builder
-  const buildMessageContent = useCallback(
-    (text: string, processedFiles: ProcessedFile[] = []): MessageContent => {
-      const validFiles = processedFiles
-        .filter((f) => !f.error)
-        .map((f) => ({
-          filename: f.filename,
-          content: f.content || '',
-          size: f.size,
-          mimeType: f.mimeType,
-          isImage: !!f.isImage
-        }))
-      return buildFromUserInput({ text: text.trim(), files: validFiles })
-    },
-    []
-  )
 
   // Simplified placeholder logic
   const effectivePlaceholder =
@@ -187,7 +153,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Handle stop streaming (supports reasoning or text streaming)
   const handleStop = useCallback(async () => {
     const idToStop = streamingMessageId || reasoningStreamingMessageId
-    if (!idToStop) return
+    if (!idToStop) {
+      return // Explicit return when no ID to stop
+    }
+
     try {
       await stopStreaming(idToStop)
     } catch (error) {
@@ -233,7 +202,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     !isBusy &&
     !tokenCount.overLimit
 
-  // Handle send message - unified logic for both variants
+  // Handle send message - unified logic using shared utilities
   const handleSend = useCallback(async () => {
     if (!canSend) return
 
@@ -246,7 +215,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
     try {
       // Process temporary files if any
-      let processedFiles: ProcessedFile[] = []
+      let processedFiles: any[] = []
       if (fileUpload.state.files.length > 0) {
         processedFiles = await fileUpload.processFiles()
       }
@@ -255,10 +224,19 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       setInput('')
       fileUpload.clearFiles()
 
-      // Build message content using internal utility
-      const content = buildMessageContent(input.trim(), processedFiles)
+      // Build message content using shared utility
+      const content = buildUserMessageContent(
+        input.trim(),
+        processedFiles.map((f) => ({
+          filename: f.filename,
+          content: f.content || '',
+          size: f.size,
+          mimeType: f.mimeType,
+          isImage: !!f.isImage
+        }))
+      )
 
-      // Build unified send options (uses memoized lastAssistantMessage)
+      // Build unified send options
       const sendOptions = buildSendOptions(modelAtSend)
 
       // Resolve and apply reasoning effort only once
@@ -272,10 +250,10 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     } catch (error) {
       // If error, restore the input and files
       setInput(originalInput)
-      // Restore original files
+      // Restore original files - avoid duplicate processing by passing File objects directly
       if (originalFiles.length > 0) {
-        // Extract File objects from FileUploadItem
         const filesToRestore = originalFiles.map((item) => item.file)
+        // Note: addFiles handles deduplication, so this won't cause duplicate processing
         fileUpload.addFiles(filesToRestore)
       }
       console.error('Failed to send message:', error)
@@ -285,7 +263,6 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     activeModel,
     input,
     fileUpload,
-    buildMessageContent,
     buildSendOptions,
     reasoningEffort,
     activeModelCapabilities,
@@ -295,7 +272,14 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // Ignore Enter while IME composition is active. Some IMEs (especially for CJK)
+      // use the Enter key to confirm composition; we should not interpret that as
+      // a send action. Check both React's isComposing (not always present) and
+      // the native event flag `isComposing` for broader compatibility.
+      const native = (e as any).nativeEvent as { isComposing?: boolean }
+      const isComposing = (e as any).isComposing || native?.isComposing
+
+      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
         // Enter key sends message for all variants (Shift+Enter for new line)
         if (!canSend) {
           e.preventDefault()
@@ -435,9 +419,9 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               {/* Send / Busy-Stop Button */}
               {isBusy ? (
                 <IconButton
-                  aria-label={showStopIcon ? t('chat.stop') : t('chat.refreshing')}
+                  aria-label={isStopHovered ? t('chat.stop') : t('chat.refreshing')}
                   icon={
-                    showStopIcon ? (
+                    isStopHovered ? (
                       <HiStop />
                     ) : (
                       <Icon
@@ -447,12 +431,12 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                     )
                   }
                   variant="solid"
-                  {...(showStopIcon ? { colorScheme: 'red' } : { bg: 'gray.300' })}
+                  {...(isStopHovered ? { colorScheme: 'red' } : { bg: 'gray.300' })}
                   size="sm"
                   borderRadius="md"
                   onClick={handleStop}
-                  onMouseEnter={() => setShowStopIcon(true)}
-                  onMouseLeave={() => setShowStopIcon(false)}
+                  onMouseEnter={() => setIsStopHovered(true)}
+                  onMouseLeave={() => setIsStopHovered(false)}
                   cursor="pointer"
                 />
               ) : (

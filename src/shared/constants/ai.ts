@@ -8,7 +8,7 @@
 // Currently only used for documentation/reference - may be expanded when model selection is implemented
 export const DEFAULT_AI_CONFIG = {
   temperature: 0.7,
-  maxTokens: 8192,
+  maxTokens: 32768,
   topP: 1,
   frequencyPenalty: 0,
   presencePenalty: 0

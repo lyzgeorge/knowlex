@@ -33,7 +33,7 @@ export {
   useOnStreamingUpdate,
   useSetStreamingState
 } from './conversation/index'
-export { default as useSettingsStore, useDefaultModel } from './settings'
+export { default as useSettingsStore, useUserDefaultModelPreference } from './settings'
 
 // Type exports
 export type { Theme, AppState } from './app'
