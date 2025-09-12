@@ -357,10 +357,24 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 
 实现要点：
 - 由 `openai-adapter` 统一处理模型解析；此服务只传递可选 `modelConfigId/conversationModelId/userDefaultModelId`。
-- 使用内部的 `createBatchedEmitter` 批量发射器合并文本和推理分片，降低 IPC 压力。
+- 通过 `StreamingLifecycleManager` 统一管理流式生命周期（开始/结束/分片事件、数据库写入、取消与错误处理），内部使用 `batched-emitter` 降低 IPC 压力。
 - 使用 `buildBranchContext` 构建消息上下文。
-- 使用集中常量 `TEXT_CONSTANTS.ZERO_WIDTH_SPACE` 作为占位符。
+- 使用空占位写入首次 `STREAMING_START`（统一在 `StreamingLifecycleManager` 中完成）。
 - 支持 3 层模型解析优先级：显式 → 对话 → 用户默认 → 系统默认。
+
+### src/main/services/streaming-lifecycle.ts
+流式生命周期管理器，集中处理事件广播、分片合并与最终落库。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| StreamingLifecycleManager | 类 | messageId | 负责 STREAMING_START/TEXT_START/TEXT_END/REASONING_* 事件、分片合并、取消/错误/完成时的持久化与事件发送 |
+
+### src/main/utils/batched-emitter.ts
+通用的批量分片发射器，按时间窗口聚合分片以减少 IPC 压力。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| createBatchedEmitter | 函数 | messageId, eventType, chunkProperty, flushInterval | 返回具有 addChunk/flush 的发射器实例 |
 
 ### src/main/services/file-temp.ts
 聊天上下文的临时文件处理。
@@ -389,7 +403,7 @@ AI SDK 集成，支持流式传输和模型解析。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| streamAIResponse | 函数 | conversationMessages, options, cancellationToken | 主要流式传输函数，现在委托给 `ai-streaming` 服务。 |
+| streamAIResponse | 函数 | conversationMessages, options, cancellationToken | 主要流式传输函数，内部使用参数构建器与重试策略。 |
 | generateAIResponseOnce | 函数 | messages | 单次生成 |
 | testOpenAIConfig | 函数 | config | 配置测试 |
 | getOpenAIConfigFromEnv | 函数 | 无 | 环境配置 |
@@ -398,10 +412,26 @@ AI SDK 集成，支持流式传输和模型解析。
 说明：
 - 模型解析（显式/对话/默认）由适配器内部完成，调用方无需重复解析。
 - 统一使用 `createOpenAICompatible` 适配官方和 OpenAI 兼容提供商。
-- 内部使用统一的参数构建器，支持可选推理与流畅流式配置。
-- 包含重试机制，当带推理参数的流式传输失败时，会尝试不带推理参数再次传输。
-- 支持 `smooth` 流式传输选项和错误增强功能。
-- 实现 3 层优先级系统的内部模型解析。
+- 参数与消息格式转换委托给 `ai-params.ts`（`buildModelParams`、`convertMessagesToAIFormat`）。
+- 重试逻辑委托给 `ai-retry.ts`，当带推理参数失败时自动回退至不带推理参数。
+- 保留 `smooth` 流式选项与错误增强。
+- 与 `ai-streaming.ts` 的 `consumeFullStream` 共同完成流式回调消费。
+
+### src/main/services/ai-params.ts
+AI 参数与消息格式构建工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| buildProviderOptions | 函数 | config, includeReasoningOptions | 构建 providerOptions（例如 openai.reasoningEffort） |
+| buildModelParams | 函数 | model, messages, config, options | 统一构建 AI SDK 调用参数（可选 smooth/推理） |
+| convertMessagesToAIFormat | 函数 | messages | 将应用内部 Message 转换为 AI SDK 期望的格式 |
+
+### src/main/services/ai-retry.ts
+流式重试策略工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| retryWithReasoningFallback | 函数 | attempt, hasReasoning, isParamError, log | 优先带推理，失败且为参数错误时回退到不带推理参数 |
 
 ### src/main/services/title-generation.ts
 自动化对话标题生成。
@@ -805,9 +835,9 @@ AI 模型配置管理。
 | 文件 | 描述 |
 |---|---|
 | `AssistantMessage.tsx` | 显示 AI 助手消息的组件，支持流式传输指示器、推理显示和消息重新生成。现在使用 `useMessageActions` 和 `useStreamingPhase`。 |
-| `ChatInputBox.tsx` | 统一的聊天输入框组件，支持文件上传、token 计算、分支上下文和推理设置。现在使用 `useMessageTokenEstimate` 和 `useReasoningEffort`。 |
+| `ChatInputBox.tsx` | 统一的聊天输入框组件，支持文件上传、token 计算、分支上下文和推理设置。使用 `useMessageTokenEstimate`、`useReasoningEffort`，并复用 UI 组件 `FileAttachmentList`、`SendButton`、`TokenCounter`。 |
 | `ConversationPage.tsx` | 显示完整对话的页面，包括消息列表和聊天输入框。 |
-| `UserMessage.tsx` | 显示用户消息的组件，支持编辑和分支。现在使用 `useMessageActions`。 |
+| `UserMessage.tsx` | 显示用户消息的组件，支持编辑和分支。使用 `useMessageActions`，并在编辑模式下复用 `FileAttachmentList` 与 `TokenCounter`。 |
 
 ### src/renderer/components/features/models/
 与 AI 模型配置和管理相关的组件。
@@ -848,8 +878,20 @@ AI 模型配置管理。
 | `LanguageSelector.tsx` | 语言选择器组件。 |
 | `Modal.tsx` | 通用模态框组件。 |
 | `Notification.tsx` | 应用程序通知显示组件。 |
-| `TempFileCard.tsx` | 显示临时文件信息和状态的卡片组件。 |
+| `TempFileCard.tsx` | 显示临时文件信息和状态的卡片组件（包含 `TempFileCardList` 和 `toMessageFileLikeFromMessagePart`）。 |
+| `FileAttachmentList.tsx` | 组合型列表组件，接收统一的 items/onRemove，将数据映射为 `TempFileCard` 并包裹在 `TempFileCardList`。支持可选布局属性。 |
+| `SendButton.tsx` | 发送/停止按钮，内置旋转动画与悬停切换逻辑。 |
+| `TokenCounter.tsx` | Token 计数组件，带 Tooltip，通用于输入框与编辑态显示。 |
 | `ThemeSelector.tsx` | 主题选择器组件，用于切换亮色/暗色模式。 |
+
+### src/renderer/hooks/useModelForm.ts
+模型表单逻辑 Hook。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useModelForm | Hook | model, options | 封装模型表单状态、Zod 验证（`CreateModelConfigInputSchema`）、提交（创建/更新）、快速模板应用与编辑时的全量模型拉取（含 API Key）。返回 `formData, setField, errors, isSubmitting, isLoadingModel, submit, applyTemplate, templates`。
+
+说明：`EditModelModal.tsx` 现在作为纯展示层，所有表单与提交逻辑都内聚在此 Hook 内，减少组件复杂度并遵循 DRY。
 
 ### src/renderer/utils/markdownComponents.tsx
 自定义 React Markdown 组件。

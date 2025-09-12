@@ -10,9 +10,8 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo } from 'react'
-import { Box, IconButton, Icon, Text, Tooltip } from '@chakra-ui/react'
-import { HiArrowUp, HiPaperClip, HiArrowPath, HiStop } from 'react-icons/hi2'
-import { keyframes } from '@emotion/react'
+import { Box, IconButton } from '@chakra-ui/react'
+import { HiPaperClip } from 'react-icons/hi2'
 import { useI18n } from '@renderer/hooks/useI18n'
 import {
   useSendMessage,
@@ -25,22 +24,17 @@ import {
   useReasoningStreamingMessageId
 } from '@renderer/stores/conversation/index'
 import { useOptionalBranching } from '@renderer/contexts/MessageBranchingContext'
-import { TempFileCard, TempFileCardList, AutoResizeTextarea } from '@renderer/components/ui'
+import { AutoResizeTextarea } from '@renderer/components/ui'
 import { ReasoningEffortSelector } from '../models/ReasoningEffortSelector'
 import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
-import { useFileUpload, FileUploadItem, getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import { useFileUpload, getFileAcceptString } from '@renderer/hooks/useFileUpload'
 import { buildUserMessageContent, getLastAssistantMessage } from '@shared/utils/message-utils'
 import { useMessageTokenEstimate } from '@renderer/hooks/useMessageTokenEstimate'
 import { useReasoningEffort } from '@renderer/hooks/useReasoningEffort'
 import { resolveReasoningEffort } from '@shared/reasoning/policy'
+import { FileAttachmentList, SendButton, TokenCounter } from '@renderer/components/ui'
 import type { Message } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
-
-// Animation for refresh icon
-const spinAnimation = keyframes`
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-`
 
 export type ChatInputVariant = 'main-entrance' | 'conversation' | 'project-entrance'
 
@@ -85,7 +79,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 }) => {
   const { t } = useI18n()
   const [input, setInput] = useState('')
-  const [isStopHovered, setIsStopHovered] = useState(false)
+  // UI state moved into subcomponents
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
   const isSending = useIsSending()
@@ -320,16 +314,19 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       >
         {/* File Previews - Inside chatbox, above input controls */}
         {fileUpload.state.files.length > 0 && (
-          <TempFileCardList>
-            {fileUpload.state.files.map((fileItem: FileUploadItem) => (
-              <TempFileCard
-                key={fileItem.id}
-                file={fileItem.file}
-                onRemove={() => fileUpload.removeFile(fileItem.file)}
-                variant="compact"
-              />
-            ))}
-          </TempFileCardList>
+          <FileAttachmentList
+            items={fileUpload.state.files.map((fi) => ({
+              id: fi.id,
+              file: fi.file,
+              filename: fi.file.name,
+              size: fi.file.size,
+              mimeType: fi.file.type
+            }))}
+            onRemove={(id) => {
+              const target = fileUpload.state.files.find((f) => f.id === id)
+              if (target) fileUpload.removeFile(target.file)
+            }}
+          />
         )}
 
         {/* Two-row layout */}
@@ -393,7 +390,11 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
             <Box display="flex" alignItems="center" gap={2}>
               {/* Token Count Display */}
               {(hasTextContent || hasSuccessfulFiles) && activeModel && (
-                <Tooltip
+                <TokenCounter
+                  visible={true}
+                  total={tokenCount.total}
+                  limit={tokenCount.limit}
+                  overLimit={tokenCount.overLimit}
                   label={
                     tokenCount.overLimit
                       ? t('chat.tokenLimitExceeded')
@@ -402,57 +403,21 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                           limit: tokenCount.limit.toLocaleString()
                         })
                   }
-                  placement="top"
-                >
-                  <Text
-                    fontSize="xs"
-                    color={tokenCountColor}
-                    fontFamily="mono"
-                    minW="fit-content"
-                    textAlign="right"
-                  >
-                    {tokenCount.total.toLocaleString()} / {tokenCount.limit.toLocaleString()}
-                  </Text>
-                </Tooltip>
+                  color={tokenCountColor}
+                />
               )}
 
               {/* Send / Busy-Stop Button */}
-              {isBusy ? (
-                <IconButton
-                  aria-label={isStopHovered ? t('chat.stop') : t('chat.refreshing')}
-                  icon={
-                    isStopHovered ? (
-                      <HiStop />
-                    ) : (
-                      <Icon
-                        as={HiArrowPath}
-                        css={{ animation: `${spinAnimation} 1s linear infinite` }}
-                      />
-                    )
-                  }
-                  variant="solid"
-                  {...(isStopHovered ? { colorScheme: 'red' } : { bg: 'gray.300' })}
-                  size="sm"
-                  borderRadius="md"
-                  onClick={handleStop}
-                  onMouseEnter={() => setIsStopHovered(true)}
-                  onMouseLeave={() => setIsStopHovered(false)}
-                  cursor="pointer"
-                />
-              ) : (
-                <IconButton
-                  aria-label={
-                    tokenCount.overLimit ? t('chat.tokenLimitExceeded') : t('chat.sendMessage')
-                  }
-                  icon={<HiArrowUp />}
-                  {...(canSend ? { colorScheme: 'primary' } : {})}
-                  size="sm"
-                  borderRadius="md"
-                  isDisabled={!canSend}
-                  onClick={handleSend}
-                  cursor={canSend ? 'pointer' : 'not-allowed'}
-                />
-              )}
+              <SendButton
+                isBusy={isBusy}
+                canSend={canSend}
+                onSend={handleSend}
+                onStop={handleStop}
+                stopLabel={t('chat.stop')}
+                sendingLabel={t('chat.refreshing')}
+                sendLabel={t('chat.sendMessage')}
+                overLimit={tokenCount.overLimit}
+              />
             </Box>
           </Box>
         </Box>

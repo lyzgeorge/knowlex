@@ -17,3 +17,11 @@ export { ThemeSelector } from './ThemeSelector'
 
 // Modal
 export { default as Modal } from './Modal'
+
+// Chat shared UI
+export { default as FileAttachmentList } from './FileAttachmentList'
+export { default as SendButton } from './SendButton'
+export { default as TokenCounter } from './TokenCounter'
+
+// Inline editing
+export { default as InlineEdit } from './InlineEdit'

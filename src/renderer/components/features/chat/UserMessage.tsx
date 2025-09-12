@@ -3,16 +3,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import {
-  Box,
-  VStack,
-  HStack,
-  useColorModeValue,
-  IconButton,
-  Text,
-  Icon,
-  Tooltip
-} from '@chakra-ui/react'
+import { Box, VStack, HStack, useColorModeValue, IconButton, Text, Icon } from '@chakra-ui/react'
 import {
   HiPencil,
   HiClipboard,
@@ -26,11 +17,7 @@ import {
 import type { Message } from '@shared/types/message'
 import { createUserMessageViewModel } from '@shared/utils/message-view-models'
 import { MarkdownContent } from '@renderer/utils/markdownComponents'
-import {
-  TempFileCard,
-  toMessageFileLikeFromMessagePart,
-  TempFileCardList
-} from '@renderer/components/ui/TempFileCard'
+import { toMessageFileLikeFromMessagePart } from '@renderer/components/ui/TempFileCard'
 import AutoResizeTextarea from '@renderer/components/ui/AutoResizeTextarea'
 import { useIsSending, useCurrentConversation } from '@renderer/stores/conversation/index'
 import { useMessageActions } from '@renderer/hooks/useMessageActions'
@@ -42,6 +29,7 @@ import {
   useMessageBranchChange
 } from '@renderer/contexts/MessageBranchingContext'
 import { useI18n } from '@renderer/hooks/useI18n'
+import { TokenCounter, FileAttachmentList } from '@renderer/components/ui'
 
 export interface UserMessageProps {
   /** Message data */
@@ -202,55 +190,45 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
         {isEditing
           ? /* EDITING MODE - Attachments */
             messageActions.editableMessage.attachments.length > 0 && (
-              <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {messageActions.editableMessage.attachments.map((attachment) => {
-                  if (attachment.kind === 'existing' && attachment.originalPart) {
-                    const messageFile = toMessageFileLikeFromMessagePart(attachment.originalPart)
-                    return messageFile ? (
-                      <TempFileCard
-                        key={attachment.id}
-                        variant="compact"
-                        messageFile={messageFile}
-                        onRemove={() =>
-                          messageActions.editableMessage.removeAttachment(attachment.id)
-                        }
-                      />
-                    ) : null
-                  }
-
-                  // For new attachments, create a messageFile object with actual size
-                  const messageFile = {
-                    filename: attachment.filename,
-                    size: attachment.size || 0,
-                    mimeType: attachment.mimeType
-                  }
-                  return (
-                    <TempFileCard
-                      key={attachment.id}
-                      messageFile={messageFile}
-                      onRemove={() =>
-                        messageActions.editableMessage.removeAttachment(attachment.id)
-                      }
-                      variant="compact"
-                    />
-                  )
-                })}
-              </TempFileCardList>
+              <FileAttachmentList
+                items={messageActions.editableMessage.attachments.map((att) => ({
+                  id: att.id,
+                  filename: att.filename,
+                  size: att.size || 0,
+                  mimeType: att.mimeType
+                }))}
+                onRemove={(id) => messageActions.editableMessage.removeAttachment(id)}
+                alignSelf="flex-end"
+                maxW="100%"
+              />
             )
           : /* NORMAL VIEW MODE - File parts using view model */
             viewModel.hasFiles && (
-              <TempFileCardList alignSelf="flex-end" maxW="100%">
-                {viewModel.fileParts.map((part, index: number) => {
-                  const messageFile = toMessageFileLikeFromMessagePart(part)
-                  return messageFile ? (
-                    <TempFileCard
-                      key={`filepart-${index}`}
-                      variant="compact"
-                      messageFile={messageFile}
-                    />
-                  ) : null
-                })}
-              </TempFileCardList>
+              <FileAttachmentList
+                items={
+                  viewModel.fileParts
+                    .map((part, index: number) => {
+                      const file = toMessageFileLikeFromMessagePart(part)
+                      return file
+                        ? {
+                            id: `filepart-${index}`,
+                            filename: file.filename,
+                            size: file.size,
+                            mimeType: file.mimeType
+                          }
+                        : null
+                    })
+                    .filter(Boolean) as Array<{
+                    id: string
+                    filename: string
+                    size: number
+                    mimeType: string
+                  }>
+                }
+                onRemove={() => {}}
+                alignSelf="flex-end"
+                maxW="100%"
+              />
             )}
 
         {/* Text content bubble - editable or normal */}
@@ -329,7 +307,11 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
             {(messageActions.editableMessage.draftText.trim() ||
               messageActions.editableMessage.attachments.length > 0) &&
               activeModel && (
-                <Tooltip
+                <TokenCounter
+                  visible={true}
+                  total={tokenCount.total}
+                  limit={tokenCount.limit}
+                  overLimit={tokenCount.overLimit}
                   label={
                     tokenCount.overLimit
                       ? t('chat.tokenLimitExceeded')
@@ -338,19 +320,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
                           limit: tokenCount.limit.toLocaleString()
                         })
                   }
-                  placement="top"
-                >
-                  <Text
-                    fontSize="xs"
-                    color={tokenCountColor}
-                    fontFamily="mono"
-                    minW="fit-content"
-                    textAlign="center"
-                    px={1}
-                  >
-                    {tokenCount.total.toLocaleString()} / {tokenCount.limit.toLocaleString()}
-                  </Text>
-                </Tooltip>
+                  color={tokenCountColor}
+                />
               )}
 
             {/* Cancel Button */}

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react'
-import { Box, HStack, VStack, Text, Spinner, Input, IconButton, Tooltip } from '@chakra-ui/react'
+import { Box, HStack, VStack, Text, Spinner } from '@chakra-ui/react'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
-import { HiCheck, HiXMark } from 'react-icons/hi2'
+import InlineEdit from '@renderer/components/ui/InlineEdit'
 import { useConversationStore } from '@renderer/stores/conversation/store'
 import { useI18n } from '@renderer/hooks/useI18n'
 
@@ -43,34 +43,22 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
   }, [conversations])
 
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null)
-  const [editingTitle, setEditingTitle] = useState('')
 
-  const startEdit = useCallback((id: string, title: string) => {
+  const startEdit = useCallback((id: string) => {
     setEditingConversationId(id)
-    setEditingTitle(title)
   }, [])
 
   const cancelEdit = useCallback(() => {
     setEditingConversationId(null)
-    setEditingTitle('')
   }, [])
 
-  const confirmEdit = useCallback(async () => {
-    if (!editingConversationId || !editingTitle.trim()) return
-    try {
-      await updateConversationTitle(editingConversationId, editingTitle.trim())
-    } catch (err) {
-      console.error('Failed to rename conversation:', err)
-    } finally {
-      cancelEdit()
-    }
-  }, [editingConversationId, editingTitle, updateConversationTitle, cancelEdit])
-
-  const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      if (editingConversationId) cancelEdit()
-    }, 150)
-  }, [editingConversationId, cancelEdit])
+  const confirmEdit = useCallback(
+    async (id: string, newTitle: string) => {
+      await updateConversationTitle(id, newTitle)
+      setEditingConversationId(null)
+    },
+    [updateConversationTitle]
+  )
 
   return (
     <Box>
@@ -104,99 +92,28 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
                 justify="space-between"
                 align="center"
               >
-                {isEditing ? (
-                  <HStack flex={1} spacing={1}>
-                    <Input
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      fontSize="sm"
-                      fontWeight="medium"
-                      variant="unstyled"
-                      size="sm"
-                      h="24px"
-                      lineHeight="24px"
-                      px={0}
-                      py={0}
-                      bg="transparent"
-                      _focus={{ boxShadow: 'none', bg: 'transparent' }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          confirmEdit()
-                        } else if (e.key === 'Escape') {
-                          e.preventDefault()
-                          cancelEdit()
-                        }
-                      }}
-                      onBlur={handleInputBlur}
-                      autoFocus
-                    />
-                  </HStack>
-                ) : (
-                  <Tooltip
-                    label={conversation.title}
-                    placement="right"
-                    hasArrow
-                    openDelay={600}
-                    closeDelay={200}
-                    bg="surface.primary"
-                    color="text.primary"
-                    borderRadius="md"
-                    shadow="dropdown"
-                    fontSize="sm"
-                    fontWeight="medium"
-                    px={3}
-                    py={2}
-                    maxW="280px"
-                    textAlign="left"
-                    whiteSpace="normal"
-                  >
-                    <Text fontSize="sm" noOfLines={1} flex={1} py={0.5} minW={0}>
-                      {conversation.title}
-                    </Text>
-                  </Tooltip>
-                )}
+                <InlineEdit
+                  value={conversation.title}
+                  isEditing={isEditing}
+                  onStartEdit={() => startEdit(conversation.id)}
+                  onCancelEdit={cancelEdit}
+                  onConfirmEdit={(newTitle) => confirmEdit(conversation.id, newTitle)}
+                  placeholder="Enter conversation title..."
+                  tooltipLabel={conversation.title}
+                  tooltipPlacement="right"
+                />
 
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  {isEditing ? (
-                    <HStack spacing={1}>
-                      <IconButton
-                        aria-label="Confirm rename"
-                        icon={<HiCheck />}
-                        size="xs"
-                        variant="ghost"
-                        color="green.500"
-                        _hover={{ bg: 'green.50', color: 'green.600' }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          confirmEdit()
-                        }}
-                      />
-                      <IconButton
-                        aria-label="Cancel rename"
-                        icon={<HiXMark />}
-                        size="xs"
-                        variant="ghost"
-                        color="gray.500"
-                        _hover={{ bg: 'gray.50', color: 'gray.600' }}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          cancelEdit()
-                        }}
-                      />
-                    </HStack>
-                  ) : (
+                {!isEditing && (
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
                     <ConversationMenu
                       conversationId={conversation.id}
                       currentProjectId={null}
-                      onRename={() => startEdit(conversation.id, conversation.title)}
+                      onRename={() => startEdit(conversation.id)}
                       onDelete={() => onDeleteConversation(conversation.id)}
                       updatedAt={conversation.updatedAt}
                     />
-                  )}
-                </Box>
+                  </Box>
+                )}
               </HStack>
             )
           })

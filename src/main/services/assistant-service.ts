@@ -12,13 +12,13 @@
  * and message regeneration to eliminate code duplication.
  */
 
-import type { Message, MessageContent } from '@shared/types/message'
+import type { Message } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
 import { streamAIResponse } from '@main/services/openai-adapter'
-import { updateMessage, getMessage } from '@main/services/message'
+import { getMessage } from '@main/services/message'
 import { cancellationManager } from '@main/utils/cancellation'
-import { sendMessageEvent, MESSAGE_EVENTS } from '@main/utils/ipc-events'
-import { ensurePlaceholder } from '@shared/utils/text'
+// IPC event emission is handled by StreamingLifecycleManager
+import { StreamingLifecycleManager } from './streaming-lifecycle'
 
 /**
  * Configuration for assistant message generation
@@ -40,46 +40,6 @@ export interface AssistantGenConfig {
   onSuccess?: (updatedMessage: Message) => Promise<void>
   /** Optional callback for when generation fails */
   onError?: (error: Error, errorMessage: Message) => Promise<void>
-}
-
-/**
- * Creates a batched emitter for streaming chunks to reduce IPC pressure
- * Eliminates duplication between text and reasoning chunk handling
- */
-function createBatchedEmitter(
-  messageId: string,
-  eventType: string,
-  chunkProperty: string,
-  flushInterval: number = 16
-) {
-  let pendingChunk = ''
-  let flushTimer: NodeJS.Timeout | null = null
-
-  const flush = () => {
-    if (pendingChunk.length > 0) {
-      sendMessageEvent(eventType, {
-        messageId,
-        [chunkProperty]: pendingChunk
-      })
-      pendingChunk = ''
-    }
-    if (flushTimer) {
-      clearTimeout(flushTimer)
-      flushTimer = null
-    }
-  }
-
-  const schedule = () => {
-    if (flushTimer) return
-    flushTimer = setTimeout(flush, flushInterval)
-  }
-
-  const addChunk = (chunk: string) => {
-    pendingChunk += chunk
-    schedule()
-  }
-
-  return { addChunk, flush }
 }
 
 /**
@@ -108,31 +68,14 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
     onError
   } = config
 
-  // Create cancellation token for this streaming operation
+  // Create cancellation token and lifecycle manager
   const cancellationToken = cancellationManager.createToken(messageId)
-
-  // Send streaming start event
-  sendMessageEvent(MESSAGE_EVENTS.STREAMING_START, {
-    messageId,
-    message: await updateMessage(messageId, {
-      content: [{ type: 'text' as const, text: ensurePlaceholder('') }] // placeholder
-    })
-  })
+  const lifecycle = new StreamingLifecycleManager(messageId)
+  await lifecycle.init()
 
   // Start background streaming process (don't await)
   setImmediate(async () => {
-    // Track accumulated content for immediate DB writes
-    let accumulatedText = ''
-    let accumulatedReasoning = ''
     let streamingActive = true
-
-    // Create batched emitters for IPC to reduce pressure
-    const textEmitter = createBatchedEmitter(messageId, MESSAGE_EVENTS.STREAMING_CHUNK, 'chunk')
-    const reasoningEmitter = createBatchedEmitter(
-      messageId,
-      MESSAGE_EVENTS.REASONING_CHUNK,
-      'chunk'
-    )
 
     try {
       // Get conversation model ID for resolution context
@@ -154,204 +97,41 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
           conversationModelId,
           userDefaultModelId,
           ...(reasoningEffort !== undefined && { reasoningEffort }),
-          onStart: () => {
-            console.log('[ASSISTANT_GEN] Sending start event for message:', messageId)
-            // Send start event for UI feedback (sparkle animation)
-            sendMessageEvent(MESSAGE_EVENTS.START, {
-              messageId
-            })
-          },
-          onTextStart: () => {
-            console.log('[ASSISTANT_GEN] Sending text start event for message:', messageId)
-            // Send text start event
-            sendMessageEvent(MESSAGE_EVENTS.TEXT_START, {
-              messageId
-            })
-          },
-          onTextChunk: (chunk: string) => {
-            // Accumulate text content
-            accumulatedText += chunk
-
-            // Batch IPC emissions by time to reduce pressure
-            textEmitter.addChunk(chunk)
-          },
-          onTextEnd: () => {
-            console.log('[ASSISTANT_GEN] Sending text end event for message:', messageId)
-            // Send text end event
-            sendMessageEvent(MESSAGE_EVENTS.TEXT_END, {
-              messageId
-            })
-          },
-          onReasoningStart: () => {
-            console.log('[ASSISTANT_GEN] Sending reasoning start event for message:', messageId)
-            // Send reasoning start event
-            sendMessageEvent(MESSAGE_EVENTS.REASONING_START, {
-              messageId
-            })
-          },
-          onReasoningChunk: (chunk: string) => {
-            // Accumulate reasoning content
-            accumulatedReasoning += chunk
-
-            // Batch IPC emissions by time to reduce pressure
-            reasoningEmitter.addChunk(chunk)
-          },
-          onReasoningEnd: () => {
-            console.log('[ASSISTANT_GEN] Sending reasoning end event for message:', messageId)
-            // Send reasoning end event
-            sendMessageEvent(MESSAGE_EVENTS.REASONING_END, {
-              messageId
-            })
-          }
+          onStart: () => lifecycle.onStart(),
+          onTextStart: () => lifecycle.onTextStart(),
+          onTextChunk: (chunk: string) => lifecycle.onTextChunk(chunk),
+          onTextEnd: () => lifecycle.onTextEnd(),
+          onReasoningStart: () => lifecycle.onReasoningStart(),
+          onReasoningChunk: (chunk: string) => lifecycle.onReasoningChunk(chunk),
+          onReasoningEnd: () => lifecycle.onReasoningEnd()
         },
         cancellationToken
       )
 
       streamingActive = false
-
-      // Flush any pending IPC chunks before finishing
-      textEmitter.flush()
-      reasoningEmitter.flush()
+      lifecycle.flush()
 
       // Check if the operation was cancelled
       const wasCancelled = cancellationToken.isCancelled
 
-      let finalMessage: Message
-
       if (wasCancelled) {
-        console.log('Streaming cancelled, writing accumulated content to DB:', {
-          textLength: accumulatedText.length,
-          reasoningLength: accumulatedReasoning.length
-        })
-
-        // Write accumulated partial content immediately on cancellation
-        const partialUpdateData: {
-          content: Array<{ type: 'text'; text: string }>
-          reasoning?: string
-        } = {
-          content: [{ type: 'text' as const, text: ensurePlaceholder(accumulatedText) }]
-        }
-
-        if (accumulatedReasoning) {
-          partialUpdateData.reasoning = accumulatedReasoning
-        }
-
-        const updatedMessage = await updateMessage(messageId, partialUpdateData)
-
-        // Send streaming cancelled event with partial message
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
-          messageId,
-          message: updatedMessage
-        })
-
-        finalMessage = updatedMessage
+        const finalMessage = await lifecycle.cancelled()
+        cancellationManager.complete(messageId)
+        if (onError) await onError(new Error('User cancelled'), finalMessage)
+        return
       } else {
-        console.log('Streaming completed, writing final content to DB')
-
-        // Write complete final content on successful completion
-        const finalUpdateData: { content: any; reasoning?: string } = {
-          content: response.content
-        }
-
-        if (response.reasoning !== undefined) {
-          finalUpdateData.reasoning = response.reasoning
-        }
-
-        const updatedMessage = await updateMessage(messageId, finalUpdateData)
-
-        // Send streaming end event with final message
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_END, {
-          messageId,
-          message: updatedMessage
-        })
-
-        finalMessage = updatedMessage
-      }
-
-      // Clean up the cancellation token
-      cancellationManager.complete(messageId)
-
-      // Call appropriate callback based on result
-      if (wasCancelled) {
-        // Treat cancellation as a special case that should still trigger callbacks
-        // Use onError callback for cancellation since it's not a successful completion
-        if (onError) {
-          await onError(new Error('User cancelled'), finalMessage)
-        }
-      } else {
-        // Call success callback for normal completion
-        if (onSuccess) {
-          await onSuccess(finalMessage)
-        }
+        const finalMessage = await lifecycle.complete(response)
+        cancellationManager.complete(messageId)
+        if (onSuccess) await onSuccess(finalMessage)
+        return
       }
     } catch (error) {
       console.error('Failed to generate AI response:', error)
-
-      // Clean up the cancellation token
       cancellationManager.complete(messageId)
-
-      // Check if streaming was cancelled during error
       const wasCancelled = cancellationToken.isCancelled
-
-      let errorMessage: Message
-
-      // Flush any pending IPC chunks on error as well
-      try {
-        textEmitter.flush()
-        reasoningEmitter.flush()
-      } catch {
-        // Ignore flush errors during cleanup
-      }
-
-      if (wasCancelled && streamingActive && (accumulatedText || accumulatedReasoning)) {
-        console.log(
-          'Error occurred during streaming after cancellation, preserving accumulated content'
-        )
-
-        // Preserve accumulated content even in error case if user cancelled
-        const partialUpdateData: {
-          content: Array<{ type: 'text'; text: string }>
-          reasoning?: string
-        } = {
-          content: [{ type: 'text' as const, text: ensurePlaceholder(accumulatedText) }]
-        }
-
-        if (accumulatedReasoning) {
-          partialUpdateData.reasoning = accumulatedReasoning
-        }
-
-        errorMessage = await updateMessage(messageId, partialUpdateData)
-
-        // Send streaming cancelled event instead of error
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_CANCELLED, {
-          messageId,
-          message: errorMessage
-        })
-      } else {
-        // Update message with error content
-        const errorContent: MessageContent = [
-          {
-            type: 'text' as const,
-            text: `Error: ${error instanceof Error ? error.message : 'Failed to generate AI response. Please check your API configuration.'}`
-          }
-        ]
-
-        errorMessage = await updateMessage(messageId, {
-          content: errorContent
-        })
-
-        // Send streaming error event
-        sendMessageEvent(MESSAGE_EVENTS.STREAMING_ERROR, {
-          messageId,
-          message: errorMessage,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
-
-      // Call error callback if provided
-      if (onError) {
+      const errorMessage = await lifecycle.error(error, wasCancelled && streamingActive)
+      if (onError)
         await onError(error instanceof Error ? error : new Error('Unknown error'), errorMessage)
-      }
     }
   })
 }

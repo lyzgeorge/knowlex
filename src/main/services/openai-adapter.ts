@@ -1,4 +1,4 @@
-import { streamText, generateText, smoothStream } from 'ai'
+import { streamText, generateText } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { CancellationToken } from '@main/utils/cancellation'
@@ -6,6 +6,8 @@ import type { ReasoningEffort } from '@shared/types/models'
 import { modelConfigService } from './model-config-service'
 import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/model-resolution'
 import { StreamingCallbacks, consumeFullStream } from './ai-streaming'
+import { buildModelParams, convertMessagesToAIFormat } from './ai-params'
+import { retryWithReasoningFallback } from './ai-retry'
 
 /**
  * OpenAI Adapter Service using official AI SDK
@@ -20,56 +22,6 @@ const DEFAULT_SMOOTH_OPTIONS = {
   delayInMs: 20,
   chunking: /[\u4E00-\u9FFF]|\S+\s+/
 } as const
-
-/**
- * Build provider-specific options (keeps reasoning option construction in one place)
- */
-function buildProviderOptions(config: OpenAIConfig, includeReasoningOptions: boolean) {
-  const providerOptions: Record<string, any> = {}
-  if (includeReasoningOptions && config.reasoningEffort !== undefined) {
-    providerOptions.openai = { reasoningEffort: config.reasoningEffort }
-  }
-  return providerOptions
-}
-
-/**
- * Builds model parameters with consistent configuration
- */
-function buildModelParams(
-  model: any,
-  messages: any[],
-  config: OpenAIConfig,
-  options: {
-    includeReasoningOptions?: boolean
-    includeSmoothStreaming?: boolean
-  } = {}
-) {
-  const { includeReasoningOptions = false, includeSmoothStreaming = false } = options
-
-  // Prepare provider options via factory
-  const providerOptions = buildProviderOptions(config, includeReasoningOptions)
-
-  const modelParams: any = {
-    model,
-    messages,
-    ...(config.temperature !== undefined && { temperature: config.temperature }),
-    ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
-    ...(config.topP !== undefined && { topP: config.topP }),
-    ...(config.frequencyPenalty !== undefined && { frequencyPenalty: config.frequencyPenalty }),
-    ...(config.presencePenalty !== undefined && { presencePenalty: config.presencePenalty }),
-    ...(Object.keys(providerOptions).length > 0 && { providerOptions })
-  }
-
-  // Add smooth streaming transform if enabled and requested
-  if (includeSmoothStreaming && config.smooth?.enabled) {
-    modelParams.experimental_transform = smoothStream({
-      delayInMs: config.smooth.delayInMs || 20,
-      chunking: config.smooth.chunking || 'word'
-    })
-  }
-
-  return modelParams
-}
 
 /**
  * Configuration interface for OpenAI-compatible models
@@ -144,86 +96,6 @@ export function validateOpenAIConfig(config?: OpenAIConfig): {
   }
 
   return { isValid: true }
-}
-
-/**
- * Converts application messages to AI SDK format
- */
-function convertMessagesToAIFormat(messages: Message[]) {
-  // Define lightweight AI SDK part types
-  type AITextPart = { type: 'text'; text: string }
-  type AIImagePart = { type: 'image'; image: any; mediaType?: string }
-  type AIPart = AITextPart | AIImagePart
-  type AIMessage = { role: string; content: string | AIPart[] }
-
-  // Helper: detect single plain text fast-path
-  const isSinglePlainText = (m: Message) =>
-    m.content.length === 1 && m.content[0]?.type === 'text' && Boolean(m.content[0]?.text)
-
-  // Helper: convert a single application part to an AI SDK part or null
-  const convertPartToAI = (part: any): AIPart | null => {
-    switch (part.type) {
-      case 'text':
-        return part.text ? ({ type: 'text', text: part.text } as AITextPart) : null
-      case 'temporary-file':
-        if (part.temporaryFile) {
-          const text = `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
-          return { type: 'text', text }
-        }
-        return null
-      case 'citation':
-        if (part.citation) {
-          const text = `[Citation: ${part.citation.filename}]\n${part.citation.content}`
-          return { type: 'text', text }
-        }
-        return null
-      case 'image':
-        if (part.image && typeof part.image.image === 'string') {
-          return {
-            type: 'image',
-            image: part.image.image,
-            ...(part.image.mediaType ? { mediaType: part.image.mediaType } : {})
-          }
-        }
-        return null
-      default:
-        return null
-    }
-  }
-
-  // Helper: collapse parts to single text string when possible
-  const collapsePartsToText = (parts: AIPart[]) => {
-    if (parts.length === 0) return ''
-    if (parts.length === 1 && parts[0] && parts[0].type === 'text')
-      return (parts[0] as AITextPart).text
-    return null
-  }
-
-  return messages.map((message) => {
-    if (isSinglePlainText(message)) {
-      return { role: message.role, content: message.content[0]!.text! } as AIMessage
-    }
-
-    const hasNonText = message.content.some((p) => p.type !== 'text')
-
-    if (hasNonText) {
-      const parts = message.content.map(convertPartToAI).filter(Boolean) as AIPart[]
-
-      const collapsed = collapsePartsToText(parts)
-      if (collapsed !== null) {
-        return { role: message.role, content: collapsed } as AIMessage
-      }
-
-      return { role: message.role, content: parts } as AIMessage
-    }
-
-    // Fallback: join multiple text parts
-    const text = message.content
-      .map((p) => (p.type === 'text' ? p.text || '' : ''))
-      .filter(Boolean)
-      .join('\n\n')
-    return { role: message.role, content: text } as AIMessage
-  })
 }
 
 /**
@@ -345,24 +217,16 @@ export async function streamAIResponse(
 
   // Convert messages to AI format once and reuse for attempts
   const aiMessages = convertMessagesToAIFormat(conversationMessages)
-  // Helper to attempt streaming with or without reasoning options
-  async function attemptStream(withReasoning: boolean) {
-    console.log(`[AI] Using model: ${config.model}`)
 
-    // Build model parameters (reuse aiMessages computed in outer scope)
+  const attempt = async (withReasoning: boolean) => {
+    console.log(`[AI] Using model: ${config.model}`)
     const modelParams = buildModelParams(model, aiMessages, config, {
       includeReasoningOptions: withReasoning,
       includeSmoothStreaming: true
     })
-
-    // Stream response
     const result = streamText(modelParams)
-
     const streamCallbacks = callbacks as StreamingCallbacks
-
-    // Consume fullStream using centralized handler
     const consumed = await consumeFullStream(result.fullStream, streamCallbacks, cancellationToken)
-
     if (consumed.cancelled) {
       console.log('[AI] Returning partial content due to cancellation')
       return {
@@ -375,9 +239,6 @@ export async function streamAIResponse(
         ...(consumed.reasoning && { reasoning: consumed.reasoning })
       }
     }
-
-    // If not cancelled, use the consumed accumulation as the authoritative final text
-    // (Mode B: consumeFullStream is the single source of truth for streamed content)
     return {
       content: [
         {
@@ -389,21 +250,19 @@ export async function streamAIResponse(
     }
   }
 
+  const isParamError = (e: any) => {
+    const msg = e?.message ?? String(e)
+    return /400|Bad Request|Unknown parameter|reasoning/i.test(msg)
+  }
+
   try {
-    // First try with reasoning if provided
-    return await attemptStream(true)
-  } catch (error: any) {
-    const msg = error?.message ?? String(error)
-    const mayBeParamError = /400|Bad Request|Unknown parameter|reasoning/i.test(msg)
-    if (config.reasoningEffort !== undefined && mayBeParamError) {
-      console.warn('[AI] Retrying without reasoning parameters due to provider error...')
-      try {
-        return await attemptStream(false)
-      } catch (e2) {
-        console.error('AI streaming retry without reasoning failed:', e2)
-        throw enhanceError(e2)
-      }
-    }
+    return await retryWithReasoningFallback(
+      attempt,
+      config.reasoningEffort !== undefined,
+      isParamError,
+      { warn: console.warn, error: (e) => console.error('AI streaming retry failed:', e) }
+    )
+  } catch (error) {
     console.error('AI streaming response generation failed:', error)
     throw enhanceError(error)
   }

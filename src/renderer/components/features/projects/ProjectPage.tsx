@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react'
-import { Box, Heading, VStack, Text, HStack, Input, IconButton, Tooltip } from '@chakra-ui/react'
-import { HiCheck, HiXMark } from 'react-icons/hi2'
+import { Box, Heading, VStack, Text, HStack } from '@chakra-ui/react'
 import { useConversations, useConversationStore } from '@renderer/stores/conversation/index'
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
@@ -8,6 +7,7 @@ import ChatInputBox from '@renderer/components/features/chat/ChatInputBox'
 import { ModelSelector } from '@renderer/components/features/models/ModelSelector'
 import { useNotifications } from '@renderer/components/ui'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import InlineEdit from '@renderer/components/ui/InlineEdit'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
 import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
@@ -47,8 +47,6 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
   const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
   const {
     editing: isEditing,
-    value: editTitle,
-    setValue: setEditTitle,
     onStart,
     onCancel,
     onConfirm
@@ -60,22 +58,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
     (e?: React.MouseEvent) => {
       e?.stopPropagation()
       onStart()
-      setEditTitle(conversation.title)
     },
-    [onStart, setEditTitle, conversation.title]
-  )
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        void onConfirm()
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        onCancel()
-      }
-    },
-    [onConfirm, onCancel]
+    [onStart]
   )
 
   return (
@@ -92,51 +76,23 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
       {/* Title and content section */}
       <VStack align="stretch" spacing={1} px={1} flex={1} minW={0}>
         {/* Title row */}
-        {isEditing ? (
-          <HStack flex={1} spacing={1}>
-            <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={() => void onConfirm()}
-              fontSize="sm"
-              fontWeight="medium"
-              variant="unstyled"
-              size="sm"
-              h="24px"
-              lineHeight="24px"
-              px={0}
-              py={0}
-              bg="transparent"
-              _focus={{ boxShadow: 'none', bg: 'transparent' }}
-              autoFocus
-              onClick={(e) => e.stopPropagation()}
-            />
-          </HStack>
-        ) : (
-          <Tooltip
-            label={conversation.title}
-            placement="top"
-            hasArrow
-            openDelay={600}
-            closeDelay={200}
-            bg="surface.primary"
-            color="text.primary"
-            borderRadius="md"
-            shadow="dropdown"
-            fontSize="sm"
-            fontWeight="medium"
-            px={3}
-            py={2}
-            maxW="280px"
-            textAlign="left"
-            whiteSpace="normal"
-          >
-            <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1} minW={0}>
-              {conversation.title}
-            </Text>
-          </Tooltip>
-        )}
+        <InlineEdit
+          value={conversation.title}
+          isEditing={isEditing}
+          onStartEdit={handleStartEdit}
+          onCancelEdit={onCancel}
+          onConfirmEdit={async (_newTitle) => {
+            // useEditableTitle's onConfirm doesn't accept a parameter but handles the editing value internally
+            await onConfirm()
+          }}
+          placeholder="Enter conversation title..."
+          tooltipLabel={conversation.title}
+          tooltipPlacement="top"
+        >
+          <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1} minW={0}>
+            {conversation.title}
+          </Text>
+        </InlineEdit>
 
         {/* Latest reply content - second line */}
         <Text fontSize="sm" color="text.secondary" noOfLines={1} flex={1} minW={0}>
@@ -145,37 +101,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
       </VStack>
 
       {/* Right side: timestamp by default, menu on hover */}
-      <HStack minW="80px" justify="flex-end" align="center">
-        {isEditing ? (
-          <HStack spacing={1}>
-            <IconButton
-              aria-label="Confirm rename"
-              icon={<HiCheck />}
-              size="xs"
-              variant="ghost"
-              color="green.500"
-              _hover={{ bg: 'green.50', color: 'green.600' }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation()
-                void onConfirm()
-              }}
-            />
-            <IconButton
-              aria-label="Cancel rename"
-              icon={<HiXMark />}
-              size="xs"
-              variant="ghost"
-              color="gray.500"
-              _hover={{ bg: 'gray.50', color: 'gray.600' }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation()
-                onCancel()
-              }}
-            />
-          </HStack>
-        ) : (
+      {!isEditing && (
+        <HStack minW="80px" justify="flex-end" align="center">
           <ConversationMenu
             conversationId={conversation.id}
             currentProjectId={conversation.projectId || null}
@@ -183,8 +110,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({ conversation, onOpe
             onDelete={() => onDelete?.(conversation.id)}
             updatedAt={conversation.updatedAt}
           />
-        )}
-      </HStack>
+        </HStack>
+      )}
     </HStack>
   )
 }

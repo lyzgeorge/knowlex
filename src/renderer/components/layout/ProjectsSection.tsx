@@ -16,6 +16,7 @@ import { useI18n } from '@renderer/hooks/useI18n'
 import DeleteProjectModal from '@renderer/components/ui/DeleteProjectModal'
 import { useConversationStore } from '@renderer/stores/conversation/store'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
+import InlineEdit from '@renderer/components/ui/InlineEdit'
 import { HiPlus, HiCheck, HiXMark, HiBars3, HiFolder, HiFolderOpen } from 'react-icons/hi2'
 import useEditableTitle from '@renderer/hooks/useEditableTitle'
 import { useProjectManagement } from '@renderer/hooks/useProjectManagement'
@@ -60,7 +61,6 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     handleStartCreateProject,
     handleCancelCreateProject,
     editingProjectId,
-    editingProjectName,
     setEditingProjectName,
     handleStartEditProject,
     handleConfirmEditProject,
@@ -153,46 +153,18 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     toggleProject(p.id)
                   }}
                 />
-                {editingProjectId === p.id ? (
-                  <HStack flex={1} spacing={1}>
-                    <Input
-                      value={editingProjectName}
-                      onChange={(e) => setEditingProjectName(e.target.value)}
-                      fontSize="sm"
-                      variant="unstyled"
-                      size="sm"
-                      h="24px"
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter' && editingProjectName.trim()) {
-                          await handleConfirmEditProject(p.id)
-                        } else if (e.key === 'Escape') {
-                          handleCancelEditProject()
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <IconButton
-                      aria-label="Confirm rename"
-                      icon={<HiCheck />}
-                      size="xs"
-                      variant="ghost"
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await handleConfirmEditProject(p.id)
-                      }}
-                    />
-                    <IconButton
-                      aria-label="Cancel rename"
-                      icon={<HiXMark />}
-                      size="xs"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleCancelEditProject()
-                      }}
-                    />
-                  </HStack>
-                ) : (
+                <InlineEdit
+                  value={p.name}
+                  isEditing={editingProjectId === p.id}
+                  onStartEdit={() => handleStartEditProject(p.id, p.name)}
+                  onCancelEdit={handleCancelEditProject}
+                  onConfirmEdit={async (newName) => {
+                    // Update the project name state and call the confirm handler
+                    setEditingProjectName(newName)
+                    await handleConfirmEditProject(p.id)
+                  }}
+                  placeholder="Enter project name..."
+                >
                   <Text
                     fontSize="sm"
                     fontWeight="medium"
@@ -205,7 +177,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                   >
                     {p.name}
                   </Text>
-                )}
+                </InlineEdit>
               </HStack>
 
               {editingProjectId !== p.id && (
