@@ -197,6 +197,8 @@ Electron 主进程和渲染进程间通信的结构定义。
 | formatBytes | 函数 | bytes | 人类可读的字节格式化 |
 | isValidEmail | 函数 | email | 使用正则表达式的电子邮件验证 |
 | sanitizeFilename | 函数 | filename | 文件名清理 |
+| isImageFile | 函数 | filename | 检查文件是否为图片文件 |
+| getMimeTypeFromExtension | 函数 | filename | 从文件扩展名获取 MIME 类型 |
 
 ### src/shared/i18n/
 国际化 (i18n) 模块，负责应用程序的语言管理和文本翻译。
