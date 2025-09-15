@@ -32,7 +32,7 @@ export function hasMeaningfulContent(parts: MessageContent): boolean {
   return parts.some(
     (p) =>
       (p.type === 'text' && !!p.text?.trim()) ||
-      (p.type === 'temporary-file' && !!p.temporaryFile) ||
+      (p.type === 'attachment' && !!p.attachment) ||
       (p.type === 'image' && !!p.image) ||
       (p.type === 'citation' && !!p.citation) ||
       (p.type === 'tool-call' && !!p.toolCall)

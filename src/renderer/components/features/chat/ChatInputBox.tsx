@@ -27,7 +27,7 @@ import { useOptionalBranching } from '@renderer/contexts/MessageBranchingContext
 import { AutoResizeTextarea } from '@renderer/components/ui'
 import { ReasoningEffortSelector } from '../models/ReasoningEffortSelector'
 import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
-import { useFileUpload, getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import useFileUpload, { getFileAcceptString } from '@renderer/hooks/useAttachmentUpload'
 import { buildUserMessageContent, getLastAssistantMessage } from '@shared/utils/message-utils'
 import { useMessageTokenEstimate } from '@renderer/hooks/useMessageTokenEstimate'
 import { useReasoningEffort } from '@renderer/hooks/useReasoningEffort'
@@ -209,7 +209,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     const originalFiles = [...fileUpload.state.files]
 
     try {
-      // Process temporary files if any
+      // Process attachments if any
       let processedFiles: any[] = []
       if (fileUpload.state.files.length > 0) {
         processedFiles = await fileUpload.processFiles()
@@ -316,7 +316,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         {/* File Previews - Inside chatbox, above input controls */}
         {fileUpload.state.files.length > 0 && (
           <FileAttachmentList
-            items={fileUpload.state.files.map((fi) => ({
+            items={fileUpload.state.files.map((fi: any) => ({
               id: fi.id,
               file: fi.file,
               filename: fi.file.name,
@@ -324,7 +324,7 @@ export const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               mimeType: fi.file.type
             }))}
             onRemove={(id) => {
-              const target = fileUpload.state.files.find((f) => f.id === id)
+              const target = fileUpload.state.files.find((f: any) => f.id === id)
               if (target) fileUpload.removeFile(target.file)
             }}
           />

@@ -4,7 +4,7 @@
 
 Knowlex is a cross-platform desktop application built with Electron that serves as an intelligent workspace for researchers, developers, technical writers, and analysts. The application integrates AI-powered conversations, project management, and knowledge accumulation into a unified work environment. It addresses core pain points including information overload, high context-switching costs, difficulty in knowledge retention and reuse, and repetitive work in AI interactions.
 
-The solution provides a project-centric workspace with dual-mode RAG capabilities: project-internal mode with vector search and project memory, and project-external mode for lightweight conversations with temporary file uploads. All data is stored locally using libsql (SQLite) for both structured and vector data.
+The solution provides a project-centric workspace with dual-mode RAG capabilities: project-internal mode with vector search and project memory, and project-external mode for lightweight conversations with attachment uploads. All data is stored locally using libsql (SQLite) for both structured and vector data.
 
 ## Requirements
 
@@ -66,7 +66,7 @@ The solution provides a project-centric workspace with dual-mode RAG capabilitie
 
 ### Requirement 5: Unclassified Chat Mode
 
-**User Story:** As a user, I want to have quick conversations with temporary file uploads outside of projects, so that I can get immediate AI assistance without project setup.
+**User Story:** As a user, I want to have quick conversations with attachment uploads outside of projects, so that I can get immediate AI assistance without project setup.
 
 #### Acceptance Criteria
 

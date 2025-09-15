@@ -81,7 +81,7 @@ AI 模型集成的 TypeScript 接口定义，支持多模态内容和流式响�
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | ProjectFile | 接口 | 文件属性 | 永久文件结构，包含项目关联和处理状态 |
-| TemporaryFile | 接口 | 文件属性 | 临时文件结构，包含内容和元数据 |
+| Attachment | 接口 | 文件属性 | 附件结构，包含内容和元数据 |
 | ProcessingResult | 接口 | success, error | 文件处理结果 |
 | FileStatus | 联合类型 | 无 | 文件状态 ('pending' | 'processing' | 'ready' | 'failed') |
 
@@ -92,7 +92,7 @@ Electron 主进程和渲染进程间通信的结构定义。
 |--------|------|------|------|
 | IPCResult<T> | 接口 | success, data, error | 通用 IPC 响应包装器 |
 | ConversationCreateRequest | 接口 | 请求参数 | 创建对话的请求结构 |
-| TemporaryFileRequest | 接口 | 请求参数 | 临时文件上传的请求结构 |
+| AttachmentProcessRequest | 接口 | 请求参数 | 附件上传的请求结构 |
 
 ### src/shared/types/message.ts
 复杂消息结构定义，支持多部分内容和分支功能。
@@ -344,7 +344,7 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | addMessage | 函数 | data | 创建消息，包含内容验证 |
-| convertTemporaryFilesToMessageParts | 函数 | files | 文件集成 |
+| convertAttachmentsToMessageParts | 函数 | files | 文件集成 |
 | extractTextContent | 函数 | message | 内容提取工具 |
 
 ### src/main/services/assistant-service.ts
@@ -383,10 +383,10 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| processTemporaryFiles | 函数 | filePaths | 处理文件路径数组，进行验证和内容提取。 |
-| processTemporaryFileContents | 函数 | files | 处理文件内容数据数组（例如来自浏览器 File API），进行验证和内容提取。 |
+| processAttachments | 函数 | filePaths | 处理文件路径数组，进行验证和内容提取。 |
+| processAttachmentContents | 函数 | files | 处理文件内容数据数组（例如来自浏览器 File API），进行验证和内容提取。 |
 | extractFileTextContent | 函数 | filePath, filename | 文本提取（避免与消息文本提取重名）|
-| cleanupTemporaryFiles | 函数 | filePaths | 清理工具 |
+| cleanupAttachments | 函数 | filePaths | 清理工具 |
 
 ### src/main/services/file-parser.ts
 多格式文件内容提取。
@@ -883,8 +883,8 @@ AI 模型配置管理。
 | `LanguageSelector.tsx` | 语言选择器组件。 |
 | `Modal.tsx` | 通用模态框组件。 |
 | `Notification.tsx` | 应用程序通知显示组件。 |
-| `TempFileCard.tsx` | 显示临时文件信息和状态的卡片组件（包含 `TempFileCardList` 和 `toMessageFileLikeFromMessagePart`）。 |
-| `FileAttachmentList.tsx` | 组合型列表组件，接收统一的 items/onRemove，将数据映射为 `TempFileCard` 并包裹在 `TempFileCardList`。支持可选布局属性。 |
+| `AttachmentCard.tsx` | 显示附件信息和状态的卡片组件（包含 `AttachmentCardList` 和 `toMessageFileLikeFromMessagePart`）。 |
+| `FileAttachmentList.tsx` | 组合型列表组件，接收统一的 items/onRemove，将数据映射为 `AttachmentCard` 并包裹在 `AttachmentCardList`。支持可选布局属性。 |
 | `SendButton.tsx` | 发送/停止按钮，内置旋转动画与悬停切换逻辑。 |
 | `TokenCounter.tsx` | Token 计数组件，带 Tooltip，通用于输入框与编辑态显示。 |
 | `ThemeSelector.tsx` | 主题选择器组件，用于切换亮色/暗色模式。 |

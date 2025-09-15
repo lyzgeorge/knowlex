@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import os from 'os'
-import { TemporaryFileResult } from '@shared/types/file'
+import { AttachmentResult } from '@shared/types/file'
 import {
   isValidFileType,
   getMimeTypeFromExtension,
@@ -15,11 +15,11 @@ import { formatOperationError } from '@shared/utils/error-handling'
 import { processingErrorMessage, criticalErrorMessage } from '@main/utils/error'
 
 /**
- * Temporary File Processing Service
+ * Attachment Processing Service
  *
- * Handles temporary file uploads for unclassified chat mode.
+ * Handles attachment uploads for unclassified chat mode.
  * Files are processed immediately and content is extracted for conversation context.
- * No persistent storage - files are cleaned up after processing.
+ * No persistent storage - attachments are cleaned up after processing.
  */
 
 // Internal file data structure for unified processing
@@ -31,28 +31,28 @@ interface ProcessableFile {
 }
 
 /**
- * Process temporary files from content data (for browser File API)
+ * Process attachments from content data (for browser File API)
  * @param files Array of file data with content
  * @returns Array of processing results with content or errors
  */
-export async function processTemporaryFileContents(
+export async function processAttachmentContents(
   files: Array<{ name: string; content: string; size: number }>
-): Promise<TemporaryFileResult[]> {
-  console.log('[MAIN] processTemporaryFileContents called with', files.length, 'files')
+): Promise<AttachmentResult[]> {
+  console.log('[MAIN] processAttachmentContents called with', files.length, 'files')
   const processableFiles: ProcessableFile[] = files.map((f) => ({
     filename: f.name,
     size: f.size,
     content: f.content
   }))
-  return _processTemporaryFilesUnified(processableFiles)
+  return _processAttachmentsUnified(processableFiles)
 }
 
 /**
- * Process temporary files for immediate use in conversations
+ * Process attachments for immediate use in conversations
  * @param filePaths Array of file paths to process
  * @returns Array of processing results with content or errors
  */
-export async function processTemporaryFiles(filePaths: string[]): Promise<TemporaryFileResult[]> {
+export async function processAttachments(filePaths: string[]): Promise<AttachmentResult[]> {
   // Collect file stats first
   const fileStats = await Promise.all(
     filePaths.map(async (filePath) => {
@@ -93,7 +93,7 @@ export async function processTemporaryFiles(filePaths: string[]): Promise<Tempor
     filePath: stat.filePath
   }))
 
-  return _processTemporaryFilesUnified(processableFiles)
+  return _processAttachmentsUnified(processableFiles)
 }
 
 /**
@@ -112,15 +112,15 @@ export async function extractFileTextContent(filePath: string, filename: string)
 }
 
 /**
- * Clean up temporary files (utility function for future use)
+ * Clean up attachment files (utility function for future use)
  * @param filePaths Array of file paths to clean up
  */
-export async function cleanupTemporaryFiles(filePaths: string[]): Promise<void> {
+export async function cleanupAttachments(filePaths: string[]): Promise<void> {
   const cleanupPromises = filePaths.map(async (filePath) => {
     try {
       await fs.unlink(filePath)
     } catch (error) {
-      console.warn(`Failed to cleanup temporary file ${filePath}:`, error)
+      console.warn(`Failed to cleanup attachment file ${filePath}:`, error)
     }
   })
 
@@ -134,14 +134,12 @@ export async function cleanupTemporaryFiles(filePaths: string[]): Promise<void> 
 /**
  * Unified processing for both file paths and content
  */
-async function _processTemporaryFilesUnified(
-  files: ProcessableFile[]
-): Promise<TemporaryFileResult[]> {
+async function _processAttachmentsUnified(files: ProcessableFile[]): Promise<AttachmentResult[]> {
   try {
     // Validate file constraints first
     validateFileConstraints(files.map((f) => ({ name: f.filename, size: f.size })))
 
-    const results: TemporaryFileResult[] = []
+    const results: AttachmentResult[] = []
     for (const file of files) {
       try {
         const result = await _processSingleFile(file)
@@ -175,7 +173,7 @@ async function _processTemporaryFilesUnified(
 /**
  * Process a single file (unified for both path and content based)
  */
-async function _processSingleFile(file: ProcessableFile): Promise<TemporaryFileResult> {
+async function _processSingleFile(file: ProcessableFile): Promise<AttachmentResult> {
   // Shared validation
   if (!isValidFileType(file.filename)) {
     return {
@@ -223,10 +221,7 @@ async function _processSingleFile(file: ProcessableFile): Promise<TemporaryFileR
 /**
  * Process image files (unified for both path and content)
  */
-async function _processImage(
-  file: ProcessableFile,
-  mimeType: string
-): Promise<TemporaryFileResult> {
+async function _processImage(file: ProcessableFile, mimeType: string): Promise<AttachmentResult> {
   console.log(`[MAIN] Processing image file: ${file.filename}`)
 
   let dataUrl: string
@@ -256,7 +251,7 @@ async function _processImage(
 /**
  * Process binary files that need parsing (unified for both path and content)
  */
-async function _processBinaryFile(file: ProcessableFile): Promise<TemporaryFileResult> {
+async function _processBinaryFile(file: ProcessableFile): Promise<AttachmentResult> {
   let parseResult
 
   if (file.filePath) {
@@ -320,7 +315,7 @@ async function _processBinaryFile(file: ProcessableFile): Promise<TemporaryFileR
 async function _processTextFile(
   file: ProcessableFile,
   mimeType: string
-): Promise<TemporaryFileResult> {
+): Promise<AttachmentResult> {
   let content: string
 
   if (file.filePath) {

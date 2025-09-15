@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
 import { normalizeParts } from '@shared/message/content-builder'
-import { useFileUpload, ProcessedFile } from '@renderer/hooks/useFileUpload'
+import { useAttachmentUpload, ProcessedAttachment } from '@renderer/hooks/useAttachmentUpload'
 
 export interface UnifiedAttachment {
   id: string
   kind: 'existing' | 'new'
-  partType: 'temporary-file' | 'image'
+  partType: 'attachment' | 'image'
   filename: string
   mimeType: string
   size?: number
@@ -34,7 +34,7 @@ export interface UseEditableMessageResult {
 export function useEditableMessage(): UseEditableMessageResult {
   const [draftText, setDraftText] = useState('')
   const [existingAttachments, setExistingAttachments] = useState<MessageContentPart[]>([])
-  const fileUpload = useFileUpload()
+  const fileUpload = useAttachmentUpload()
 
   // Convert to unified attachment format
   const attachments = useMemo((): UnifiedAttachment[] => {
@@ -42,15 +42,15 @@ export function useEditableMessage(): UseEditableMessageResult {
 
     // Add existing attachments
     existingAttachments.forEach((part, index) => {
-      if (part.type === 'temporary-file' && part.temporaryFile) {
+      if (part.type === 'attachment' && part.attachment) {
         unified.push({
-          id: `existing-${index}-${part.temporaryFile.filename}`,
+          id: `existing-${index}-${part.attachment.filename}`,
           kind: 'existing',
-          partType: 'temporary-file',
-          filename: part.temporaryFile.filename,
-          mimeType: part.temporaryFile.mimeType,
-          size: part.temporaryFile.size,
-          content: part.temporaryFile.content,
+          partType: 'attachment',
+          filename: part.attachment.filename,
+          mimeType: part.attachment.mimeType,
+          size: part.attachment.size,
+          content: part.attachment.content,
           originalPart: part
         })
       } else if (part.type === 'image' && part.image) {
@@ -67,12 +67,12 @@ export function useEditableMessage(): UseEditableMessageResult {
     })
 
     // Add new attachments from file upload
-    fileUpload.state.processedFiles.forEach((file: ProcessedFile) => {
+    fileUpload.state.processedFiles.forEach((file: ProcessedAttachment) => {
       if (!file.error) {
         unified.push({
           id: `new-${file.filename}-${file.size}`,
           kind: 'new',
-          partType: file.isImage ? 'image' : 'temporary-file',
+          partType: file.isImage ? 'image' : 'attachment',
           filename: file.filename,
           mimeType: file.mimeType,
           size: file.size,
@@ -97,7 +97,7 @@ export function useEditableMessage(): UseEditableMessageResult {
 
       // Extract existing attachments
       const attachmentParts = message.content.filter(
-        (part: MessageContentPart) => part.type === 'temporary-file' || part.type === 'image'
+        (part: MessageContentPart) => part.type === 'attachment' || part.type === 'image'
       )
       setExistingAttachments((prev) => {
         // Shallow compare lengths & ids to skip unnecessary state updates
@@ -147,8 +147,8 @@ export function useEditableMessage(): UseEditableMessageResult {
           })
         } else {
           parts.push({
-            type: 'temporary-file',
-            temporaryFile: {
+            type: 'attachment',
+            attachment: {
               filename: attachment.filename,
               content: attachment.content || '',
               size: attachment.size || 0,
@@ -210,7 +210,7 @@ export function useEditableMessage(): UseEditableMessageResult {
     return content.some(
       (part) =>
         (part.type === 'text' && part.text?.trim()) ||
-        (part.type === 'temporary-file' && part.temporaryFile) ||
+        (part.type === 'attachment' && part.attachment) ||
         (part.type === 'image' && part.image)
     )
   }, [buildContent])

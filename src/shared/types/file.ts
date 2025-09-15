@@ -12,7 +12,8 @@ export interface ProjectFile {
   error?: string
 }
 
-export interface TemporaryFile {
+// Attachment types used for message-scoped, non-persistent files
+export interface Attachment {
   id: string
   filename: string
   content: string
@@ -21,7 +22,7 @@ export interface TemporaryFile {
   error?: string
 }
 
-export interface TemporaryFileResult {
+export interface AttachmentResult {
   filename: string
   content: string
   size: number

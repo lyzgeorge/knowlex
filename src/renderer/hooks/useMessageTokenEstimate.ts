@@ -34,7 +34,7 @@ export interface MessageAttachment {
   content?: string
   size?: number
   mimeType: string
-  partType: 'image' | 'temporary-file'
+  partType: 'image' | 'attachment'
   kind: 'existing' | 'new'
 }
 

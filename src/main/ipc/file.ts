@@ -1,22 +1,22 @@
 import { ipcMain } from 'electron'
-import { processTemporaryFiles, processTemporaryFileContents } from '@main/services/file-temp'
-import type { IPCResult, TemporaryFileRequest } from '@shared/types/ipc'
-import type { TemporaryFileResult } from '@shared/types/file'
+import { processAttachments, processAttachmentContents } from '@main/services/attachment-processor'
+import type { IPCResult, AttachmentProcessRequest } from '@shared/types/ipc'
+import type { AttachmentResult } from '@shared/types/file'
 import { handleIPCCall, validateRequest, validateObject } from './common'
 import { getErrorMessage } from '@shared/utils/error-handling'
 
 /**
  * Simplified File IPC Handler
- * Only handles temporary file processing (no project files)
+ * Only handles attachment processing (no project files)
  */
 
 /**
- * Validates temporary file processing request data
+ * Validates attachment processing request data
  */
-function validateTemporaryFileRequest(data: unknown): data is TemporaryFileRequest {
+function validateAttachmentProcessRequest(data: unknown): data is AttachmentProcessRequest {
   if (!validateObject(data)) return false
 
-  const request = data as TemporaryFileRequest
+  const request = data as AttachmentProcessRequest
   return (
     Array.isArray(request.files) &&
     request.files.every(
@@ -31,9 +31,9 @@ function validateTemporaryFileRequest(data: unknown): data is TemporaryFileReque
 }
 
 /**
- * Validates temporary file content processing request data
+ * Validates attachment content processing request data
  */
-function validateTemporaryFileContentRequest(data: unknown): data is {
+function validateAttachmentContentRequest(data: unknown): data is {
   files: Array<{ name: string; content: string; size: number }>
 } {
   if (!validateObject(data)) return false
@@ -55,35 +55,35 @@ function validateTemporaryFileContentRequest(data: unknown): data is {
 }
 
 /**
- * Registers temporary file processing IPC handlers
+ * Registers attachment processing IPC handlers
  * Called during application initialization
  */
 export function registerFileIPCHandlers(): void {
-  console.log('Registering file IPC handlers...')
+  console.log('Registering attachment IPC handlers...')
 
-  // Process temporary files from paths
+  // Process attachments from paths
   ipcMain.handle(
-    'file:process-temp',
-    async (_, data: unknown): Promise<IPCResult<TemporaryFileResult[]>> => {
+    'attachment:process',
+    async (_, data: unknown): Promise<IPCResult<AttachmentResult[]>> => {
       return handleIPCCall(async () => {
         const request = validateRequest(
           data,
-          validateTemporaryFileRequest,
-          'Invalid temporary file processing request'
+          validateAttachmentProcessRequest,
+          'Invalid attachment processing request'
         )
 
         // Extract file paths from the request
         const filePaths = request.files.map((file) => file.path)
 
-        return await processTemporaryFiles(filePaths)
+        return await processAttachments(filePaths)
       })
     }
   )
 
-  // Process temporary files from content (for browser File API)
+  // Process attachments from content (for browser File API)
   ipcMain.handle(
-    'file:process-temp-content',
-    async (_, data: unknown): Promise<IPCResult<TemporaryFileResult[]>> => {
+    'attachment:process-content',
+    async (_, data: unknown): Promise<IPCResult<AttachmentResult[]>> => {
       console.log(
         '[IPC] file:process-temp-content called with data:',
         data && typeof data === 'object' && 'files' in data && Array.isArray(data.files)
@@ -99,19 +99,18 @@ export function registerFileIPCHandlers(): void {
       )
 
       try {
-        if (!validateTemporaryFileContentRequest(data)) {
-          console.log('[IPC] Validation failed for temp file content request')
+        if (!validateAttachmentContentRequest(data)) {
+          console.log('[IPC] Validation failed for attachment content request')
           return {
             success: false,
-            error: 'Invalid temporary file content processing request'
+            error: 'Invalid attachment content processing request'
           }
         }
 
-        console.log('[IPC] Validation passed, calling processTemporaryFileContents...')
-        // Process files with content directly
-        const result = await processTemporaryFileContents(data.files)
+        console.log('[IPC] Validation passed, calling processAttachmentContents...')
+        const result = await processAttachmentContents(data.files)
         console.log(
-          '[IPC] processTemporaryFileContents completed with result:',
+          '[IPC] processAttachmentContents completed with result:',
           result.map((r) => ({
             filename: r.filename,
             error: r.error,
@@ -123,7 +122,7 @@ export function registerFileIPCHandlers(): void {
           data: result
         }
       } catch (error) {
-        console.error('[IPC] Error in file:process-temp-content handler:', error)
+        console.error('[IPC] Error in attachment:process-content handler:', error)
         return {
           success: false,
           error: getErrorMessage(error, 'Unknown error occurred')
@@ -132,21 +131,21 @@ export function registerFileIPCHandlers(): void {
     }
   )
 
-  console.log('File IPC handlers registered successfully')
+  console.log('Attachment IPC handlers registered successfully')
 }
 
 /**
- * Unregisters file-related IPC handlers
+ * Unregisters attachment-related IPC handlers
  * Called during application shutdown for cleanup
  */
 export function unregisterFileIPCHandlers(): void {
-  console.log('Unregistering file IPC handlers...')
+  console.log('Unregistering attachment IPC handlers...')
 
-  const channels = ['file:process-temp', 'file:process-temp-content']
+  const channels = ['attachment:process', 'attachment:process-content']
 
   channels.forEach((channel) => {
     ipcMain.removeAllListeners(channel)
   })
 
-  console.log('File IPC handlers unregistered')
+  console.log('Attachment IPC handlers unregistered')
 }

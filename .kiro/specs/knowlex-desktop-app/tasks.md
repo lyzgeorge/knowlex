@@ -93,15 +93,15 @@
 
 ## 文件处理系统
 
-- [x] 7. 临时文件处理模块
-  - 实现services/file-temp.ts：`processTemporaryFiles()`, `extractTextContent()`, `validateFileConstraints()`
+ - [x] 7. 附件处理模块
+  - 实现services/file-temp.ts：`processAttachments()`, `extractFileTextContent()`, `validateFileConstraints()`
   - 支持文件类型：.txt, .md，文本提取和内容返回
   - 实现限制：最多10个文件，单文件1MB，总计10MB
-  - 定义TemporaryFileResult接口：filename, content, size, mimeType, error
+  - 定义AttachmentResult接口：filename, content, size, mimeType, error
   - _Requirements: 5.1, 5.2, 5.3, 5.6_
 
-- [x] 7.1 编写临时文件处理文档
-  - 临时文件处理API说明
+ - [x] 7.1 编写附件处理文档
+  - 附件处理API说明
   - 文件类型支持和限制
   - 错误处理和验证机制
   - 使用示例和最佳实践
@@ -236,7 +236,7 @@
 - [x] 18. 消息输入框 ✅ **COMPLETED**
   - ✅ 实现components/features/chat/ChatInputBox.tsx：文本输入，文件上传按钮，发送按钮
   - ✅ 实现文件上传：拖拽支持，文件预览卡片，删除功能
-  - ✅ 实现临时文件处理：格式验证，大小限制，内容提取
+  - ✅ 实现附件处理：格式验证，大小限制，内容提取
   - ✅ 定义InputBoxPayload接口：input, files, attachments等
   - ✅ 实现快捷键支持和输入历史记录
   - _Requirements: 2.1, 5.1, 5.2, 5.3, 5.4, 5.5_

@@ -18,11 +18,11 @@ export interface MessageContentPart {
   text?: string
   citation?: CitationContent
   toolCall?: ToolCallContent
-  temporaryFile?: TemporaryFileContent
+  attachment?: AttachmentContent
   image?: ImageContent
 }
 
-export type ContentType = 'text' | 'citation' | 'tool-call' | 'temporary-file' | 'image'
+export type ContentType = 'text' | 'citation' | 'tool-call' | 'attachment' | 'image'
 
 export interface CitationContent {
   filename: string
@@ -39,7 +39,7 @@ export interface ToolCallContent {
   result?: unknown
 }
 
-export interface TemporaryFileContent {
+export interface AttachmentContent {
   filename: string
   content: string
   size: number

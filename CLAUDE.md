@@ -12,7 +12,7 @@ This document provides essential development instructions for working with the K
 - **Simple Chat Interface**: Clean UI with streaming AI responses and collapsible sidebar
 - **Message Branching & Regeneration**: Navigate complex conversation trees and regenerate AI responses
 - **Message Editing**: Edit user messages with advanced branching capabilities
-- **Temporary File Uploads**: Provide contextual files for conversations (10MB per file, 100MB total)
+- **Attachment Uploads**: Provide contextual files for conversations (10MB per file, 100MB total)
 - **Local-First Storage**: All data stored locally in SQLite database
 - **Multi-Provider Support**: Integrates with various AI models (OpenAI, Anthropic, Google)
 - **Internationalization**: Full i18n support with English and Chinese locales
@@ -179,13 +179,13 @@ Comprehensive file handling with validation, parsing, and security measures.
 - **Validation Pipeline**: Client and server-side validation for file constraints (10MB per file, 100MB total, supported extensions).
 - **Binary vs Text Processing**: Automatic detection and appropriate handling of binary vs text files.
 - **Image Optimization**: Special handling for images with data URL conversion and base64 encoding for embedding.
-- **Temporary File Lifecycle**: Complete workflow from upload → validation → parsing → cleanup with comprehensive error handling.
+- **Attachment Lifecycle**: Complete workflow from upload → validation → parsing → cleanup with comprehensive error handling.
 
 ### 4.6. Message System Architecture
 
 Advanced message handling with multi-part content and branching capabilities.
 
-- **Multi-Part Content**: Support for text, temporary-file, citation, tool-call, and image content parts within a single message.
+- **Multi-Part Content**: Support for text, attachment, citation, tool-call, and image content parts within a single message.
 - **Message Branching**: Complete conversation tree navigation with branch creation, merging, switching, and deletion.
 - **Content Validation**: Strict validation ensuring at least one meaningful content part per message.
 - **Citation System**: Support for file references with similarity scores, page numbers, and contextual metadata.

@@ -34,8 +34,8 @@ export function fromUserInput(input: { text?: string; files?: BuilderFile[] }): 
       })
     } else {
       parts.push({
-        type: 'temporary-file',
-        temporaryFile: {
+        type: 'attachment',
+        attachment: {
           filename: file.filename,
           content: file.content,
           size: file.size,
@@ -51,7 +51,7 @@ export function fromUserInput(input: { text?: string; files?: BuilderFile[] }): 
 /**
  * Normalize an arbitrary array of partial parts into valid MessageContentPart[]
  * - removes empty text parts
- * - ensures shapes for image/temporary-file
+ * - ensures shapes for image/attachment
  */
 export function normalizeParts(parts: Partial<MessageContentPart>[]): MessageContentPart[] {
   const out: MessageContentPart[] = []
@@ -62,8 +62,8 @@ export function normalizeParts(parts: Partial<MessageContentPart>[]): MessageCon
       if (t) out.push({ type: 'text', text: t })
     } else if (p.type === 'image' && p.image) {
       out.push({ type: 'image', image: p.image })
-    } else if (p.type === 'temporary-file' && p.temporaryFile) {
-      out.push({ type: 'temporary-file', temporaryFile: p.temporaryFile })
+    } else if (p.type === 'attachment' && p.attachment) {
+      out.push({ type: 'attachment', attachment: p.attachment })
     } else if (p.type === 'citation' && p.citation) {
       out.push({ type: 'citation', citation: p.citation })
     } else if (p.type === 'tool-call' && p.toolCall) {

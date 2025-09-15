@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   IPCResult,
   ConversationCreateRequest,
-  TemporaryFileRequest,
+  AttachmentProcessRequest,
   SearchRequest,
   SettingsUpdateRequest
 } from '@shared/types/ipc'
@@ -67,10 +67,10 @@ export interface KnowlexAPI {
     conversations: (id: string) => Promise<IPCResult>
   }
 
-  // File IPC
-  file: {
-    processTemp: (data: TemporaryFileRequest) => Promise<IPCResult>
-    processTempContent: (data: {
+  // Attachment IPC
+  attachment: {
+    process: (data: AttachmentProcessRequest) => Promise<IPCResult>
+    processContent: (data: {
       files: Array<{ name: string; content: string; size: number }>
     }) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
@@ -201,11 +201,11 @@ const knowlexAPI: KnowlexAPI = {
     conversations: (id) => ipcRenderer.invoke('project:conversations', id)
   },
 
-  // File IPC
-  file: {
-    processTemp: (data) => ipcRenderer.invoke('file:process-temp', data),
-    processTempContent: (data) => ipcRenderer.invoke('file:process-temp-content', data),
-    delete: (id) => ipcRenderer.invoke('file:delete', id)
+  // Attachment IPC
+  attachment: {
+    process: (data) => ipcRenderer.invoke('attachment:process', data),
+    processContent: (data) => ipcRenderer.invoke('attachment:process-content', data),
+    delete: (id) => ipcRenderer.invoke('attachment:delete', id)
   },
 
   // Search IPC

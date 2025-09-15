@@ -10,8 +10,8 @@ export interface ConversationCreateRequest {
   projectId?: string | null
 }
 
-// File IPC (for temp files only)
-export interface TemporaryFileRequest {
+// Attachment processing IPC
+export interface AttachmentProcessRequest {
   files: Array<{
     name: string
     path: string

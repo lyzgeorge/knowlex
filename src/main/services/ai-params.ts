@@ -53,9 +53,9 @@ export function convertMessagesToAIFormat(messages: any[]) {
     switch (part.type) {
       case 'text':
         return part.text ? ({ type: 'text', text: part.text } as AITextPart) : null
-      case 'temporary-file':
-        if (part.temporaryFile) {
-          const text = `[File: ${part.temporaryFile.filename}]\n${part.temporaryFile.content}\n[End of file]`
+      case 'attachment':
+        if (part.attachment) {
+          const text = `[File: ${part.attachment.filename}]\n${part.attachment.content}\n[End of file]`
           return { type: 'text', text }
         }
         return null

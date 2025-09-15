@@ -123,7 +123,7 @@ export const partitionContent = (content: MessageContent): PartitionedContent =>
   for (const part of content) {
     if (part.type === 'text') {
       textParts.push(part)
-    } else if (part.type === 'temporary-file' || part.type === 'image') {
+    } else if (part.type === 'attachment' || part.type === 'image') {
       fileParts.push(part)
     }
   }
@@ -137,7 +137,7 @@ export const partitionContent = (content: MessageContent): PartitionedContent =>
  * Gets file and image parts from message content
  */
 export const getFileParts = (content: MessageContent): MessageContentPart[] => {
-  return content.filter((part) => part.type === 'temporary-file' || part.type === 'image')
+  return content.filter((part) => part.type === 'attachment' || part.type === 'image')
 }
 
 /**

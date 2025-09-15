@@ -13,7 +13,7 @@ import type {
   MessageContentPart,
   ContentType
 } from '@shared/types/message'
-import type { TemporaryFileResult } from '@shared/types/file'
+import type { AttachmentResult } from '@shared/types/file'
 
 /**
  * Message Management Service
@@ -89,8 +89,8 @@ function validateContentPart(part: MessageContentPart, index: number): boolean {
       }
       return true
 
-    case 'temporary-file': {
-      const file = part.temporaryFile
+    case 'attachment': {
+      const file = part.attachment
       if (
         !file?.filename ||
         !file?.content ||
@@ -98,7 +98,7 @@ function validateContentPart(part: MessageContentPart, index: number): boolean {
         typeof file.size !== 'number' ||
         file.size < 0
       ) {
-        throw new Error(`Temporary file content part at index ${index} must have valid file data`)
+        throw new Error(`Attachment content part at index ${index} must have valid file data`)
       }
       return true
     }
@@ -124,7 +124,7 @@ function validateContentPart(part: MessageContentPart, index: number): boolean {
  * Checks if a content type is valid
  */
 function isValidContentType(type: string): type is ContentType {
-  return ['text', 'citation', 'tool-call', 'temporary-file', 'image'].includes(type)
+  return ['text', 'citation', 'tool-call', 'attachment', 'image'].includes(type)
 }
 
 /**
@@ -296,15 +296,15 @@ export function extractTextContent(message: Message): string {
 }
 
 /**
- * Converts temporary file results to proper message content parts
- * This handles the conversion from processed temporary files to message content
+ * Converts processed attachment results to proper message content parts
+ * This handles the conversion from processed attachments to message content
  */
-export function convertTemporaryFilesToMessageParts(
-  temporaryFileResults: TemporaryFileResult[]
+export function convertAttachmentsToMessageParts(
+  attachmentResults: AttachmentResult[]
 ): MessageContentPart[] {
   const parts: MessageContentPart[] = []
 
-  for (const fileResult of temporaryFileResults) {
+  for (const fileResult of attachmentResults) {
     if (fileResult.error) {
       // Add error as text part
       parts.push({
@@ -314,10 +314,10 @@ export function convertTemporaryFilesToMessageParts(
       continue
     }
 
-    // All files kept as temporary file content parts
+    // All files kept as attachment content parts
     parts.push({
-      type: 'temporary-file',
-      temporaryFile: {
+      type: 'attachment',
+      attachment: {
         filename: fileResult.filename,
         content: fileResult.content,
         size: fileResult.size,
@@ -330,14 +330,14 @@ export function convertTemporaryFilesToMessageParts(
 }
 
 /**
- * Creates a message with temporary files properly converted to content parts
- * Convenience method that handles temporary file conversion automatically
+ * Creates a message with attachments properly converted to content parts
+ * Convenience method that handles attachment conversion automatically
  */
-export async function addMessageWithTemporaryFiles(
+export async function addMessageWithAttachments(
   conversationId: string,
   role: 'user' | 'assistant',
   textContent: string,
-  temporaryFileResults: TemporaryFileResult[] = [],
+  attachmentResults: AttachmentResult[] = [],
   parentMessageId?: string
 ): Promise<Message> {
   const content: MessageContent = []
@@ -350,8 +350,8 @@ export async function addMessageWithTemporaryFiles(
     })
   }
 
-  // Convert and add temporary files
-  const fileParts = convertTemporaryFilesToMessageParts(temporaryFileResults)
+  // Convert and add attachment parts
+  const fileParts = convertAttachmentsToMessageParts(attachmentResults)
   content.push(...fileParts)
 
   // Ensure we have at least some content

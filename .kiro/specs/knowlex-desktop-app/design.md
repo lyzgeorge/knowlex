@@ -56,7 +56,7 @@ knowlex/
 │   │   │   ├── project.ts        # Project management
 │   │   │   ├── conversation.ts   # Chat management
 │   │   │   ├── message.ts        # Message handling
-│   │   │   ├── file-temp.ts      # Temporary file processing
+│   │   │   ├── attachment-processor.ts      # Attachment processing
 │   │   │   ├── file-project.ts   # Project file processing
 │   │   │   ├── embedding.ts      # Vector processing
 │   │   │   ├── search.ts         # Search functionality
@@ -193,7 +193,7 @@ interface AIModel {
 
 The system handles two distinct file processing modes:
 
-#### **Temporary File Processing (Chat Mode)**
+#### **Attachment Processing (Chat Mode)**
 - **Purpose**: Quick file uploads for immediate conversation context
 - **Constraints**: Max 10 files, 1MB each, text/markdown only
 - **Processing**: Immediate text extraction, no persistence
@@ -275,7 +275,7 @@ The system builds conversation context from multiple sources:
 **Conversation State:**
 - **Message Management**: Conversation list, message history, current conversation
 - **Streaming Support**: Real-time message streaming, typing indicators
-- **File Handling**: Temporary file uploads, attachment processing
+- **File Handling**: Attachment uploads, attachment processing
 - **Error Handling**: Connection errors, retry mechanisms, user feedback
 
 ### 4.2 Component Architecture
@@ -1264,7 +1264,7 @@ interface FileStorageStructure {
 // 文件生命周期管理
 interface FileLifecycleManager {
   // 自动清理策略
-  cleanupTempFiles(olderThan: number): Promise<void>
+  cleanupAttachments(olderThan: number): Promise<void>
   cleanupCache(maxSize: number): Promise<void>
   
   // 备份管理
@@ -1446,7 +1446,7 @@ interface MessageAPI {
 ```typescript
 interface FileAPI {
   // 临时文件
-  'file:process-temp'(files: File[]): Promise<TemporaryFileResult[]>
+  'attachment:process'(files: File[]): Promise<AttachmentResult[]>
   
   // 项目文件
   'file:upload'(projectId: number, files: File[]): Promise<ProjectFile[]>
@@ -1573,7 +1573,7 @@ interface ProjectFile {
   completedAt?: Date
 }
 
-interface TemporaryFileResult {
+interface AttachmentResult {
   filename: string
   content: string
   size: number
@@ -1896,7 +1896,7 @@ interface OverallHealthStatus {
 
 **Resource Cleanup:**
 - **LRU Caching**: Intelligent cache eviction for vector queries
-- **File Cleanup**: Automatic temporary file cleanup
+- **File Cleanup**: Automatic attachment cleanup
 - **Memory Monitoring**: Track and limit memory usage
 - **Garbage Collection**: Proper cleanup of event listeners and subscriptions
 

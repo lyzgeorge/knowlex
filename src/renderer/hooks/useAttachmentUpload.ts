@@ -1,18 +1,18 @@
 /**
- * Custom hook for handling temporary file uploads in chat interface
- * Focuses on simple, clear, atomic responsibilities:
- * - Validate files
- * - Add/remove files from local state
- * - Process files via main process and update state
+ * Hook: useAttachmentUpload (renamed from useFileUpload)
+ * 聊天消息附件（attachment）上传与处理：
+ * - 本地校验
+ * - 读取文件内容（文本 / base64）
+ * - 调用主进程 attachment 处理 IPC
  */
 
 import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '@renderer/components/ui'
-import type { TemporaryFileResult } from '@shared/types/file'
+import type { AttachmentResult } from '@shared/types/file'
 import { FILE_CONSTRAINTS, SUPPORTED_FILE_TYPES } from '@shared/constants/file'
 import { validateFileConstraints } from '@shared/utils/validation'
 
-export interface ProcessedFile extends TemporaryFileResult {
+export interface ProcessedAttachment extends AttachmentResult {
   isImage?: boolean
 }
 
@@ -22,19 +22,19 @@ export interface FileUploadItem {
   file: File
 }
 
-export interface FileUploadState {
+export interface AttachmentUploadState {
   files: FileUploadItem[]
-  processedFiles: ProcessedFile[]
+  processedFiles: ProcessedAttachment[]
   isProcessing: boolean
   error: string | null
   successfulFilesCount: number
 }
 
-export interface FileUploadHook {
-  state: FileUploadState
+export interface AttachmentUploadHook {
+  state: AttachmentUploadState
   addFiles: (files: FileList | File[]) => void
   removeFile: (file: File) => void
-  processFiles: () => Promise<ProcessedFile[]>
+  processFiles: () => Promise<ProcessedAttachment[]>
   clearFiles: () => void
   clearError: () => void
   // Drag and drop handlers
@@ -116,8 +116,8 @@ const readFileAsContent = async (
   return { name: file.name, size: file.size, content: new TextDecoder().decode(buffer) }
 }
 
-export const useFileUpload = (): FileUploadHook => {
-  const [state, setState] = useState<FileUploadState>({
+export const useAttachmentUpload = (): AttachmentUploadHook => {
+  const [state, setState] = useState<AttachmentUploadState>({
     files: [],
     processedFiles: [],
     isProcessing: false,
@@ -135,11 +135,11 @@ export const useFileUpload = (): FileUploadHook => {
       setState((s) => ({ ...s, isProcessing: true, error: null }))
       try {
         const payload = await Promise.all(items.map((it) => readFileAsContent(it.file)))
-        const result = await window.knowlex.file.processTempContent({
+        const result = await window.knowlex.attachment.processContent({
           files: payload.map((p) => ({ name: p.name, content: p.content, size: p.size }))
         })
         if (!result.success) throw new Error(result.error || 'Failed to process files')
-        const processed = (Array.isArray(result.data) ? result.data : []) as TemporaryFileResult[]
+        const processed = (Array.isArray(result.data) ? result.data : []) as AttachmentResult[]
         const success = processed.filter((f) => !f.error)
         const failed = processed.filter((f) => f.error)
 
@@ -152,7 +152,7 @@ export const useFileUpload = (): FileUploadHook => {
           const remainingFiles = failed.length
             ? prev.files.filter((fi) => !failed.some((ff) => ff.filename === fi.file.name))
             : prev.files
-          const mapped: ProcessedFile[] = success.map((f) => ({
+          const mapped: ProcessedAttachment[] = success.map((f) => ({
             ...f,
             isImage: isImageMime(f.mimeType)
           }))
@@ -222,7 +222,7 @@ export const useFileUpload = (): FileUploadHook => {
 
   // Since processing happens on add, just return current processed files
   const processFiles = useCallback(
-    async (): Promise<ProcessedFile[]> => state.processedFiles,
+    async (): Promise<ProcessedAttachment[]> => state.processedFiles,
     [state.processedFiles]
   )
 
@@ -266,5 +266,4 @@ export const useFileUpload = (): FileUploadHook => {
 
   return { state, addFiles, removeFile, processFiles, clearFiles, clearError, dragHandlers }
 }
-
-export default useFileUpload
+export default useAttachmentUpload

@@ -5,8 +5,9 @@ export { Notification, NotificationProvider, useNotificationContext } from './No
 export { useNotifications } from '@renderer/hooks/useNotifications'
 
 // File components
-export { default as TempFileCard } from './TempFileCard'
-export { TempFileCardList } from './TempFileCard'
+export { default as AttachmentCard } from './AttachmentCard'
+export { AttachmentCardList } from './AttachmentCard'
+export { toMessageFileLikeFromMessagePart } from './AttachmentCard'
 
 // Inputs
 export { default as AutoResizeTextarea } from './AutoResizeTextarea'

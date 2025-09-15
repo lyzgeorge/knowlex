@@ -17,11 +17,11 @@ import {
 import type { Message } from '@shared/types/message'
 import { createUserMessageViewModel } from '@shared/utils/message-view-models'
 import { MarkdownContent } from '@renderer/utils/markdownComponents'
-import { toMessageFileLikeFromMessagePart } from '@renderer/components/ui/TempFileCard'
+import { toMessageFileLikeFromMessagePart } from '@renderer/components/ui'
 import AutoResizeTextarea from '@renderer/components/ui/AutoResizeTextarea'
 import { useIsSending, useCurrentConversation } from '@renderer/stores/conversation/index'
 import { useMessageActions } from '@renderer/hooks/useMessageActions'
-import { getFileAcceptString } from '@renderer/hooks/useFileUpload'
+import { getFileAcceptString } from '@renderer/hooks/useAttachmentUpload'
 import { useMessageTokenEstimate } from '@renderer/hooks/useMessageTokenEstimate'
 import { useActiveModelCapabilities } from '@renderer/hooks/useModelCapabilities'
 import {
@@ -92,7 +92,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
   // Unified token counting with new hook
   const tokenCount = useMessageTokenEstimate({
     text: isEditing ? messageActions.editableMessage.draftText : '',
-    attachments: isEditing ? messageActions.editableMessage.attachments : [],
+    attachments: isEditing ? (messageActions.editableMessage.attachments as any) : [],
     model: activeModel
   })
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import { TempFileCard, TempFileCardList } from '@renderer/components/ui'
+import { AttachmentCard, AttachmentCardList } from '@renderer/components/ui'
 
 export interface AttachmentListItem {
   id: string
@@ -14,7 +14,8 @@ export interface AttachmentListItem {
 export interface FileAttachmentListProps {
   items: AttachmentListItem[]
   onRemove: (id: string) => void
-  // Optional layout props passed to TempFileCardList
+  // Optional layout props passed to AttachmentCardList
+  // Optional layout props passed to AttachmentCardList
   alignSelf?: 'flex-end' | 'flex-start' | 'center' | string
   maxW?: string
   mb?: number | string
@@ -34,7 +35,7 @@ export const FileAttachmentList: React.FC<FileAttachmentListProps> = ({
   if (!items || items.length === 0) return null
 
   return (
-    <TempFileCardList
+    <AttachmentCardList
       {...(alignSelf ? { alignSelf } : {})}
       {...(maxW ? { maxW } : {})}
       {...(mb ? { mb } : {})}
@@ -42,7 +43,7 @@ export const FileAttachmentList: React.FC<FileAttachmentListProps> = ({
       {...(spacing !== undefined ? { spacing } : {})}
     >
       {items.map((item) => (
-        <TempFileCard
+        <AttachmentCard
           key={item.id}
           {...(item.file
             ? { file: item.file }
@@ -53,7 +54,7 @@ export const FileAttachmentList: React.FC<FileAttachmentListProps> = ({
           variant="compact"
         />
       ))}
-    </TempFileCardList>
+    </AttachmentCardList>
   )
 }
 

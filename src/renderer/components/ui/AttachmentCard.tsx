@@ -11,7 +11,7 @@ export interface MessageFileLike {
   url?: string
 }
 
-export interface TempFileCardProps {
+export interface AttachmentCardProps {
   /** File to preview (when uploading) */
   file?: File
   /** Message-based file data (when rendering from a saved message) */
@@ -50,7 +50,7 @@ const useFileCardTheme = () => ({
 })
 
 /**
- * TempFileCard component for displaying uploaded file information
+ * AttachmentCard component for displaying uploaded attachment information
  *
  * Features:
  * - Shows file name and size with appropriate file type icon
@@ -58,7 +58,7 @@ const useFileCardTheme = () => ({
  * - Unified design for all file types (text, PDF, office, images)
  * - Compact and default variants
  */
-export const TempFileCard: React.FC<TempFileCardProps> = ({
+export const AttachmentCard: React.FC<AttachmentCardProps> = ({
   file,
   messageFile,
   onRemove,
@@ -136,24 +136,24 @@ export const TempFileCard: React.FC<TempFileCardProps> = ({
   )
 }
 
-TempFileCard.displayName = 'TempFileCard'
+AttachmentCard.displayName = 'AttachmentCard'
 
-export default TempFileCard
+export default AttachmentCard
 
 /**
- * Converts a message content part to a MessageFileLike object for TempFileCard
- * Handles both temporary files and images with simplified logic
+ * Converts a message content part to a MessageFileLike object for AttachmentCard
+ * Handles both attachments and images with simplified logic
  */
 export const toMessageFileLikeFromMessagePart = (
   part: MessageContentPart
 ): MessageFileLike | null => {
   switch (part.type) {
-    case 'temporary-file': {
-      if (!part.temporaryFile) return null
+    case 'attachment': {
+      if (!part.attachment) return null
       return {
-        filename: part.temporaryFile.filename,
-        size: part.temporaryFile.size,
-        mimeType: part.temporaryFile.mimeType
+        filename: part.attachment.filename,
+        size: part.attachment.size,
+        mimeType: part.attachment.mimeType
       }
     }
 
@@ -187,16 +187,16 @@ export const toMessageFileLikeFromMessagePart = (
 }
 
 /**
- * Unified horizontally scrollable list wrapper for TempFileCard items
+ * Unified horizontally scrollable list wrapper for AttachmentCard items
  * Ensures consistent spacing and scrollbar styling across the app.
  */
-export interface TempFileCardListProps
+export interface AttachmentCardListProps
   extends Pick<BoxProps, 'alignSelf' | 'maxW' | 'mb' | 'className'> {
   children: React.ReactNode
   spacing?: number
 }
 
-export const TempFileCardList: React.FC<TempFileCardListProps> = ({
+export const AttachmentCardList: React.FC<AttachmentCardListProps> = ({
   children,
   spacing = 2,
   alignSelf,
