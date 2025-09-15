@@ -9,7 +9,7 @@ import { immer } from 'zustand/middleware/immer'
 import type { Conversation } from '@shared/types/conversation-types'
 import type { Message } from '@shared/types/message'
 import { getActiveModelId } from '@shared/utils/model-resolution'
-import { unwrapIPCResult, assertIPCResult } from '@shared/utils/api-response'
+// unwrap/assert are replaced by runAsync autoUnwrap behavior
 
 // Local consolidated modules
 import {
@@ -111,7 +111,8 @@ export const useConversationStore = create<ConversationState>()(
                 conversation.modelConfigId = modelId
               })
             })
-          }
+          },
+          { autoUnwrap: true, action: 'update conversation model' }
         )
       },
       getActiveModelId: (userDefaultModelId?: string) => {
@@ -156,7 +157,7 @@ export const useConversationStore = create<ConversationState>()(
             const res = await conversationApi.create({
               title: title || CONVERSATION_CONSTANTS.DEFAULT_CONVERSATION_TITLE
             })
-            const conv = unwrapIPCResult(res, 'create conversation')
+            const conv = (res as any).data
             set((s) => {
               if (!s.conversations.find((c) => c.id === conv.id)) {
                 s.conversations.unshift(conv)
@@ -167,7 +168,7 @@ export const useConversationStore = create<ConversationState>()(
 
             return conv
           },
-          { setLoading: loadingSetters.isLoading }
+          { setLoading: loadingSetters.isLoading, autoUnwrap: true, action: 'create conversation' }
         )
       },
       deleteConversation: async (conversationId: string) => {
@@ -186,7 +187,8 @@ export const useConversationStore = create<ConversationState>()(
                 s.currentConversationId = null
               }
             })
-          }
+          },
+          { autoUnwrap: true, action: 'delete conversation' }
         )
       },
       updateConversationTitle: async (conversationId: string, title: string) => {
@@ -200,7 +202,8 @@ export const useConversationStore = create<ConversationState>()(
                 conversation.title = title
               })
             })
-          }
+          },
+          { autoUnwrap: true, action: 'update conversation title' }
         )
       },
       // Manual title generation removed; auto-generation happens after first exchange.
@@ -215,7 +218,8 @@ export const useConversationStore = create<ConversationState>()(
                 conversation.projectId = projectId
               })
             })
-          }
+          },
+          { autoUnwrap: true, action: 'move conversation' }
         )
       },
       loadMoreConversations: async () => {
@@ -229,10 +233,7 @@ export const useConversationStore = create<ConversationState>()(
               limit: CONVERSATION_CONSTANTS.CONVERSATIONS_PAGE_SIZE,
               offset: currentState.conversations.length
             })
-            const { conversations: newConversations, hasMore } = unwrapIPCResult(
-              res,
-              'load more conversations'
-            ) as {
+            const { conversations: newConversations, hasMore } = (res as any).data as {
               conversations: Conversation[]
               hasMore: boolean
             }
@@ -244,7 +245,11 @@ export const useConversationStore = create<ConversationState>()(
 
             await preloadAndIndexMessagesFor(newConversations, (apply) => apply(set))
           },
-          { setLoading: loadingSetters.isLoadingMore }
+          {
+            setLoading: loadingSetters.isLoadingMore,
+            autoUnwrap: true,
+            action: 'load more conversations'
+          }
         )
       },
 
@@ -260,7 +265,8 @@ export const useConversationStore = create<ConversationState>()(
                 conversation.settings = { ...conversation.settings, ...settings }
               })
             })
-          }
+          },
+          { autoUnwrap: true, action: 'update session settings' }
         )
       },
 
@@ -287,7 +293,7 @@ export const useConversationStore = create<ConversationState>()(
               ...(options?.modelConfigId && { modelConfigId: options.modelConfigId }),
               content
             })
-            assertIPCResult(res, 'send message')
+            if (!res?.success) throw new Error((res as any).error || 'Failed to send message')
           },
           { setLoading: loadingSetters.isSending }
         )
@@ -332,7 +338,7 @@ export const useConversationStore = create<ConversationState>()(
           set,
           async () => {
             const res = await messageApi.list(conversationId)
-            const msgs = (unwrapIPCResult(res, 'load messages') as Message[]) || []
+            const msgs = ((res as any).data as Message[]) || []
             set((s) => {
               ingestMessages(s, conversationId, msgs, { replace: true })
               const conv = s.conversations.find((c) => c.id === conversationId)
@@ -342,7 +348,11 @@ export const useConversationStore = create<ConversationState>()(
               }
             })
           },
-          { setLoading: loadingSetters.isLoadingMessages }
+          {
+            setLoading: loadingSetters.isLoadingMessages,
+            autoUnwrap: true,
+            action: 'load messages'
+          }
         )
       },
 
@@ -381,10 +391,7 @@ export const useConversationStore = create<ConversationState>()(
               limit: CONVERSATION_CONSTANTS.CONVERSATIONS_PAGE_SIZE,
               offset: 0
             })
-            const { conversations: recentConversations, hasMore } = unwrapIPCResult(
-              res,
-              'load conversations'
-            ) as {
+            const { conversations: recentConversations, hasMore } = (res as any).data as {
               conversations: Conversation[]
               hasMore: boolean
             }
@@ -397,7 +404,7 @@ export const useConversationStore = create<ConversationState>()(
               eventCleanup = registerAllEvents(set)
             }
           },
-          { setLoading: loadingSetters.isLoading }
+          { setLoading: loadingSetters.isLoading, autoUnwrap: true, action: 'load conversations' }
         )
       }
     }

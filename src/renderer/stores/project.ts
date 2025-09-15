@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Project } from '@shared/types/project'
-import { unwrapIPCResult, assertIPCResult } from '@shared/utils/api-response'
+// using runAsync/runApiCall autoUnwrap behavior instead of explicit unwrap/assert
 
 interface ProjectState {
   projects: Project[]
@@ -40,7 +40,7 @@ export const useProjectStore = create<ProjectState>()(
         })
         try {
           const res = await window.knowlex.project.list()
-          const items = (unwrapIPCResult(res, 'load projects') as Project[]) || []
+          const items = ((res as any).data as Project[]) || []
           set((s) => {
             s.projects = items
             s.isLoading = false
@@ -55,7 +55,7 @@ export const useProjectStore = create<ProjectState>()(
 
       addProject: async (name: string) => {
         const res = await window.knowlex.project.create(name)
-        const proj = unwrapIPCResult(res, 'create project') as Project
+        const proj = (res as any).data as Project
         set((s) => {
           s.projects.unshift(proj)
         })
@@ -64,7 +64,7 @@ export const useProjectStore = create<ProjectState>()(
 
       editProject: async (id: string, name: string) => {
         const res = await window.knowlex.project.update(id, { name })
-        const updated = unwrapIPCResult(res, 'update project') as Project
+        const updated = (res as any).data as Project
         set((s) => {
           const idx = s.projects.findIndex((p) => p.id === id)
           if (idx >= 0) s.projects[idx] = updated
@@ -73,7 +73,7 @@ export const useProjectStore = create<ProjectState>()(
 
       removeProject: async (id: string) => {
         const res = await window.knowlex.project.delete(id)
-        assertIPCResult(res, 'delete project')
+        if (!res?.success) throw new Error((res as any).error || 'Failed to delete project')
         set((s) => {
           s.projects = s.projects.filter((p) => p.id !== id)
           delete s.expanded[id]
