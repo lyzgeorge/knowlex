@@ -335,7 +335,7 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 |--------|------|------|------|
 | createConversation | 函数 | data | 创建对话，包含验证 |
 | listConversationsPaginated | 函数 | limit, offset | 分页列表，包含 hasMore 标志 |
-| generateConversationTitle | 函数 | id | AI 驱动的标题生成 |
+<!-- 手动生成标题已移除，仅保留自动生成与手动输入改名 -->
 | moveConversation | 函数 | conversationId, projectId | 在项目间移动对话 |
 
 ### src/main/services/message.ts
@@ -406,7 +406,6 @@ AI SDK 集成，支持流式传输和模型解析。
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | streamAIResponse | 函数 | conversationMessages, options, cancellationToken | 主要流式传输函数，内部使用参数构建器与重试策略。 |
-| generateAIResponseOnce | 函数 | messages | 单次生成 |
 | testOpenAIConfig | 函数 | config | 配置测试 |
 | getOpenAIConfigFromEnv | 函数 | 无 | 环境配置 |
 | validateOpenAIConfig | 函数 | config | 配置验证 |
@@ -418,6 +417,7 @@ AI SDK 集成，支持流式传输和模型解析。
 - 重试逻辑委托给 `ai-retry.ts`，当带推理参数失败时自动回退至不带推理参数。
 - 保留 `smooth` 流式选项与错误增强。
 - 与 `ai-streaming.ts` 的 `consumeFullStream` 共同完成流式回调消费。
+注意：原 `generateAIResponseOnce` 已移除，现统一通过 `streamAIResponse` 路径（即使无需 UI 增量，也复用其模型解析与参数构建）。
 
 ### src/main/services/ai-params.ts
 AI 参数与消息格式构建工具。
@@ -444,7 +444,9 @@ AI 参数与消息格式构建工具。
 | attemptInitialTitleGeneration | 函数 | conversationId | 一次性、幂等的首轮自动标题尝试 |
 | isPlaceholderTitle | 函数 | title | 判断标题是否为占位（如 'New Chat'）|
 
-说明：标题生成采用"一次性首轮尝试"策略，满足"首个用户+助手消息完成且对话标题仍为占位"时触发。采用幂等设计，取消逻辑已移除。
+说明：
+- 标题生成采用“一次性首轮尝试”策略：当首个“用户+助手”消息完成且对话标题仍为占位时触发；幂等，取消逻辑已移除。
+- 实际生成调用统一走 `streamAIResponse`，并遵循“显式 > 对话模型 > 用户默认 > 系统默认”的模型解析顺序，不再依赖环境变量直连。
 
 ### src/main/services/settings.ts
 应用程序配置管理。
@@ -490,7 +492,7 @@ AI 参数与消息格式构建工具。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| registerConversationIPCHandlers | 函数 | 无 | 注册所有对话与消息相关 IPC，包括：创建/获取/更新/删除/分页列出对话、标题生成、移动，以及消息的获取/列表/更新/删除/停止流/发送/重新生成和 AI 连接测试。 |
+| registerConversationIPCHandlers | 函数 | 无 | 注册所有对话与消息相关 IPC，包括：创建/获取/更新/删除/分页列出对话、移动，以及消息的获取/列表/更新/删除/停止流/发送/重新生成和 AI 连接测试。 |
 | unregisterConversationIPCHandlers | 函数 | 无 | 注销所有相关 IPC 通道 |
 
 说明（去重更新）：
@@ -500,6 +502,7 @@ AI 参数与消息格式构建工具。
 - `message:update` 取代旧的 `message:edit`。
 - 推理与流式阶段通过事件广播（`sendMessageEvent` 内部使用）更新前端。
 - 新增的 `message:stop` / `message:regenerate` / `conversation:move` / `ai:test-connection` 均在此集中维护。
+- 手动“生成标题”的 IPC 通道已移除（`conversation:generate-title` 不再存在）；仅保留自动生成与手动输入改名两种路径。
 
 ### src/main/ipc/project.ts
 项目管理 IPC 处理器。

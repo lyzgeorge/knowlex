@@ -37,7 +37,6 @@ export interface KnowlexAPI {
     update: (data: any) => Promise<IPCResult>
     updateTitle: (conversationId: string, title: string) => Promise<IPCResult>
     updateSettings: (conversationId: string, settings: any) => Promise<IPCResult>
-    generateTitle: (conversationId: string) => Promise<IPCResult>
     delete: (id: string) => Promise<IPCResult>
     move: (conversationId: string, projectId: string | null) => Promise<IPCResult>
   }
@@ -174,8 +173,6 @@ const knowlexAPI: KnowlexAPI = {
       ipcRenderer.invoke('conversation:update', { id: conversationId, title }),
     updateSettings: (conversationId, settings) =>
       ipcRenderer.invoke('conversation:update-settings', conversationId, settings),
-    generateTitle: (conversationId) =>
-      ipcRenderer.invoke('conversation:generate-title', conversationId),
     delete: (id) => ipcRenderer.invoke('conversation:delete', id),
     move: (conversationId, projectId) =>
       ipcRenderer.invoke('conversation:move', conversationId, projectId)

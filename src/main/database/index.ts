@@ -1,4 +1,4 @@
-import { createClient, Client, InArgs } from '@libsql/client'
+import type { Client, InArgs } from '@libsql/client'
 import { app } from 'electron'
 import { formatOperationError } from '@shared/utils/error-handling'
 import * as path from 'path'
@@ -52,6 +52,17 @@ export async function getDB(): Promise<Client> {
   }
 
   try {
+    const { createClient } = await import('@libsql/client').catch((e: any) => {
+      // Provide clearer guidance when native bindings are missing in packaged apps
+      const msg = String(e?.message || e)
+      const hint =
+        'Missing platform lib for @libsql/client. Build on the target OS (e.g., run dist:win on Windows), or ensure the platform package is installed and unpacked.'
+      const detail =
+        process.platform === 'win32'
+          ? 'Windows hint: install @libsql/win32-x64-msvc on a Windows machine and build there. Also set asarUnpack for node_modules/@libsql/**.'
+          : 'Make sure the @libsql/<platform> package for your OS is installed.'
+      throw new Error(`${msg}\n${hint}\n${detail}`)
+    })
     const databasePath = getDatabasePath()
     console.log(`Initializing database at: ${databasePath}`)
 

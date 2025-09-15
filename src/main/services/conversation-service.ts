@@ -217,29 +217,8 @@ export async function deleteConversation(id: string): Promise<void> {
 /**
  * Generates a title for a conversation
  */
-export async function generateConversationTitle(id: string): Promise<string> {
-  if (!id || id.trim().length === 0) {
-    throw new Error('Conversation ID is required')
-  }
-
-  // Check if conversation exists
-  const conversation = await dbGetConversation(id.trim())
-  if (!conversation) {
-    throw new Error('Conversation not found')
-  }
-
-  try {
-    // Use the independent title generation service
-    const { generateTitleForConversation } = await import('./title-generation')
-    const title = await generateTitleForConversation(id)
-
-    console.log(`Generated title for conversation ${id}: "${title}"`)
-    return title
-  } catch (error) {
-    console.error(`Failed to generate title for conversation ${id}:`, error)
-    return 'New Chat'
-  }
-}
+// Manual title generation has been removed; auto-generation is handled by
+// attemptInitialTitleGeneration() in title-generation.ts after first exchange.
 
 /**
  * Moves a conversation to a project

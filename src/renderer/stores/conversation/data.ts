@@ -24,9 +24,6 @@ export interface ConversationApiInterface {
   }): Promise<{ success: boolean; error?: string }>
   delete(conversationId: string): Promise<{ success: boolean; error?: string }>
   updateTitle(conversationId: string, title: string): Promise<{ success: boolean; error?: string }>
-  generateTitle(
-    conversationId: string
-  ): Promise<{ success: boolean; data?: string; error?: string }>
   move(
     conversationId: string,
     projectId: string | null
@@ -64,8 +61,6 @@ export const conversationApi: ConversationApiInterface = {
   delete: (conversationId) => window.knowlex.conversation.delete(conversationId) as Promise<any>,
   updateTitle: (conversationId, title) =>
     window.knowlex.conversation.update({ id: conversationId, title }) as Promise<any>,
-  generateTitle: (conversationId) =>
-    window.knowlex.conversation.generateTitle(conversationId) as Promise<any>,
   move: (conversationId, projectId) =>
     window.knowlex.conversation.move(conversationId, projectId) as Promise<any>,
   updateSettings: (conversationId, settings) =>

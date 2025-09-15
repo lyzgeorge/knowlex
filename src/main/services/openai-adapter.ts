@@ -116,44 +116,7 @@ function createOpenAIModel(config: OpenAIConfig) {
 /**
  * Generates an AI response for a conversation
  */
-export async function generateAIResponseOnce(
-  conversationMessages: Message[]
-): Promise<{ content: MessageContent; reasoning?: string }> {
-  // Validate configuration
-  const validation = validateOpenAIConfig()
-  if (!validation.isValid) {
-    throw new Error(validation.error || 'AI configuration is invalid')
-  }
-
-  const config = getOpenAIConfigFromEnv()
-  const model = createOpenAIModel(config)
-
-  try {
-    // Convert messages to AI format
-    const aiMessages = convertMessagesToAIFormat(conversationMessages)
-
-    // Build model parameters
-    const modelParams = buildModelParams(model, aiMessages, config, {
-      includeReasoningOptions: true
-    })
-
-    // Generate response
-    const result = await generateText(modelParams)
-
-    // Convert response to application format
-    return {
-      content: [
-        {
-          type: 'text',
-          text: result.text
-        }
-      ]
-    }
-  } catch (error) {
-    console.error('AI response generation failed:', error)
-    throw enhanceError(error)
-  }
-}
+// Removed generateAIResponseOnce to unify on streamAIResponse/model resolution.
 
 // Streaming callbacks and consumeFullStream are imported from './ai-streaming'
 

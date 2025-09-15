@@ -43,7 +43,6 @@ export interface ConversationState extends MessageStore {
   createConversation: (title?: string) => Promise<Conversation>
   deleteConversation: (conversationId: string) => Promise<void>
   updateConversationTitle: (conversationId: string, title: string) => Promise<void>
-  generateConversationTitle: (conversationId: string) => Promise<void>
   moveConversationToProject: (conversationId: string, projectId: string | null) => Promise<void>
   loadMoreConversations: () => Promise<void>
 

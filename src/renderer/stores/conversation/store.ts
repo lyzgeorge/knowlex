@@ -203,22 +203,7 @@ export const useConversationStore = create<ConversationState>()(
           }
         )
       },
-      generateConversationTitle: async (conversationId: string) => {
-        return runApiCall(
-          set,
-          () => conversationApi.generateTitle(conversationId),
-          'Failed to generate title',
-          (title) => {
-            if (title) {
-              set((s) => {
-                updateConversation(s.conversations, conversationId, (conversation) => {
-                  conversation.title = title as string
-                })
-              })
-            }
-          }
-        )
-      },
+      // Manual title generation removed; auto-generation happens after first exchange.
       moveConversationToProject: async (conversationId, projectId) => {
         return runApiCall(
           set,

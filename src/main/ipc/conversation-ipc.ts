@@ -4,7 +4,6 @@ import {
   getConversation,
   updateConversation,
   deleteConversation,
-  generateConversationTitle,
   listConversationsPaginated,
   moveConversation,
   type CreateConversationData,
@@ -145,16 +144,7 @@ export function registerConversationIPCHandlers(): void {
     })
   })
 
-  // Conversation: generate title
-  ipcMain.handle(
-    'conversation:generate-title',
-    async (_, id: unknown): Promise<IPCResult<string>> => {
-      return handleIPCCall(async () => {
-        const conversationId = expectString(id, 'Conversation ID')
-        return await generateConversationTitle(conversationId)
-      })
-    }
-  )
+  // Removed: manual title generation. Auto-generation runs after first exchange.
 
   // Conversation: move
   ipcMain.handle(
@@ -322,7 +312,6 @@ export function unregisterConversationIPCHandlers(): void {
     'conversation:get',
     'conversation:update',
     'conversation:delete',
-    'conversation:generate-title',
     'conversation:move',
     'message:get',
     'message:list',

@@ -12,8 +12,14 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  - node_modules/@libsql/**/*
 win:
   executableName: Knowlex Desktop
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -38,6 +44,8 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+nodeGypRebuild: false
+includeSubNodeModules: false
 publish:
   provider: generic
   url: https://example.com/auto-updates

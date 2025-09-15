@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, screen, nativeTheme } from 'electron'
+import { BrowserWindow, shell, screen, nativeTheme, app } from 'electron'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import { WINDOW_CONFIG, APP_NAME } from '@shared/constants/app'
@@ -39,16 +39,13 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    center: true, // Force center the window
+    center: true,
     webPreferences: SECURE_WEB_PREFERENCES
   })
 
-  // Force window to be visible and centered - bypass saved bounds
+  // Force window to be visible and centered
   window.setSize(MAIN_WINDOW_CONFIG.width, MAIN_WINDOW_CONFIG.height)
   window.center()
-
-  // Show immediately for debugging
-  window.show()
 
   if (is.dev) {
     window.webContents.openDevTools({ mode: 'detach' })
@@ -64,19 +61,37 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   console.log('Loading window content...')
   await loadWindowContent(window, '/')
 
+  // Enhanced error handling
+  window.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', errorCode, errorDescription, validatedURL)
+    // Force show window even if load fails so user can see what's happening
+    window.show()
+  })
+
+  window.webContents.on('did-finish-load', () => {
+    console.log('Window content loaded successfully')
+  })
+
+  window.webContents.on('dom-ready', () => {
+    console.log('DOM ready')
+  })
+
   // Show window when ready
   window.once('ready-to-show', () => {
     console.log('Window ready to show')
-    window.show()
+    forceRevealWindow(window)
     if (is.dev) {
       window.webContents.openDevTools({ mode: 'detach' })
     }
   })
 
-  // Add error handling
-  window.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
-    console.error('Failed to load:', errorCode, errorDescription, validatedURL)
-  })
+  // Fallback: force show window after timeout
+  setTimeout(() => {
+    if (!window.isVisible()) {
+      console.log('Window not visible after timeout, forcing show')
+      forceRevealWindow(window)
+    }
+  }, 3000)
 
   return window
 }
@@ -145,6 +160,43 @@ function setupWindowEvents(window: BrowserWindow): void {
 }
 
 /**
+ * Attempts to ensure the BrowserWindow is visible, on-screen, and focused.
+ */
+function forceRevealWindow(window: BrowserWindow): void {
+  try {
+    // Restore if minimized
+    if (window.isMinimized()) window.restore()
+
+    // Ensure reasonable size and center within primary display
+    const primary = screen.getPrimaryDisplay()
+    const { width: sw, height: sh, x, y } = primary.workArea
+    const w = Math.min(Math.max(MAIN_WINDOW_CONFIG.width, MAIN_WINDOW_CONFIG.minWidth), sw)
+    const h = Math.min(Math.max(MAIN_WINDOW_CONFIG.height, MAIN_WINDOW_CONFIG.minHeight), sh)
+    const nx = Math.floor(x + (sw - w) / 2)
+    const ny = Math.floor(y + (sh - h) / 2)
+    window.setBounds({ x: nx, y: ny, width: w, height: h })
+
+    // Bring to front and focus
+    if (process.platform === 'darwin') {
+      app.focus({ steal: true })
+    }
+    window.setAlwaysOnTop(true)
+    window.show()
+    window.focus()
+    window.setAlwaysOnTop(false)
+  } catch (e) {
+    console.warn('forceRevealWindow failed:', e)
+    // Fallback to basic show
+    try {
+      window.show()
+      window.focus()
+    } catch (err) {
+      console.warn('Fallback show/focus failed:', err)
+    }
+  }
+}
+
+/**
  * Adapts window appearance to system theme
  */
 function adaptToSystemTheme(window: BrowserWindow): void {
@@ -167,19 +219,26 @@ function adaptToSystemTheme(window: BrowserWindow): void {
  * Loads content into the window based on environment
  */
 async function loadWindowContent(window: BrowserWindow, route: string): Promise<void> {
-  const baseUrl =
-    is.dev && process.env['ELECTRON_RENDERER_URL']
-      ? process.env['ELECTRON_RENDERER_URL']
-      : `file://${join(__dirname, '../renderer/index.html')}`
+  const hash = route ? route.replace(/^#/, '') : ''
 
-  const fullUrl = is.dev ? `${baseUrl}#${route}` : `${baseUrl}#${route}`
-
-  console.log('Loading URL:', fullUrl)
-  console.log('Base URL:', baseUrl)
-  console.log('Is dev:', is.dev)
-  console.log('ELECTRON_RENDERER_URL:', process.env['ELECTRON_RENDERER_URL'])
-
-  await window.loadURL(fullUrl)
+  try {
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      const baseUrl = process.env['ELECTRON_RENDERER_URL']!
+      const fullUrl = `${baseUrl}${hash ? `#${hash}` : ''}`
+      console.log('Loading dev URL:', fullUrl)
+      await window.loadURL(fullUrl)
+    } else {
+      // In production, load the built renderer file by path to avoid URL encoding issues
+      const rendererIndex = join(__dirname, '../renderer/index.html')
+      console.log('Loading prod file:', rendererIndex, hash ? `#${hash}` : '')
+      await window.loadFile(rendererIndex, hash ? { hash } : undefined)
+    }
+    console.log('URL loaded successfully')
+  } catch (error) {
+    console.error('Error loading renderer:', error)
+    // Try to show the window anyway to expose potential errors
+    window.show()
+  }
 }
 
 /**

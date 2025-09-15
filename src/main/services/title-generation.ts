@@ -46,13 +46,6 @@ export async function generateTitleForConversation(conversationId: string): Prom
       return 'New Chat'
     }
 
-    // Validate AI configuration
-    const { validateOpenAIConfig } = await import('@main/services/openai-adapter')
-    const validation = validateOpenAIConfig()
-    if (!validation.isValid) {
-      return 'New Chat'
-    }
-
     // Find first exchange
     const firstUserMessage = messages.find((m) => m.role === 'user')
     const firstAssistantMessage = messages.find((m) => m.role === 'assistant')
@@ -69,8 +62,16 @@ export async function generateTitleForConversation(conversationId: string): Prom
       return 'New Chat'
     }
 
+    // Resolve model context: prefer conversation's model, else user default
+    const { getConversation } = await import('@main/services/conversation-service')
+    const conversation = await getConversation(conversationId)
+    const conversationModelId = conversation?.modelConfigId || undefined
+
+    const { modelConfigService } = await import('./model-config-service')
+    const userDefaultModelId = (await modelConfigService.getDefaultModelId()) || undefined
+
     // Create title generation prompt
-    const { generateAIResponseOnce } = await import('@main/services/openai-adapter')
+    const { streamAIResponse } = await import('@main/services/openai-adapter')
     const titleMessages: Message[] = [
       {
         id: `title-gen-${Date.now()}-0`,
@@ -100,7 +101,13 @@ export async function generateTitleForConversation(conversationId: string): Prom
       }
     ]
 
-    const response = await generateAIResponseOnce(titleMessages)
+    // Use the same resolution path as normal chat generation, but consume fully
+    const response = await streamAIResponse(titleMessages, {
+      conversationModelId,
+      userDefaultModelId,
+      // Minimal callback to satisfy typing; we buffer internally
+      onTextChunk: () => {}
+    })
 
     // Clean and validate generated title
     const generatedTitle = response.content
