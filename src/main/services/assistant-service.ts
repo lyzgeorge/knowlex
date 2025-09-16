@@ -14,6 +14,11 @@
 
 import type { Message } from '@shared/types/message'
 import type { ReasoningEffort } from '@shared/types/models'
+import {
+  countTextTokens,
+  estimateImageTokensByTiles,
+  getEncodingForModel
+} from '@shared/utils/token-count'
 import { streamAIResponse } from '@main/services/openai-adapter'
 import { getMessage } from '@main/services/message'
 import { cancellationManager } from '@main/utils/cancellation'
@@ -145,10 +150,11 @@ export async function generateReplyForNewMessage(
   conversationId: string,
   reasoningEffort?: ReasoningEffort
 ): Promise<void> {
-  // Build branch-scoped context (up to 5 messages) following parent chain
+  // Build branch-scoped context (up to 8K tokens, fallback to 8 messages) following parent chain
   const branchContext = await buildBranchContext(messageId, {
     includeCurrentAssistant: false,
-    maxDepth: 5
+    maxContextTokens: 8000,
+    fallbackMessageCount: 8
   })
 
   // Shared title generation callback - runs regardless of success/error
@@ -192,7 +198,8 @@ export async function regenerateReply(messageId: string): Promise<void> {
   // Build branch-scoped context up to parent chain (exclude the assistant itself)
   const contextMessages = await buildBranchContext(messageId, {
     includeCurrentAssistant: false,
-    maxDepth: 5
+    maxContextTokens: 8000,
+    fallbackMessageCount: 8
   })
 
   await streamAssistantReply({
@@ -207,14 +214,53 @@ export async function regenerateReply(messageId: string): Promise<void> {
 // ----------------------------------------
 interface BranchContextOptions {
   includeCurrentAssistant: boolean
-  maxDepth: number
+  maxContextTokens: number
+  fallbackMessageCount: number
+}
+
+/**
+ * Estimate tokens for a message using shared token counting utilities
+ * If token counting fails, returns 0 (will trigger fallback to message count limit)
+ */
+async function estimateMessageTokens(message: Message): Promise<number> {
+  let totalTokens = 0
+
+  try {
+    // Get encoding for accurate token counting
+    const encoding = await getEncodingForModel('gpt-4o')
+
+    for (const part of message.content) {
+      if (part.type === 'text' && part.text) {
+        totalTokens += countTextTokens(part.text, encoding)
+      } else if (part.type === 'image') {
+        // Use shared image token estimation
+        totalTokens += estimateImageTokensByTiles(512, 512)
+      } else if (part.type === 'attachment' && part.attachment?.content) {
+        totalTokens += countTextTokens(part.attachment.content, encoding)
+      }
+    }
+
+    // Add tokens for reasoning content if present
+    if (message.reasoning) {
+      totalTokens += countTextTokens(message.reasoning, encoding)
+    }
+
+    // Add overhead for message structure (role, metadata, etc.)
+    totalTokens += 10
+
+    return totalTokens
+  } catch (error) {
+    // If token counting fails, return 0 to trigger fallback
+    console.warn('Token counting failed:', error)
+    return 0
+  }
 }
 
 async function buildBranchContext(
   assistantMessageId: string,
   options: BranchContextOptions
 ): Promise<Message[]> {
-  const { includeCurrentAssistant, maxDepth } = options
+  const { includeCurrentAssistant, maxContextTokens, fallbackMessageCount } = options
   const chain: Message[] = []
 
   let current = await getMessage(assistantMessageId)
@@ -223,16 +269,60 @@ async function buildBranchContext(
   // Optionally include the (placeholder) assistant; usually skipped because it has no content yet
   if (includeCurrentAssistant) chain.push(current)
 
-  // Climb parent chain
-  while (chain.length < maxDepth) {
+  // Climb parent chain and collect all messages
+  const allMessages: Message[] = []
+  while (current) {
     const parentId = current.parentMessageId
     if (!parentId) break
     const parent = await getMessage(parentId)
     if (!parent) break
-    chain.push(parent)
+    allMessages.push(parent)
     current = parent
   }
 
-  // We collected from leaf upwards; reverse to chronological order (oldest -> newest)
-  return chain.reverse()
+  // Reverse to get chronological order (oldest -> newest)
+  allMessages.reverse()
+
+  // Try token-based truncation first
+  let cumulativeTokens = 0
+  const selectedMessages: Message[] = []
+  let tokenCalculationFailed = false
+
+  // Process messages from newest to oldest (reverse chronological)
+  for (let i = allMessages.length - 1; i >= 0; i--) {
+    const message = allMessages[i]
+    if (!message) continue
+
+    const messageTokens = await estimateMessageTokens(message)
+
+    // If token calculation failed (returned 0), switch to message count fallback
+    if (messageTokens === 0 && selectedMessages.length === 0) {
+      tokenCalculationFailed = true
+      break
+    }
+
+    // Check if adding this message would exceed the limit
+    if (cumulativeTokens + messageTokens > maxContextTokens && selectedMessages.length > 0) {
+      break
+    }
+
+    selectedMessages.unshift(message) // Add to beginning to maintain chronological order
+    cumulativeTokens += messageTokens
+  }
+
+  // Fallback to message count limit if token calculation failed
+  if (tokenCalculationFailed) {
+    console.warn('[CONTEXT] Token calculation failed, falling back to message count limit')
+    const fallbackMessages = allMessages.slice(-fallbackMessageCount) // Get last N messages
+    console.log(
+      `[CONTEXT] Selected ${fallbackMessages.length} messages (fallback to message count limit)`
+    )
+    return fallbackMessages
+  }
+
+  console.log(
+    `[CONTEXT] Selected ${selectedMessages.length} messages, estimated ${cumulativeTokens} tokens (limit: ${maxContextTokens})`
+  )
+
+  return selectedMessages
 }

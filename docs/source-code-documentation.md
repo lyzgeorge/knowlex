@@ -137,6 +137,15 @@ Electron 主进程和渲染进程间通信的结构定义。
 | Project | 接口 | id, name, timestamps | 基本项目结构 |
 | CreateProjectData | 接口 | name | 项目创建输入结构 |
 
+### src/shared/utils/error-handling.ts
+错误处理工具，提供一致的错误消息格式化和操作失败处理。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| getErrorMessage | 函数 | error, fallback | 安全地从未知错误值中提取人类可读的错误消息 |
+| formatOperationError | 函数 | operation, error | 一致地格式化操作失败消息 |
+| createErrorHandler | 函数 | operation | 为特定操作创建绑定错误处理器的工厂函数 |
+
 ### src/shared/utils/id.ts
 使用加密随机性的集中式 ID 生成工具。
 
@@ -178,6 +187,14 @@ Electron 主进程和渲染进程间通信的结构定义。
 | getModelCapabilities | 函数 | modelId | 缓存的功能提取，1 分钟 TTL |
 | getActiveModelId | 函数 | context | 基于优先级的活动模型 ID 提取 |
 | validateModelResolution | 函数 | result | 详细错误报告的验证 |
+
+### src/shared/utils/text.ts
+文本相关常量的集中定义。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| TEXT_CONSTANTS | 常量对象 | 无 | 提供 `ZERO_WIDTH_SPACE` 等文本占位符常量 |
+
 ### src/shared/utils/time.ts
 统一的时间管理，支持 SQLite 时间戳和国际化。
 
@@ -185,6 +202,17 @@ Electron 主进程和渲染进程间通信的结构定义。
 |--------|------|------|------|
 | formatTime | 函数 | timestamp, options | 使用 Intl.DateTimeFormat 的灵活时间格式化 |
 | formatRelativeTime | 函数 | timestamp | 人类可读的相对时间 ("刚刚", "5分钟前") |
+
+### src/shared/utils/token-count.ts
+Token 计数和估算工具，使用 tiktoken 进行准确的 token 计算。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| getEncodingForModel | 函数 | modelId | 获取给定模型的 tiktoken 编码（缓存以提高性能） |
+| countTextTokens | 函数 | text, encoding | 使用 tiktoken 编码计算文本中的 token 数量 |
+| estimateImageTokensByTiles | 函数 | width, height, tokensPerTile | 基于瓦片计算估算图像 token 数量 |
+| countRequestTokensNormalized | 函数 | items | 计算标准化请求数据的 token 总数 |
+| clearEncodingCache | 函数 | 无 | 清理缓存的编码（用于应用程序关闭时） |
 
 ### src/shared/utils/validation.ts
 文件、约束和数据格式的综合验证工具。
@@ -348,20 +376,20 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | extractTextContent | 函数 | message | 内容提取工具 |
 
 ### src/main/services/assistant-service.ts
-支持流式传输的 AI 响应生成。
+支持流式传输的 AI 响应生成服务。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| streamAssistantReply | 函数 | config: AssistantGenConfig | 主要流式传输函数，配置对象包含 messageId, conversationId, contextMessages, modelConfigId, reasoningEffort, userDefaultModelId, onSuccess, onError。 |
-| generateReplyForNewMessage | 函数 | messageId, conversationId, reasoningEffort | 新消息生成 |
-| regenerateReply | 函数 | messageId | 消息重新生成 |
-| buildBranchContext | 函数 | assistantMessageId, options | 构建消息分支上下文，用于获取相关消息链。 |
+| AssistantGenConfig | 接口 | messageId, conversationId, contextMessages, modelConfigId?, reasoningEffort?, userDefaultModelId?, onSuccess?, onError? | 助手消息生成配置接口 |
+| streamAssistantReply | 函数 | config: AssistantGenConfig | 主要流式传输函数，处理完整的 AI 响应生命周期，包括事件广播、分片合并和最终持久化 |
+| generateReplyForNewMessage | 函数 | messageId, conversationId, reasoningEffort? | 为新用户消息生成回复的便捷函数，自动处理对话上下文和标题生成 |
+| regenerateReply | 函数 | messageId | 重新生成助手消息的便捷函数，自动处理上下文提取 |
+| buildBranchContext | 函数 | assistantMessageId, options | 构建分支作用域上下文的辅助函数，支持令牌限制和消息计数回退 |
 
 实现要点：
 - 由 `openai-adapter` 统一处理模型解析；此服务只传递可选 `modelConfigId/conversationModelId/userDefaultModelId`。
 - 通过 `StreamingLifecycleManager` 统一管理流式生命周期（开始/结束/分片事件、数据库写入、取消与错误处理），内部使用 `batched-emitter` 降低 IPC 压力。
-- 使用 `buildBranchContext` 构建消息上下文。
-- 使用空占位写入首次 `STREAMING_START`（统一在 `StreamingLifecycleManager` 中完成）。
+- 使用 `buildBranchContext` 构建消息上下文，支持令牌估算和回退机制。
 - 支持 3 层模型解析优先级：显式 → 对话 → 用户默认 → 系统默认。
 
 ### src/main/services/streaming-lifecycle.ts
@@ -377,6 +405,26 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | createBatchedEmitter | 函数 | messageId, eventType, chunkProperty, flushInterval | 返回具有 addChunk/flush 的发射器实例 |
+
+### src/main/utils/error.ts
+错误处理和格式化工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| formatUnknownError | 函数 | err, fallback | 安全地将未知错误格式化为字符串 |
+| processingErrorMessage | 函数 | err | 为处理错误创建标准错误消息 |
+| criticalErrorMessage | 函数 | err | 为严重错误创建标准错误消息 |
+
+### src/main/utils/ipc-events.ts
+IPC 事件广播和消息传递工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| broadcast | 函数 | prefix, eventType, data | 向所有渲染器窗口广播事件 |
+| sendConversationEvent | 函数 | eventType, data | 发送对话相关事件 |
+| sendMessageEvent | 函数 | eventType, data | 发送消息相关事件 |
+| CONVERSATION_EVENTS | 常量对象 | 无 | 对话事件类型常量 |
+| MESSAGE_EVENTS | 常量对象 | 无 | 消息事件类型常量 |
 
 ### src/main/services/file-temp.ts
 聊天上下文的临时文件处理。
@@ -405,10 +453,11 @@ AI SDK 集成，支持流式传输和模型解析。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| streamAIResponse | 函数 | conversationMessages, options, cancellationToken | 主要流式传输函数，内部使用参数构建器与重试策略。 |
-| testOpenAIConfig | 函数 | config | 配置测试 |
-| getOpenAIConfigFromEnv | 函数 | 无 | 环境配置 |
-| validateOpenAIConfig | 函数 | config | 配置验证 |
+| OpenAIConfig | 接口 | apiKey, baseURL, model, temperature?, maxTokens?, topP?, frequencyPenalty?, presencePenalty?, reasoningEffort?, smooth? | OpenAI 兼容模型配置接口 |
+| getOpenAIConfigFromEnv | 函数 | 无 | 从环境变量获取 OpenAI 配置 |
+| validateOpenAIConfig | 函数 | config? | 验证 OpenAI 配置 |
+| streamAIResponse | 函数 | conversationMessages, options, cancellationToken? | 主要流式传输函数，内部使用参数构建器与重试策略 |
+| testOpenAIConfig | 函数 | config? | 配置测试 |
 
 说明：
 - 模型解析（显式/对话/默认）由适配器内部完成，调用方无需重复解析。
@@ -416,8 +465,6 @@ AI SDK 集成，支持流式传输和模型解析。
 - 参数与消息格式转换委托给 `ai-params.ts`（`buildModelParams`、`convertMessagesToAIFormat`）。
 - 重试逻辑委托给 `ai-retry.ts`，当带推理参数失败时自动回退至不带推理参数。
 - 保留 `smooth` 流式选项与错误增强。
-- 与 `ai-streaming.ts` 的 `consumeFullStream` 共同完成流式回调消费。
-注意：原 `generateAIResponseOnce` 已移除，现统一通过 `streamAIResponse` 路径（即使无需 UI 增量，也复用其模型解析与参数构建）。
 
 ### src/main/services/ai-params.ts
 AI 参数与消息格式构建工具。

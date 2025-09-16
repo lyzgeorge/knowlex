@@ -9,6 +9,7 @@ import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/
 import { StreamingCallbacks, consumeFullStream } from './ai-streaming'
 import { buildModelParams, convertMessagesToAIFormat } from './ai-params'
 import { retryWithReasoningFallback } from './ai-retry'
+import { DEFAULT_AI_CONFIG } from '@shared/constants/ai'
 
 /**
  * OpenAI Adapter Service using official AI SDK
@@ -54,11 +55,15 @@ export function getOpenAIConfigFromEnv(): OpenAIConfig {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || undefined,
     model: process.env.OPENAI_MODEL || 'gpt-4o',
-    temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-    maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4000'),
-    topP: parseFloat(process.env.AI_TOP_P || '1'),
-    frequencyPenalty: parseFloat(process.env.AI_FREQUENCY_PENALTY || '0'),
-    presencePenalty: parseFloat(process.env.AI_PRESENCE_PENALTY || '0')
+    temperature: parseFloat(process.env.AI_TEMPERATURE || DEFAULT_AI_CONFIG.temperature.toString()),
+    maxTokens: parseInt(process.env.AI_MAX_TOKENS || DEFAULT_AI_CONFIG.maxTokens.toString()),
+    topP: parseFloat(process.env.AI_TOP_P || DEFAULT_AI_CONFIG.topP.toString()),
+    frequencyPenalty: parseFloat(
+      process.env.AI_FREQUENCY_PENALTY || DEFAULT_AI_CONFIG.frequencyPenalty.toString()
+    ),
+    presencePenalty: parseFloat(
+      process.env.AI_PRESENCE_PENALTY || DEFAULT_AI_CONFIG.presencePenalty.toString()
+    )
   }
 
   // Only add reasoningEffort if it's set in environment
