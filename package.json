@@ -9,6 +9,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "pnpm@8.8.0",
   "build": {
     "productName": "Knowlex Desktop",
     "appId": "com.knowlex.desktop",
@@ -104,8 +105,8 @@
     "immer": "^10.1.1",
     "js-tiktoken": "^1.0.21",
     "officeparser": "^5.2.0",
-    "openai": "^4.20.1",
-    "pdf-parse": "^1.1.1",
+    "openai": "4.20.1",
+    "pdfjs-dist": "3.11.174",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^6.0.0",

@@ -47,25 +47,18 @@ export async function createMainWindow(): Promise<BrowserWindow> {
   window.setSize(MAIN_WINDOW_CONFIG.width, MAIN_WINDOW_CONFIG.height)
   window.center()
 
-  if (is.dev) {
-    window.webContents.openDevTools({ mode: 'detach' })
-  }
-
   // Window event handlers
   setupWindowEvents(window)
 
   // Theme adaptation
   adaptToSystemTheme(window)
 
-  // Load content
-  console.log('Loading window content...')
-  await loadWindowContent(window, '/')
-
+  // Register load lifecycle listeners BEFORE starting navigation to avoid missing events
   // Enhanced error handling
   window.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL)
     // Force show window even if load fails so user can see what's happening
-    window.show()
+    forceRevealWindow(window)
   })
 
   window.webContents.on('did-finish-load', () => {
@@ -76,7 +69,7 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     console.log('DOM ready')
   })
 
-  // Show window when ready
+  // Show window as soon as it's ready to paint
   window.once('ready-to-show', () => {
     console.log('Window ready to show')
     forceRevealWindow(window)
@@ -85,13 +78,17 @@ export async function createMainWindow(): Promise<BrowserWindow> {
     }
   })
 
-  // Fallback: force show window after timeout
+  // Start loading content AFTER listeners are attached
+  console.log('Loading window content...')
+  await loadWindowContent(window, '/')
+
+  // Fallback: force show window shortly after in case ready-to-show was missed
   setTimeout(() => {
     if (!window.isVisible()) {
       console.log('Window not visible after timeout, forcing show')
       forceRevealWindow(window)
     }
-  }, 3000)
+  }, 1200)
 
   return window
 }
@@ -116,14 +113,21 @@ export async function createDebugWindow(): Promise<BrowserWindow> {
   // Window event handlers
   setupWindowEvents(window)
 
-  // Load debug content
-  await loadWindowContent(window, '/?mode=debug')
+  // Register listeners before loading content
+  window.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+    console.error('[debug] Failed to load:', errorCode, errorDescription, validatedURL)
+    window.show()
+  })
 
-  // Show window when ready
   window.once('ready-to-show', () => {
     window.show()
     window.webContents.openDevTools({ mode: 'detach' })
   })
+
+  // Load debug content
+  await loadWindowContent(window, '/?mode=debug')
+
+  // Listeners are already attached above before loading content
 
   return window
 }

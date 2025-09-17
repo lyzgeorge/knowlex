@@ -94,6 +94,8 @@ export class PlainTextParser extends FileParser {
   async parse(): Promise<FileParserResult> {
     try {
       const content = await this.extractPlainTextContent()
+      // Minimal log without content preview
+      console.log(`[PlainTextParser] Parsed ${this.filename} chars=${content.length}`)
       return {
         content,
         mimeType: this.mimeType,
@@ -140,7 +142,7 @@ export class PlainTextParser extends FileParser {
 /**
  * PDF Document Parser
  *
- * Handles PDF documents using pdf-parse library for better PDF processing
+ * Handles PDF documents using pdfjs-dist directly for text extraction
  */
 export class PDFParser extends FileParser {
   private static readonly SUPPORTED_EXTENSIONS = ['.pdf']
@@ -151,42 +153,165 @@ export class PDFParser extends FileParser {
 
   async parse(): Promise<FileParserResult> {
     try {
-      console.log(`[PDFParser] Parsing PDF file: ${this.filename}`)
+      console.log(`[PDFParser] Parsing PDF file with pdfjs-dist: ${this.filename}`)
 
-      // pdf-parse is a CommonJS module, use createRequire for proper loading
+      // Use CommonJS require via createRequire to load pdfjs-dist v3 build
       const { createRequire } = await import('module')
       const require = createRequire(import.meta.url)
-      const pdfParse = require('pdf-parse')
+      // pdfjs-dist v3 exports a main entry we can require in Node
+      const pdfjs = require('pdfjs-dist')
+      try {
+        // Set workerSrc explicitly to the distributed worker file to avoid warnings.
+        // In v3 the worker file is available at 'pdf.worker.js' in the package root when bundled.
+        // Use require.resolve to get the correct path.
+        const workerSrc = require.resolve('pdfjs-dist/build/pdf.worker.js')
+        pdfjs.GlobalWorkerOptions = pdfjs.GlobalWorkerOptions || {}
+        pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
+      } catch (e) {
+        // ignore if worker file not present or resolve fails
+      }
 
-      // Configure PDF.js options for Node.js environment
-      // Leave options empty to use defaults which work better in test environment
-      const options = {}
+      // Provide a minimal DOMMatrix polyfill if missing (some internal paths reference it)
+      if (typeof (globalThis as any).DOMMatrix === 'undefined') {
+        class DOMMatrixPolyfill {
+          a = 1
+          b = 0
+          c = 0
+          d = 1
+          e = 0
+          f = 0
+          constructor(_init?: any) {}
+          toFloat32Array(): Float32Array {
+            return new Float32Array([
+              this.a,
+              this.b,
+              0,
+              0,
+              this.c,
+              this.d,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              this.e,
+              this.f,
+              0,
+              1
+            ])
+          }
+          toString() {
+            return 'DOMMatrixPolyfill'
+          }
+        }
+        ;(globalThis as any).DOMMatrix = DOMMatrixPolyfill as any
+      }
 
-      // Read the PDF file as buffer
-      const buffer = await fs.readFile(this.filePath)
+      // In Node environment, pdfjs v3 supports passing a Uint8Array directly.
+      const data = await fs.readFile(this.filePath)
 
-      // Parse the PDF - pdf-parse expects a Buffer and returns a promise
-      const data = await pdfParse(buffer, options)
+      // Disable worker in main process to avoid packaging complications
+      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data), disableWorker: true })
+      const doc = await loadingTask.promise
 
+      let fullText = ''
+      const meta: Record<string, unknown> = {
+        extension: this.fileExtension,
+        parser: 'pdfjs-dist',
+        pages: doc.numPages
+      }
+
+      // Try to get metadata (safe guarded)
+      try {
+        if (doc.getMetadata) {
+          const m = await doc.getMetadata().catch(() => null)
+          if (m) {
+            meta.info = m.info
+            meta.metadata = m.metadata?.getAll?.() ?? undefined
+          }
+        }
+      } catch (_) {
+        // ignore metadata extraction errors
+      }
+
+      for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+        const page = await doc.getPage(pageNum)
+        const textContent = await page.getTextContent({
+          disableCombineTextItems: false,
+          normalizeWhitespace: true
+        })
+
+        interface TxtItem {
+          str: string
+          x: number
+          y: number
+        }
+        const rawItems: TxtItem[] = []
+        for (const item of textContent.items as any[]) {
+          const t = item.transform ? item.transform : item.matrix
+          const y = t ? t[5] : 0
+          const x = t ? t[4] : 0
+          const str: string = item.str ?? ''
+          if (!str) continue
+          rawItems.push({ str, x, y })
+        }
+        if (rawItems.length === 0) continue
+
+        const Y_GROUP_TOLERANCE = 0.1
+        const lineBuckets: { y: number; items: TxtItem[] }[] = []
+        for (const it of rawItems) {
+          let bucket = lineBuckets.find((b) => Math.abs(b.y - it.y) <= Y_GROUP_TOLERANCE)
+          if (!bucket) {
+            bucket = { y: it.y, items: [] }
+            lineBuckets.push(bucket)
+          }
+          bucket.items.push(it)
+        }
+
+        // Sort by y descending (top to bottom). We will not infer paragraphs; each Y bucket is a line.
+        lineBuckets.sort((a, b) => b.y - a.y)
+
+        const pageLines: string[] = []
+        for (const bucket of lineBuckets) {
+          bucket.items.sort((a, b) => a.x - b.x)
+          let line = ''
+          for (const seg of bucket.items) {
+            if (/-$/.test(line) && /^[A-Za-z]/.test(seg.str)) {
+              line = line.slice(0, -1) + seg.str
+            } else {
+              line += seg.str
+            }
+          }
+          line = line.replace(/ {2,}/g, ' ').trimEnd()
+          pageLines.push(line)
+        }
+
+        const pageText = pageLines.join('\n').trimEnd()
+        if (pageText) {
+          console.log(
+            `[PDFParser] Page ${pageNum}/${doc.numPages} lines=${pageLines.length} chars=${pageText.length}`
+          )
+          fullText += (fullText ? '\n' : '') + pageText
+        } else {
+          console.log(`[PDFParser] Page ${pageNum}/${doc.numPages} empty after processing`)
+        }
+      }
+      const totalLines = fullText ? fullText.split(/\n/).length : 0
       console.log(
-        `[PDFParser] Successfully extracted ${data.text.length} characters from ${this.filename}`
+        `[PDFParser] Finished ${this.filename}: pages=${doc.numPages} lines=${totalLines} chars=${fullText.length}`
       )
 
       return {
-        content: data.text.trim(),
+        content: fullText.trim(),
         mimeType: this.mimeType,
-        metadata: {
-          extension: this.fileExtension,
-          parser: 'pdf-parse',
-          pages: data.numpages,
-          numrender: data.numrender,
-          version: data.version,
-          info: data.info
-        }
+        metadata: meta
       }
     } catch (error) {
-      console.error(`[PDFParser] Error parsing ${this.filename}:`, error)
-      throw new Error(`Failed to parse PDF document ${this.filename}: ${getErrorMessage(error)}`)
+      console.error(`[PDFParser] Error parsing (pdfjs-dist) ${this.filename}:`, error)
+      throw new Error(
+        `Failed to parse PDF document (pdfjs-dist) ${this.filename}: ${getErrorMessage(error)}`
+      )
     }
   }
 }
@@ -223,8 +348,10 @@ export class OfficeParser extends FileParser {
         `[OfficeParser] Successfully extracted ${data.length} characters from ${this.filename}`
       )
 
+      const trimmed = data.trim()
+      console.log(`[OfficeParser] Parsed ${this.filename} chars=${trimmed.length}`)
       return {
-        content: data.trim(),
+        content: trimmed,
         mimeType: this.mimeType,
         metadata: {
           extension: this.fileExtension,

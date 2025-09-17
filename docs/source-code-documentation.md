@@ -276,6 +276,33 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | validateModelConfig | 函数 | config | 模型配置验证 |
 | formatValidationError | 函数 | error | 用户友好的错误消息格式化 |
 
+### src/shared/schemas/smart-notes.ts
+Smart Notes 输出的 Zod 校验 Schema，确保 AI 返回结构的类型安全。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| SmartNotesSchema | Zod schema | 无 | 业务字段结构验证：summary, abstract, keywords, structure, chunks |
+| SmartNotesChunkSchema | Zod schema | 无 | 单个分段对象校验：id, lines[] |
+| validateSmartNotesOutput | 函数 | data | 使用 Schema 进行安全解析（safeParse） |
+| SmartNotes | 类型 | 无 | 推导的 TypeScript 类型 |
+
+### src/shared/utils/smart-notes.ts
+Smart Notes 预处理工具：对内容进行按行封装与转义。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| escapeAngleBrackets | 函数 | input | 将 `<`、`>` 转义为 `&lt;`、`&gt;` |
+| wrapContentByLineTags | 函数 | content | 按行包裹为 `<行号>内容</行号>`，保留空行 |
+
+### src/shared/ai/agents/smart-notes.definition.ts
+Smart Notes Agent 定义：系统提示词与输入构建器。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| SMART_NOTES_SYSTEM_PROMPT | 常量 | 无 | 包含按行号输入、500 token 语义分段与严格 JSON 输出要求 |
+| buildSmartNotesModelInput | 函数 | rawContent | 将原始内容处理为按行号包裹的输入字符串 |
+| SmartNotesOutputSchema | Zod schema | 无 | 直接复用并导出 SmartNotesSchema 供 generateObject 使用 |
+
 ## 主进程 (Main Process)
 
 ### src/main/database/index.ts
@@ -443,7 +470,7 @@ IPC 事件广播和消息传递工具。
 |--------|------|------|------|
 | FileParser | 抽象类 | 无 | 抽象基础解析器类 |
 | PlainTextParser | 类 | 无 | 文本文件处理，包含编码检测 |
-| PDFParser | 类 | 无 | 使用 pdf-parse 的 PDF 处理 |
+| PDFParser | 类 | 无 | 使用 pdfjs-dist 的 PDF 处理 |
 | OfficeParser | 类 | 无 | 使用 officeparser 的 Office 文档处理 |
 | FileParserFactory | 类 | 无 | 解析器创建和格式检测 |
 | parseFile | 函数 | filePath, filename | 主要解析函数 |
