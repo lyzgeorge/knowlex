@@ -7,6 +7,7 @@ import type { Conversation } from '@shared/types/conversation-types'
 import type { Project } from '@shared/types/project'
 import type { Message } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'
+// Import type only where used externally; avoid unused lint here
 import { DatabaseEntity, type EntitySchema, createFieldMapping } from './entity'
 
 /**
@@ -147,3 +148,41 @@ export const modelConfigSchema: EntitySchema<ModelConfig> = {
 }
 
 export const modelConfigEntity = new DatabaseEntity<ModelConfig>(modelConfigSchema)
+
+/**
+ * Project file entity schema
+ */
+export const projectFileSchema: EntitySchema<any> = {
+  tableName: 'project_files',
+  primaryKey: 'id',
+  defaultOrder: { column: 'updated_at', direction: 'DESC' },
+  fields: [
+    createFieldMapping('id', 'id'),
+    createFieldMapping('project_id', 'project_id'),
+    createFieldMapping('filename', 'filename'),
+    createFieldMapping('file_size', 'file_size'),
+    createFieldMapping('file_hash', 'file_hash'),
+    createFieldMapping('file_path', 'file_path', { required: false, updatable: true }),
+    createFieldMapping('content_path', 'content_path', { required: false, updatable: true }),
+    createFieldMapping('mime_type', 'mime_type'),
+    createFieldMapping('smart_notes', 'smart_notes', {
+      isJson: true,
+      required: false,
+      updatable: true
+    }),
+    createFieldMapping('smart_notes_status', 'smart_notes_status'),
+    createFieldMapping('smart_notes_generated_at', 'smart_notes_generated_at', {
+      required: false,
+      updatable: true
+    }),
+    createFieldMapping('smart_notes_schema_version', 'smart_notes_schema_version'),
+    createFieldMapping('error', 'error', { required: false, updatable: true }),
+    createFieldMapping('upload_time', 'upload_time'),
+    createFieldMapping('created_at', 'created_at'),
+    createFieldMapping('updated_at', 'updated_at')
+  ]
+}
+
+// DatabaseEntity requires createdAt/updatedAt camelCase in T; our row uses snake_case.
+// Cast to any for entity while keeping external functions typed with ProjectFileRow.
+export const projectFileEntity = new DatabaseEntity<any>(projectFileSchema as any)

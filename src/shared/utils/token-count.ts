@@ -39,9 +39,11 @@ export async function getEncodingForModel(_modelId: string): Promise<Encoding> {
  * Count tokens in text using tiktoken encoding
  * Falls back to character ratio estimation if encoding fails
  */
-export function countTextTokens(text: string, encoding: Encoding): number {
+export function countTextTokens(text: string, encoding?: Encoding): number {
   try {
-    return encoding.encode(text).length
+    if (encoding) return encoding.encode(text).length
+    // If no encoding provided, rough estimate
+    return Math.ceil(text.length / 4)
   } catch (error) {
     console.warn('Failed to count tokens with tiktoken, using fallback estimation:', error)
     // Fallback: rough estimation of ~4 characters per token for English text

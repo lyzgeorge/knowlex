@@ -116,6 +116,33 @@ const migrations: Migration[] = [
       // Add max_input_tokens column to existing model_configs table
       `ALTER TABLE model_configs ADD COLUMN max_input_tokens INTEGER NULL DEFAULT 131072`
     ]
+  },
+  {
+    version: 3,
+    name: 'create_project_files_table',
+    up: [
+      `CREATE TABLE IF NOT EXISTS project_files (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        file_hash TEXT NOT NULL,
+        file_path TEXT,
+        content_path TEXT,
+        mime_type TEXT NOT NULL,
+        smart_notes TEXT,
+        smart_notes_status TEXT NOT NULL DEFAULT 'pending',
+        smart_notes_generated_at TEXT,
+        smart_notes_schema_version INTEGER NOT NULL DEFAULT 2,
+        error TEXT,
+        upload_time TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_project_files_project_id ON project_files(project_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_project_files_updated_at ON project_files(updated_at DESC)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_project_files_project_hash ON project_files(project_id, file_hash)`
+    ]
   }
 ]
 
@@ -130,7 +157,7 @@ export async function getCurrentVersion(): Promise<number> {
     if (!result || !result.rows || result.rows.length === 0) return 0
     const row = result.rows[0] as { version: number | null }
     return row?.version || 0
-  } catch (err) {
+  } catch {
     // Missing table is treated as version 0
     return 0
   }
@@ -142,7 +169,7 @@ async function applyMigration(migration: Migration): Promise<void> {
   // record the applied version; ignore duplicate insert errors
   try {
     await executeQuery('INSERT INTO schema_version (version) VALUES (?)', [migration.version])
-  } catch (e) {
+  } catch {
     // if schema_version already has this version (or table missing), ignore
   }
 }
@@ -172,7 +199,7 @@ export async function getMigrationHistory(): Promise<
       'SELECT version, applied_at FROM schema_version ORDER BY version'
     )
     return (result.rows || []).map((r: any) => ({ version: r.version, appliedAt: r.applied_at }))
-  } catch (e) {
+  } catch {
     return []
   }
 }

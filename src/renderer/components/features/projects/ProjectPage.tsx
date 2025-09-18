@@ -4,6 +4,7 @@ import { useConversations, useConversationStore } from '@renderer/stores/convers
 import { useNavigationActions } from '@renderer/stores/navigation'
 import { useProjectStore } from '@renderer/stores/project'
 import ChatInputBox from '@renderer/components/features/chat/ChatInputBox'
+import ProjectFilesGrid from '@renderer/components/features/project-files/ProjectFilesGrid'
 import { ModelSelector } from '@renderer/components/features/models/ModelSelector'
 import { useNotifications } from '@renderer/components/ui'
 import ConversationMenu from '@renderer/components/ui/ConversationMenu'
@@ -171,6 +172,8 @@ const ProjectPage: React.FC<Props> = ({ projectId }) => {
             </Box>
           </HStack>
           <ChatInputBox variant="project-entrance" projectId={projectId} />
+          {/* Project Files Grid */}
+          <ProjectFilesGrid projectId={projectId} />
         </VStack>
 
         {/* Conversations List */}

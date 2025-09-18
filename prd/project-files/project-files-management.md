@@ -63,21 +63,12 @@
 
 ### F2: 智能文件分析
 
-#### F2.1 内容提取与表示
-- **文档类型**（docx/xlsx/pptx）: 使用office-parser解析，提取纯文本内容
-- **PDF类型**: 使用 pdfjs-dist 解析，提取文本内容
-- **图片类型**: 生成结构化JSON元数据，包含：
-  ```json
-  {
-    "type": "image",
-    "mediaType": "image/png",
-    "dimensions": {"width": 1920, "height": 1080},
-    "preview": "data:image/png;base64,...",
-    "metadata": {"fileSize": 2048576, "created": "2024-01-15T10:00:00Z"}
-  }
-  ```
-- **代码/文本类型**: 作为纯文本处理
-- **统一性说明（更新）**: 仅对“文本型可解析”的文件（PDF、Office、纯文本、代码等）生成 `content.txt`；图片/其他二进制类型不生成 `content.txt`，预览直接读取原始文件。Renderer 通过 `content_path` 是否为空来统一判断与处理，避免强行生成空文本造成混淆。
+-#### F2.1 内容提取与表示（更新：不支持图片）
+- 支持类型：PDF、Office 文档（docx/xlsx/pptx）、纯文本与代码文件（txt/md/csv/json/js/ts/tsx/py/java/c/cpp/cs 等）
+- PDF：使用 pdfjs-dist 提取文本
+- Office：使用 office-parser 提取文本
+- 纯文本/代码：作为文本处理
+- 统一性说明：仅对“文本型可解析”的文件生成 `content.txt`；图片及其他非文本型文件不支持上传（将被拒绝）
 - **扩展性设计**: 为未来OCR、视频分析等功能预留架构空间
 - **内存保护**: 设定文件解析内存阈值，超大文件采用流式/分块读取
 - 提取并存储文件元数据(文件名、大小、修改时间、MD5等)
@@ -153,7 +144,7 @@
 
 #### F3.1 双面板布局
 - 左侧: Metadata + Smart Notes 标签页
-- 右侧: Markdown内容编辑器(使用@uiw/react-md-editor) | 如果是图片，显示图片预览
+- 右侧: Markdown内容编辑器(使用@uiw/react-md-editor)
 
 #### F3.2 Metadata面板
 - 只读显示文件基本信息

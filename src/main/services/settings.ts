@@ -28,6 +28,9 @@ export interface AppSettings {
   logLevel: string
   nodeEnv: string
   defaultModelId?: string | null
+  // Smart Notes / Project Files
+  fileProcessingModelId?: string | null
+  fileMaxInputTokens?: number
 }
 
 class SettingsService {
@@ -90,7 +93,9 @@ class SettingsService {
       apiProviders: {},
       defaultProvider: 'openai', // Static default since providers are managed elsewhere
       logLevel: process.env.LOG_LEVEL || 'info',
-      nodeEnv: process.env.NODE_ENV || 'development'
+      nodeEnv: process.env.NODE_ENV || 'development',
+      fileProcessingModelId: process.env.FILE_PROCESSING_MODEL_ID || null,
+      fileMaxInputTokens: parseInt(process.env.FILE_MAX_INPUT_TOKENS || '131072')
     }
 
     return this.settings!

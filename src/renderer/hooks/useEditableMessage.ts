@@ -119,7 +119,7 @@ export function useEditableMessage(): UseEditableMessageResult {
         fileUpload.clearFiles()
       }
     },
-    [fileUpload.state.processedFiles.length, fileUpload.state.files.length, fileUpload.clearFiles]
+    [fileUpload]
   )
 
   const buildContent = useCallback((): MessageContent => {
@@ -166,7 +166,7 @@ export function useEditableMessage(): UseEditableMessageResult {
     (files: FileList) => {
       fileUpload.addFiles(files)
     },
-    [fileUpload.addFiles]
+    [fileUpload]
   )
 
   const removeAttachment = useCallback(
@@ -194,7 +194,7 @@ export function useEditableMessage(): UseEditableMessageResult {
         }
       }
     },
-    [attachments, existingAttachments, fileUpload.state.files, fileUpload.removeFile]
+    [attachments, existingAttachments, fileUpload]
   )
 
   const reset = useCallback(() => {
@@ -203,7 +203,7 @@ export function useEditableMessage(): UseEditableMessageResult {
     if (fileUpload.state.processedFiles.length > 0 || fileUpload.state.files.length > 0) {
       fileUpload.clearFiles()
     }
-  }, [fileUpload.state.processedFiles.length, fileUpload.state.files.length, fileUpload.clearFiles])
+  }, [fileUpload])
 
   const isValid = useCallback((): boolean => {
     const content = buildContent()

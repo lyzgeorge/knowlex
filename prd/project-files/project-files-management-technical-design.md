@@ -87,10 +87,10 @@ Smart Notes JSON Schema v1.1 (business fields only; no separate `structure`; ser
 - Future extensibility: System can handle schema upgrades (e.g., adding `sentiment`, `topics`)
 - Future-Proofing: The version field allows for future schema evolution. If the schema changes, this field will enable a clear and safe upgrade path for existing data.
 
-**External Content Storage Strategy**:
-- **Text files only（统一策略）**: 仅“文本型可解析”文件（PDF、Office、纯文本、代码等）生成 `content.txt`。
-- **Images/binary stored as-is**: 图片/其他二进制类型不生成 `content.txt`，预览直接读取原始文件；Renderer 通过 `content_path === null` 统一分支处理。
-- **Database contains relative paths**: All paths relative to userData directory for portability
+**External Content Storage Strategy**（更新）:
+- 仅“文本型可解析”文件（PDF、Office、纯文本、代码等）允许作为项目文件上传，且生成 `content.txt`。
+- 不支持图片/非文本型文件上传（在验证阶段直接拒绝）。
+- 数据库存储相对路径，基于 userData 解析。
 - **Performance benefits**:
   - Eliminates database bloat from large content
   - Reduces memory pressure during content operations
@@ -200,7 +200,7 @@ SPOT: Centralized Constants & Types（新增）
 ## IPC API Surface
 
 Renderer → Main (request/response IPC)
-- `projectFile:upload`
+  - `projectFile:upload`
   - Input: `{ projectId: string, files: Array<{ name: string, path?: string, contentBase64?: string, size: number }> }`
   - Behavior: Validate constraints. **Idempotency Check**: Before processing, it checks if a file with the same `file_hash` already exists for the given `projectId`. If a duplicate is found, the upload is rejected with an appropriate error, and a notification is sent to the user. Otherwise, it persists the raw file to storage, parses content, inserts a DB row, enqueues Smart Notes generation, and returns the created `ProjectFile` row.
 - `projectFile:list`
@@ -237,8 +237,7 @@ SPOT: IPC Types & Channels
 - File Detail Modal
   - Left tabs: Metadata (read-only) and Smart Notes (editable fields, status, timestamps, regenerate button).
   - **Status Display**: Show basic processing status and last generation time.
-  - Right panel: `@uiw/react-md-editor` for markdown content; XSS-safe render with HTML whitelist.
-  - For images: show preview image instead of editor; disable `updateContent`.
+  - Right panel: `@uiw/react-md-editor` for markdown content; XSS-safe render with HTML whitelist。
   - Save buttons for both sides; disable during Smart Notes `processing`.
 
 - State Management (Zustand)

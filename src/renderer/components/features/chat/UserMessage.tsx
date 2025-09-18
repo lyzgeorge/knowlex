@@ -106,7 +106,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
     if (isEditing) {
       initializeEditable(currentBranch)
     }
-  }, [isEditing, currentBranch.id, initializeEditable])
+  }, [isEditing, currentBranch, initializeEditable])
 
   // Separate effect for auto-focus to avoid infinite loop
   useEffect(() => {

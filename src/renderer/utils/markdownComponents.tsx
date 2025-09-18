@@ -58,7 +58,7 @@ const CodeBlock: React.FC<{ children: React.ReactNode; className?: string }> = (
       setTimeout(() => setCopied(false), 1400)
     } catch (e) {
       // Don't block UI on copy failures; log for diagnostics
-      // eslint-disable-next-line no-console
+
       console.warn('Failed to copy code block', e)
     }
   }

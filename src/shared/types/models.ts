@@ -58,7 +58,7 @@ export interface CreateModelConfigInput {
   supportsWebSearch?: boolean | undefined
 }
 
-export interface UpdateModelConfigInput extends Partial<CreateModelConfigInput> {}
+export type UpdateModelConfigInput = Partial<CreateModelConfigInput>
 
 export interface ModelConnectionTestResult {
   endpointReachable: boolean

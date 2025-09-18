@@ -28,24 +28,25 @@ export function registerSettingsIPCHandlers() {
     }
   })
 
-  // Update settings (if needed in the future)
-  ipcMain.handle('settings:update', async (_, updates) => {
-    try {
-      // For now, settings are read-only from environment
-      // This could be extended to support runtime updates
-      console.log('Settings update requested:', updates)
-      return {
-        success: true,
-        data: settingsService.getSettings()
-      }
-    } catch (error) {
-      console.error('Failed to update settings:', error)
-      return {
-        success: false,
-        error: getErrorMessage(error, 'Failed to update settings')
+  // Update settings
+  ipcMain.handle(
+    'settings:update',
+    async (_, updates: Partial<import('@main/services/settings').AppSettings>) => {
+      try {
+        settingsService.updateSettings(updates)
+        return {
+          success: true,
+          data: settingsService.getSettings()
+        }
+      } catch (error) {
+        console.error('Failed to update settings:', error)
+        return {
+          success: false,
+          error: getErrorMessage(error, 'Failed to update settings')
+        }
       }
     }
-  })
+  )
 
   console.log('Settings IPC handlers registered successfully')
 }

@@ -204,7 +204,7 @@ export class DatabaseEntity<T extends { id: string; createdAt: string; updatedAt
       if (field.isJson && dbValue !== null && dbValue !== undefined) {
         try {
           entity[field.property] = JSON.parse(dbValue)
-        } catch (e) {
+        } catch {
           entity[field.property] = null
         }
       } else {

@@ -12,6 +12,8 @@ import {
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
+import './ipc/project-file'
+// No recovery of project-file smart notes on startup
 import {
   registerModelConfigIPCHandlers,
   unregisterModelConfigIPCHandlers
@@ -47,6 +49,7 @@ class Application {
       registerFileIPCHandlers()
       registerSettingsIPCHandlers()
       registerModelConfigIPCHandlers()
+      // project-file handlers are side-effect imported above to register
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -63,6 +66,16 @@ class Application {
 
     // Create windows based on environment
     await this.createWindows()
+
+    // On startup, mark any unfinished smart-notes as failed, so users can retry.
+    try {
+      const { executeQuery } = await import('./database/index')
+      await executeQuery(
+        "UPDATE project_files SET smart_notes_status='failed', error=COALESCE(error, 'Interrupted before completion'), updated_at=datetime('now') WHERE smart_notes_status='pending' AND smart_notes IS NULL"
+      )
+    } catch (e) {
+      console.warn('Failed to mark unfinished smart notes as failed:', e)
+    }
 
     // Handle app activation (macOS)
     app.on('activate', () => {

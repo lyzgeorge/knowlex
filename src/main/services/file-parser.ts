@@ -129,7 +129,7 @@ export class PlainTextParser extends FileParser {
 
           return cleanContent.trim()
         }
-      } catch (encodingError) {
+      } catch {
         // Try next encoding
         continue
       }
@@ -152,6 +152,16 @@ export class PDFParser extends FileParser {
   }
 
   async parse(): Promise<FileParserResult> {
+    // Add a temporary unhandled rejection handler for PDF.js
+    const tempHandler = (reason: any, _promise: Promise<any>) => {
+      if (reason && reason.message && reason.message.includes('DOMMatrix')) {
+        // Silently ignore DOMMatrix-related unhandled rejections from PDF.js
+        console.debug(`[PDFParser] Suppressed PDF.js DOMMatrix rejection:`, reason.message)
+        return
+      }
+    }
+    process.on('unhandledRejection', tempHandler)
+
     try {
       console.log(`[PDFParser] Parsing PDF file with pdfjs-dist: ${this.filename}`)
 
@@ -160,6 +170,7 @@ export class PDFParser extends FileParser {
       const require = createRequire(import.meta.url)
       // pdfjs-dist v3 exports a main entry we can require in Node
       const pdfjs = require('pdfjs-dist')
+
       try {
         // Set workerSrc explicitly to the distributed worker file to avoid warnings.
         // In v3 the worker file is available at 'pdf.worker.js' in the package root when bundled.
@@ -167,11 +178,11 @@ export class PDFParser extends FileParser {
         const workerSrc = require.resolve('pdfjs-dist/build/pdf.worker.js')
         pdfjs.GlobalWorkerOptions = pdfjs.GlobalWorkerOptions || {}
         pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
-      } catch (e) {
+      } catch {
         // ignore if worker file not present or resolve fails
       }
 
-      // Provide a minimal DOMMatrix polyfill if missing (some internal paths reference it)
+      // Provide polyfills for DOM APIs that PDF.js might reference
       if (typeof (globalThis as any).DOMMatrix === 'undefined') {
         class DOMMatrixPolyfill {
           a = 1
@@ -208,12 +219,90 @@ export class PDFParser extends FileParser {
         ;(globalThis as any).DOMMatrix = DOMMatrixPolyfill as any
       }
 
+      // Provide ImageData polyfill
+      if (typeof (globalThis as any).ImageData === 'undefined') {
+        class ImageDataPolyfill {
+          data: Uint8ClampedArray
+          width: number
+          height: number
+          constructor(dataOrWidth: Uint8ClampedArray | number, width?: number, height?: number) {
+            if (typeof dataOrWidth === 'number') {
+              this.width = dataOrWidth
+              this.height = width || dataOrWidth
+              this.data = new Uint8ClampedArray(this.width * this.height * 4)
+            } else {
+              this.data = dataOrWidth
+              this.width = width || 0
+              this.height = height || 0
+            }
+          }
+        }
+        ;(globalThis as any).ImageData = ImageDataPolyfill as any
+      }
+
+      // Provide Path2D polyfill
+      if (typeof (globalThis as any).Path2D === 'undefined') {
+        class Path2DPolyfill {
+          constructor(_path?: string | Path2DPolyfill) {}
+          addPath(_path: Path2DPolyfill, _transform?: any) {}
+          arc(
+            _x: number,
+            _y: number,
+            _radius: number,
+            _startAngle: number,
+            _endAngle: number,
+            _anticlockwise?: boolean
+          ) {}
+          arcTo(_x1: number, _y1: number, _x2: number, _y2: number, _radius: number) {}
+          bezierCurveTo(
+            _cp1x: number,
+            _cp1y: number,
+            _cp2x: number,
+            _cp2y: number,
+            _x: number,
+            _y: number
+          ) {}
+          closePath() {}
+          ellipse(
+            _x: number,
+            _y: number,
+            _radiusX: number,
+            _radiusY: number,
+            _rotation: number,
+            _startAngle: number,
+            _endAngle: number,
+            _anticlockwise?: boolean
+          ) {}
+          lineTo(_x: number, _y: number) {}
+          moveTo(_x: number, _y: number) {}
+          quadraticCurveTo(_cpx: number, _cpy: number, _x: number, _y: number) {}
+          rect(_x: number, _y: number, _w: number, _h: number) {}
+        }
+        ;(globalThis as any).Path2D = Path2DPolyfill as any
+      }
+
+      // Polyfill process.getBuiltinModule to avoid the warning
+      if (typeof process !== 'undefined' && !process.getBuiltinModule) {
+        process.getBuiltinModule = function (_moduleName: string) {
+          throw new Error('process.getBuiltinModule is not available in this environment')
+        }
+      }
+
       // In Node environment, pdfjs v3 supports passing a Uint8Array directly.
       const data = await fs.readFile(this.filePath)
 
       // Disable worker in main process to avoid packaging complications
-      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data), disableWorker: true })
-      const doc = await loadingTask.promise
+      const loadingTask = pdfjs.getDocument({
+        data: new Uint8Array(data),
+        disableWorker: true,
+        verbosity: 0 // Reduce PDF.js console output
+      })
+
+      // Handle potential unhandled promise rejections
+      const doc = await loadingTask.promise.catch((error: any) => {
+        console.warn(`[PDFParser] PDF loading error for ${this.filename}:`, error.message)
+        throw error
+      })
 
       let fullText = ''
       const meta: Record<string, unknown> = {
@@ -231,7 +320,7 @@ export class PDFParser extends FileParser {
             meta.metadata = m.metadata?.getAll?.() ?? undefined
           }
         }
-      } catch (_) {
+      } catch {
         // ignore metadata extraction errors
       }
 
@@ -307,11 +396,18 @@ export class PDFParser extends FileParser {
         mimeType: this.mimeType,
         metadata: meta
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[PDFParser] Error parsing (pdfjs-dist) ${this.filename}:`, error)
       throw new Error(
         `Failed to parse PDF document (pdfjs-dist) ${this.filename}: ${getErrorMessage(error)}`
       )
+    } finally {
+      // Remove the temporary unhandled rejection handler
+      try {
+        ;(process as any).removeListener('unhandledRejection', tempHandler)
+      } catch {
+        // Ignore if removal fails
+      }
     }
   }
 }

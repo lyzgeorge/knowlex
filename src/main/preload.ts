@@ -105,6 +105,27 @@ export interface KnowlexAPI {
     setDefault: (id: string) => Promise<IPCResult>
   }
 
+  // Project File IPC
+  projectFile: {
+    upload: (data: {
+      projectId: string
+      files: Array<{
+        name: string
+        path?: string
+        contentBase64?: string
+        size: number
+        mime?: string
+      }>
+    }) => Promise<IPCResult>
+    list: (data: { projectId: string }) => Promise<IPCResult>
+    get: (data: { id: string }) => Promise<IPCResult>
+    updateContent: (data: { id: string; content: string }) => Promise<IPCResult>
+    updateSmartNotes: (data: { id: string; smartNotes: any }) => Promise<IPCResult>
+    regenerateSmartNotes: (data: { id: string }) => Promise<IPCResult>
+    delete: (data: { id: string }) => Promise<IPCResult>
+    open: (data: { id: string }) => Promise<IPCResult>
+  }
+
   // Model config event listeners
   onModelConfigChanged?: (
     callback: (payload: {
@@ -237,6 +258,19 @@ const knowlexAPI: KnowlexAPI = {
     test: (id) => ipcRenderer.invoke('model-config:test', id),
     getDefault: () => ipcRenderer.invoke('model-config:get-default'),
     setDefault: (id: string) => ipcRenderer.invoke('model-config:set-default', id)
+  },
+
+  // Project File IPC
+  projectFile: {
+    // Use channel names consistent with PROJECT_FILE_CHANNELS
+    upload: (data) => ipcRenderer.invoke('projectFile:upload', data),
+    list: (data) => ipcRenderer.invoke('projectFile:list', data),
+    get: (data) => ipcRenderer.invoke('projectFile:get', data),
+    updateContent: (data) => ipcRenderer.invoke('projectFile:updateContent', data),
+    updateSmartNotes: (data) => ipcRenderer.invoke('projectFile:updateSmartNotes', data),
+    regenerateSmartNotes: (data) => ipcRenderer.invoke('projectFile:regenerateSmartNotes', data),
+    delete: (data) => ipcRenderer.invoke('projectFile:delete', data),
+    open: (data) => ipcRenderer.invoke('projectFile:open', data)
   },
 
   onModelConfigChanged: (callback) => {

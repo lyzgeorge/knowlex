@@ -26,7 +26,6 @@ export interface SearchRequest {
 }
 
 // Settings IPC
-export interface SettingsUpdateRequest {
-  key: string
-  value: unknown
-}
+export type SettingsUpdateRequest =
+  | { key: string; value: unknown }
+  | { fileProcessingModelId?: string | null; fileMaxInputTokens?: number }

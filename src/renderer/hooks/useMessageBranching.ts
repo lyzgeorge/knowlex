@@ -48,12 +48,9 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
   }, [messages])
 
   // Set active branch with cascading reset
-  const setBranchIndex = useCallback(
-    (parentKey: string, index: number) => {
-      setBranchStates((prev) => ({ ...prev, [parentKey]: index }))
-    },
-    [childrenMap]
-  )
+  const setBranchIndex = useCallback((parentKey: string, index: number) => {
+    setBranchStates((prev) => ({ ...prev, [parentKey]: index }))
+  }, [])
 
   // Get branch info for UI display
   const getBranchInfo = useCallback(

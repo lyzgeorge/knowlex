@@ -1,7 +1,14 @@
 import type { Conversation } from '@shared/types/conversation-types'
 import type { Message, MessageContent } from '@shared/types/message'
 import type { ModelConfig } from '@shared/types/models'
-import { conversationEntity, messageEntity, projectEntity, modelConfigEntity } from './schemas'
+import {
+  conversationEntity,
+  messageEntity,
+  projectEntity,
+  modelConfigEntity,
+  projectFileEntity
+} from './schemas'
+import type { ProjectFileRow } from '@shared/types/project-file'
 import type { Project } from '@shared/types/project'
 
 /**
@@ -175,4 +182,48 @@ export async function updateModelConfig(
 
 export async function deleteModelConfig(id: string): Promise<void> {
   await modelConfigEntity.delete(id)
+}
+
+// ============================================================================
+// Project File Queries (Using Generic CRUD)
+// ============================================================================
+
+export async function createProjectFile(row: ProjectFileRow): Promise<void> {
+  await projectFileEntity.create(row)
+}
+
+export async function getProjectFile(id: string): Promise<ProjectFileRow | null> {
+  return await projectFileEntity.get(id)
+}
+
+export async function listProjectFiles(
+  projectId: string,
+  limit?: number,
+  offset?: number
+): Promise<ProjectFileRow[]> {
+  const options: {
+    where: { column: string; value: string }
+    orderBy: string
+    direction: 'DESC'
+    limit?: number
+    offset?: number
+  } = {
+    where: { column: 'project_id', value: projectId },
+    orderBy: 'updated_at',
+    direction: 'DESC'
+  }
+  if (typeof limit === 'number') options.limit = limit
+  if (typeof offset === 'number') options.offset = offset
+  return await projectFileEntity.list(options)
+}
+
+export async function updateProjectFile(
+  id: string,
+  updates: Partial<ProjectFileRow>
+): Promise<void> {
+  await projectFileEntity.update(id, updates)
+}
+
+export async function deleteProjectFile(id: string): Promise<void> {
+  await projectFileEntity.delete(id)
 }
