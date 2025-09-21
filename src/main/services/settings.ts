@@ -36,9 +36,16 @@ export interface AppSettings {
 class SettingsService {
   private settings: AppSettings | null = null
   private envLoaded = false
+  private settingsPath: string | null = null
 
   constructor() {
     this.loadEnvironment()
+    // Preload settings (including persisted file) as early as possible
+    try {
+      this.getSettings()
+    } catch (e) {
+      console.warn('Failed to preload settings:', e)
+    }
   }
 
   /**
@@ -87,7 +94,7 @@ class SettingsService {
     }
 
     // Build settings from environment variables
-    this.settings = {
+    const base: AppSettings = {
       // Note: OpenAI configuration is handled directly by openai-adapter service
       // to avoid duplication and ensure comprehensive parameter support
       apiProviders: {},
@@ -98,7 +105,25 @@ class SettingsService {
       fileMaxInputTokens: parseInt(process.env.FILE_MAX_INPUT_TOKENS || '131072')
     }
 
-    return this.settings!
+    // Load persisted settings (if present) and merge over env defaults
+    try {
+      const userData = app.getPath('userData')
+      const fsPath = path.join(userData, 'settings.json')
+      this.settingsPath = fsPath
+      if (fs.existsSync(fsPath)) {
+        const raw = fs.readFileSync(fsPath, 'utf8')
+        const persisted = JSON.parse(raw)
+        this.settings = { ...base, ...persisted }
+      } else {
+        this.settings = base
+      }
+    } catch (e) {
+      console.warn('Failed to load persisted settings, using defaults.', e)
+      this.settings = base
+    }
+
+    // At this point settings has been initialized from base/persisted values
+    return this.settings as AppSettings
   }
 
   /**
@@ -123,6 +148,16 @@ class SettingsService {
     if (this.settings) {
       Object.assign(this.settings, updates)
       console.log('Settings updated:', updates)
+      // Persist to disk for durability across restarts
+      try {
+        if (!this.settingsPath) {
+          const userData = app.getPath('userData')
+          this.settingsPath = path.join(userData, 'settings.json')
+        }
+        fs.writeFileSync(this.settingsPath!, JSON.stringify(this.settings, null, 2), 'utf8')
+      } catch (e) {
+        console.error('Failed to persist settings to disk:', e)
+      }
     }
   }
 

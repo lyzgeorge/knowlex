@@ -12,7 +12,7 @@ import {
 } from '@shared/constants/project-files'
 import type { ProjectFileRow, SmartNotesV1_1 } from '@shared/types/project-file'
 import { generateId } from '@shared/utils/id'
-import { enqueueSmartNotes } from './SmartNotesWorker'
+import { processSmartNotes } from './SmartNotesWorker'
 import { BrowserWindow } from 'electron'
 import { PROJECT_FILE_EVENTS } from '@shared/constants/project-files'
 import { parseFile, FileParserFactory } from './file-parser'
@@ -90,7 +90,8 @@ export async function uploadProjectFiles(input: {
     }
     await createProjectFile(row)
     broadcastEvent('created', row)
-    enqueueSmartNotes(id)
+    // Fire-and-forget concurrent processing
+    void processSmartNotes(id)
     results.push(row)
   }
   return results
@@ -138,7 +139,8 @@ export async function updateProjectFileSmartNotes(id: string, smartNotes: SmartN
 export async function regenerateSmartNotes(id: string) {
   // Reset persisted status to pending; transient processing will be handled in worker.
   await updateProjectFile(id, { smart_notes_status: 'pending', error: null })
-  enqueueSmartNotes(id)
+  // Fire-and-forget concurrent processing
+  void processSmartNotes(id)
 }
 
 export async function deleteProjectFileDeep(id: string) {

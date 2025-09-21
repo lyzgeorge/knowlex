@@ -30,11 +30,20 @@ export function ModelSettingsPanel() {
 
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [editingModel, setEditingModel] = useState<ModelConfigPublic | null>(null)
+  const [fileProcessingModelId, setFileProcessingModelId] = useState<string>('')
+  const [fileMaxInputTokens, setFileMaxInputTokens] = useState<number>(131072)
 
   useEffect(() => {
     if (!initialized && !loading) {
       fetchModels()
     }
+    // Load persisted settings for File Processing
+    window.knowlex.settings.get(undefined).then((res: any) => {
+      if (res?.success && res.data) {
+        setFileProcessingModelId(res.data.fileProcessingModelId || '')
+        setFileMaxInputTokens(res.data.fileMaxInputTokens || 131072)
+      }
+    })
   }, [initialized, loading, fetchModels])
 
   const handleEdit = (model: ModelConfigPublic) => {
@@ -161,6 +170,62 @@ export function ModelSettingsPanel() {
         </Box>
 
         <Divider />
+
+        {/* File Processing Settings (moved from General Settings) */}
+        <Box>
+          <FormControl mb={3}>
+            <FormLabel fontSize="sm" fontWeight="medium">
+              File Processing Model
+            </FormLabel>
+            <HStack spacing={3} align="center">
+              <Select
+                value={fileProcessingModelId}
+                onChange={(e) => setFileProcessingModelId(e.target.value)}
+                maxW="300px"
+              >
+                <option value="">Use Default Model</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.modelId})
+                  </option>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  await window.knowlex.settings.update({
+                    fileProcessingModelId: fileProcessingModelId || null,
+                    fileMaxInputTokens
+                  })
+                }}
+              >
+                Save
+              </Button>
+            </HStack>
+            <Text fontSize="xs" color="gray.500" mt={1}>
+              Used by Smart Notes and file parsing tasks.
+            </Text>
+          </FormControl>
+
+          <FormControl>
+            <FormLabel fontSize="sm" fontWeight="medium">
+              Max Input Tokens
+            </FormLabel>
+            <HStack>
+              <Select
+                value={String(fileMaxInputTokens)}
+                onChange={(e) => setFileMaxInputTokens(parseInt(e.target.value, 10))}
+                maxW="200px"
+              >
+                {[8192, 32768, 65536, 131072, 262144, 524288].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </HStack>
+          </FormControl>
+        </Box>
 
         <Box>
           <Text fontSize="sm" fontWeight="medium" mb={3}>

@@ -99,13 +99,25 @@ export const UserMessage: React.FC<UserMessageProps> = ({ message, showTimestamp
   // Token count styling (simplified)
   const tokenCountColor = tokenCount.overLimit ? 'red.500' : 'text.tertiary'
 
-  // Initialize draft only when entering edit mode OR branch identity changes.
-  // Avoid depending on entire editableMessage object (unstable) to prevent re-init each render.
+  // Initialize draft only on transition into edit mode or when active branch changes
+  // Avoid re-initializing on every render while typing, which would overwrite input.
   const initializeEditable = messageActions.editableMessage.initialize
+  const initGuardRef = useRef<{ editing: boolean; branchId: string | undefined }>({
+    editing: false,
+    branchId: undefined
+  })
   useEffect(() => {
-    if (isEditing) {
+    const branchId = (currentBranch as any)?.id as string | undefined
+    const prev = initGuardRef.current
+    const enteredEdit = isEditing && !prev.editing
+    const branchChanged = isEditing && prev.branchId !== branchId
+
+    if (enteredEdit || branchChanged) {
       initializeEditable(currentBranch)
     }
+
+    // Update guard on every render
+    initGuardRef.current = { editing: isEditing, branchId }
   }, [isEditing, currentBranch, initializeEditable])
 
   // Separate effect for auto-focus to avoid infinite loop

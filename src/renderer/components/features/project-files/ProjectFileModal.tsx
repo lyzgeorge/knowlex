@@ -19,12 +19,9 @@ import {
 } from '@chakra-ui/react'
 import { HiDocument, HiSparkles } from 'react-icons/hi2'
 import { Modal } from '@renderer/components/ui'
+import type { MDEditorProps } from '@uiw/react-md-editor'
 // Dynamic import with graceful fallback to Textarea to avoid blank panel when require is unavailable.
-let MDEditorLazy: React.ComponentType<{
-  height: number
-  value: string
-  onChange: (value: string | undefined) => void
-}> | null = null
+let MDEditorLazy: React.ComponentType<MDEditorProps> | null = null
 async function ensureMDEditor() {
   if (MDEditorLazy) return MDEditorLazy
   try {
@@ -47,6 +44,7 @@ interface ProjectFileModalProps {
 
 export function ProjectFileModal({ id, isOpen, onClose, defaultTab = 0 }: ProjectFileModalProps) {
   const { get, updateContent, updateSmartNotes, regenerate, processingIds } = useProjectFileStore()
+  const storeItem = useProjectFileStore((s) => s.items.find((it) => it.id === id))
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [row, setRow] = useState<ProjectFileRow | null>(null)
   const [content, setContent] = useState<string>('')
@@ -84,6 +82,32 @@ export function ProjectFileModal({ id, isOpen, onClose, defaultTab = 0 }: Projec
       })
     }
   }, [id, get, isOpen])
+
+  // Sync modal state with store updates for the current item so Smart Notes refresh automatically
+  useEffect(() => {
+    if (!storeItem) return
+    // Always refresh row reference for status badges and metadata
+    setRow((prev) => (prev?.id === storeItem.id ? { ...prev, ...storeItem } : storeItem))
+
+    // If Smart Notes were regenerated/completed, refresh editable fields
+    const prevGeneratedAt = row?.smart_notes_generated_at || null
+    const nextGeneratedAt = storeItem.smart_notes_generated_at || null
+    const statusChanged = row?.smart_notes_status !== storeItem.smart_notes_status
+    const generationChanged = prevGeneratedAt !== nextGeneratedAt
+
+    if (statusChanged || generationChanged) {
+      const smartNotes = (storeItem.smart_notes as SmartNotesV1_1) || {
+        summary: '',
+        abstract: '',
+        keywords: [],
+        chunks: []
+      }
+      setNotes(smartNotes)
+      setChunksJson(JSON.stringify(smartNotes.chunks || [], null, 2))
+      setChunksError('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeItem?.smart_notes_status, storeItem?.smart_notes_generated_at, storeItem])
 
   useEffect(() => {
     // Try to load the markdown editor lazily

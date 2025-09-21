@@ -31,29 +31,33 @@ function initializeEventListeners(
   eventListenersInitialized = true
 
   // Idempotent create: always merge by id to avoid duplicates
-  window.knowlex.events.on('projectFile:created', (row: ProjectFileRow) => {
+  // ipcRenderer passes (event, payload); ignore the first arg
+  window.knowlex.events.on('projectFile:created', (_evt: any, row: ProjectFileRow) => {
     const current = get().items
     const mapped = current.map((it) => (it.id === row.id ? row : it))
     const found = current.some((it) => it.id === row.id)
     set({ items: found ? mapped : [...mapped, row] })
   })
 
-  window.knowlex.events.on('projectFile:updated', (row: ProjectFileRow) => {
+  window.knowlex.events.on('projectFile:updated', (_evt: any, row: ProjectFileRow) => {
     set({ items: get().items.map((it) => (it.id === row.id ? row : it)) })
   })
 
-  window.knowlex.events.on('projectFile:deleted', ({ id }: { id: string }) => {
+  window.knowlex.events.on('projectFile:deleted', (_evt: any, { id }: { id: string }) => {
     set({ items: get().items.filter((x) => x.id !== id) })
   })
 
   window.knowlex.events.on(
     'projectFile:statusUpdate',
-    (p: {
-      id: string
-      status: 'pending' | 'processing' | 'completed' | 'failed'
-      error?: string
-      generatedAt?: string
-    }) => {
+    (
+      _evt: any,
+      p: {
+        id: string
+        status: 'pending' | 'processing' | 'completed' | 'failed'
+        error?: string
+        generatedAt?: string
+      }
+    ) => {
       const current = get()
       const nextSet = new Set(current.processingIds)
       if (p.status === 'processing') nextSet.add(p.id)
