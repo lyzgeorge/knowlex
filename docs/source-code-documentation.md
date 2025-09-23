@@ -45,6 +45,15 @@ AI 模型定义和配置常量，支持 OpenAI 和 Claude 等多个提供商的�
 |--------|------|------|------|
 | TEXT_CONSTANTS | 常量对象 | 无 | 提供 `ZERO_WIDTH_SPACE` 等文本占位符常量 |
 
+### src/shared/constants/file-types.ts
+文件类型和 MIME 类型映射的集中定义。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| IMAGE_EXTENSIONS | 常量数组 | 无 | 支持的图片文件扩展名列表 |
+| EXTENSION_TO_MIME | 常量对象 | 无 | 文件扩展名到 MIME 类型的映射 |
+| DEFAULT_MIME | 常量 | 无 | 默认 MIME 类型 |
+
 ### src/shared/message/content-builder.ts
 提供用于构建和操作消息内容的实用函数。
 
@@ -228,6 +237,14 @@ Token 计数和估算工具，使用 tiktoken 进行准确的 token 计算。
 | isImageFile | 函数 | filename | 检查文件是否为图片文件 |
 | getMimeTypeFromExtension | 函数 | filename | 从文件扩展名获取 MIME 类型 |
 
+### src/shared/reasoning/policy.ts
+推理级别解析和验证策略。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| resolveReasoningEffort | 函数 | userSelection, modelCaps | 根据用户选择和模型能力解析推理级别 |
+| validateReasoningEffort | 函数 | value | 验证和解析推理级别值 |
+
 ### src/shared/i18n/
 国际化 (i18n) 模块，负责应用程序的语言管理和文本翻译。
 
@@ -258,6 +275,12 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 ### src/shared/i18n/locales/
 包含应用程序所有支持语言的翻译文件（JSON 格式）。
 
+### src/shared/i18n/locales/en.json
+英文翻译资源文件，提供界面文本的默认英文文案。
+
+### src/shared/i18n/locales/zh.json
+中文翻译资源文件，覆盖应用的简体中文文案。
+
 ### src/shared/i18n/types.ts
 国际化的类型定义。
 
@@ -276,32 +299,6 @@ i18n 初始化逻辑，负责异步加载和设置应用程序的初始语言。
 | validateModelConfig | 函数 | config | 模型配置验证 |
 | formatValidationError | 函数 | error | 用户友好的错误消息格式化 |
 
-### src/shared/schemas/smart-notes.ts
-Smart Notes 输出的 Zod 校验 Schema，确保 AI 返回结构的类型安全。
-
-| 导出项 | 类型 | 参数 | 描述 |
-|--------|------|------|------|
-| SmartNotesSchema | Zod schema | 无 | 业务字段结构验证：summary, abstract, keywords, structure, chunks |
-| SmartNotesChunkSchema | Zod schema | 无 | 单个分段对象校验：id, lines[] |
-| validateSmartNotesOutput | 函数 | data | 使用 Schema 进行安全解析（safeParse） |
-| SmartNotes | 类型 | 无 | 推导的 TypeScript 类型 |
-
-### src/shared/utils/smart-notes.ts
-Smart Notes 预处理工具：对内容进行按行封装与转义。
-
-| 导出项 | 类型 | 参数 | 描述 |
-|--------|------|------|------|
-| escapeAngleBrackets | 函数 | input | 将 `<`、`>` 转义为 `&lt;`、`&gt;` |
-| wrapContentByLineTags | 函数 | content | 按行包裹为 `<行号>内容</行号>`，保留空行 |
-
-### src/shared/ai/agents/smart-notes.definition.ts
-Smart Notes Agent 定义：系统提示词与输入构建器。
-
-| 导出项 | 类型 | 参数 | 描述 |
-|--------|------|------|------|
-| SMART_NOTES_SYSTEM_PROMPT | 常量 | 无 | 包含按行号输入、500 token 语义分段与严格 JSON 输出要求 |
-| buildSmartNotesModelInput | 函数 | rawContent | 将原始内容处理为按行号包裹的输入字符串 |
-| SmartNotesOutputSchema | Zod schema | 无 | 直接复用并导出 SmartNotesSchema 供 generateObject 使用 |
 
 ## 主进程 (Main Process)
 
@@ -351,6 +348,11 @@ Smart Notes Agent 定义：系统提示词与输入构建器。
 | listConversations | 函数 | options | 列出对话，支持分页 |
 | createMessage | 函数 | data | 创建消息 |
 | createProject | 函数 | data | 创建项目 |
+| createProjectFile | 函数 | data | 创建项目文件记录 |
+| getProjectFile | 函数 | id | 按 ID 获取项目文件 |
+| listProjectFiles | 函数 | projectId | 列出项目的所有文件 |
+| updateProjectFile | 函数 | id, updates | 更新项目文件信息 |
+| deleteProjectFile | 函数 | id | 删除项目文件记录 |
 
 说明：全文搜索（FTS）相关查询与触发器已移除（简化迁移方案）。
 
@@ -362,6 +364,7 @@ Smart Notes Agent 定义：系统提示词与输入构建器。
 | conversationSchema | 对象 | 无 | 对话表映射 |
 | messageSchema | 对象 | 无 | 消息表，包含 JSON 内容 |
 | projectSchema | 对象 | 无 | 项目表映射 |
+| projectFileSchema | 对象 | 无 | 项目文件表映射，支持 Smart Notes 字段 |
 | modelConfigSchema | 对象 | 无 | 模型配置映射，包含 `max_input_tokens` 字段 |
 
 ### src/main/services/ai-streaming.ts
@@ -419,6 +422,38 @@ Smart Notes Agent 定义：系统提示词与输入构建器。
 - 使用 `buildBranchContext` 构建消息上下文，支持令牌估算和回退机制。
 - 支持 3 层模型解析优先级：显式 → 对话 → 用户默认 → 系统默认。
 
+### src/main/services/attachment-processor.ts
+附件处理服务，专门处理未分类聊天模式的附件上传。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| processAttachmentContents | 函数 | files: Array<{name, content, size}> | 处理基于内容的附件数据（来自浏览器 File API） |
+| processAttachments | 函数 | filePaths: string[] | 处理基于文件路径的附件，支持批量处理 |
+| extractFileTextContent | 函数 | filePath, filename | 从文件提取文本内容 |
+| cleanupAttachments | 函数 | filePaths | 清理附件文件（未来使用） |
+
+说明：
+- 支持统一的文件处理流程：验证 → 解析 → 内容提取
+- 自动文件类型检测和 MIME 类型推断
+- 图片文件转换为 base64 data URL
+- 二进制文件使用文件解析器系统处理
+- 包含完整的错误处理和约束验证
+
+### src/main/services/message-send.ts
+消息发送工作流服务，统一处理消息创建和AI回复生成。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| SendMessageInput | 接口 | content, reasoningEffort?, conversationId?, parentMessageId?, projectId?, modelConfigId? | 消息发送输入接口 |
+| SendMessageResult | 接口 | conversation, userMessage, assistantMessage, newlyCreatedConversation | 消息发送结果接口 |
+| sendMessageAndGenerateReply | 函数 | input: SendMessageInput | 主要工作流函数，处理完整消息发送和回复生成 |
+
+说明：
+- 统一的消息发送流程：确保对话存在 → 创建用户消息 → 创建助手占位消息 → 触发异步流式回复
+- 支持分支消息创建（parentMessageId）
+- 自动处理新对话创建
+- 事件广播集成，确保UI实时更新
+
 ### src/main/services/streaming-lifecycle.ts
 流式生命周期管理器，集中处理事件广播、分片合并与最终落库。
 
@@ -453,15 +488,18 @@ IPC 事件广播和消息传递工具。
 | CONVERSATION_EVENTS | 常量对象 | 无 | 对话事件类型常量 |
 | MESSAGE_EVENTS | 常量对象 | 无 | 消息事件类型常量 |
 
-### src/main/services/file-temp.ts
-聊天上下文的临时文件处理。
+### src/main/utils/cancellation.ts
+长时间运行操作的取消令牌系统。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| processAttachments | 函数 | filePaths | 处理文件路径数组，进行验证和内容提取。 |
-| processAttachmentContents | 函数 | files | 处理文件内容数据数组（例如来自浏览器 File API），进行验证和内容提取。 |
-| extractFileTextContent | 函数 | filePath, filename | 文本提取（避免与消息文本提取重名）|
-| cleanupAttachments | 函数 | filePaths | 清理工具 |
+| CancellationToken | 类 | 无 | 取消令牌类，支持取消状态和回调 |
+| CancellationManager | 类 | 无 | 取消管理器，支持基于 ID 的令牌管理 |
+| isCancelled | 属性 | 无 | 取消状态 |
+| cancel | 方法 | 无 | 信号取消 |
+| onCancel | 方法 | callback | 注册取消回调 |
+| createToken | 方法 | id | 创建/替换令牌 |
+
 
 ### src/main/services/file-parser.ts
 多格式文件内容提取。
@@ -523,16 +561,16 @@ AI 参数与消息格式构建工具。
 - 实际生成调用统一走 `streamAIResponse`，并遵循“显式 > 对话模型 > 用户默认 > 系统默认”的模型解析顺序，不再依赖环境变量直连。
 
 ### src/main/services/settings.ts
-应用程序配置管理。
+应用程序配置管理，支持持久化存储到磁盘。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| SettingsService | 类 | 无 | 设置服务类，包含完整的配置管理 |
-| getSettings | 函数 | 无 | 获取所有设置 |
-| updateSettings | 函数 | updates | 运行时更新 |
+| SettingsService | 类 | 无 | 设置服务类，包含完整的配置管理和磁盘持久化 |
+| getSettings | 函数 | 无 | 获取所有设置，从环境变量和持久化文件合并 |
+| updateSettings | 函数 | updates | 运行时更新设置并自动持久化到磁盘 |
 | settingsService | 实例 | 无 | 单例实例 |
 
-说明：与 OpenAI 相关的环境读取与模型参数现由 `openai-adapter` 统一处理；`apiProviders` 简化为占位容器，`getProviderConfig` 等提供商接口已移除。
+说明：设置服务现支持将用户设置持久化到磁盘。设置从环境变量默认值和用户持久化文件合并，更新时自动保存到 `userData/settings.json`。支持文件处理模型配置和最大输入 token 限制等设置项。与 OpenAI 相关的环境读取与模型参数现由 `openai-adapter` 统一处理；`apiProviders` 简化为占位容器，`getProviderConfig` 等提供商接口已移除。
 
 ### src/main/services/model-config-service.ts
 具有综合验证的模型配置管理。
@@ -549,6 +587,15 @@ AI 参数与消息格式构建工具。
 | setDefaultModel | 方法 | id | 设置用户默认模型 |
 | getDefaultModelId | 方法 | 无 | 获取用户默认模型 ID |
 | handleDefaultModelDeletion | 方法 | deletedModelId | 处理默认模型删除时的逻辑，包括重新分配默认模型和受影响的对话。 |
+
+### src/main/services/SmartNotesWorker.ts
+简化的单次处理 Smart Notes 处理器，已从队列系统重构为直接调用模式。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| processSmartNotes | 函数 | id: string | 直接处理单个项目文件的 Smart Notes 生成，支持并发调用但不保证顺序 |
+
+说明：此服务已从原有的队列系统重构为单次处理模式。移除了分块处理逻辑，改为一次性读取所有文件内容并进行 token 限制检查。如果文件 token 数超过限制则标记为失败。支持并发处理，调用方负责协调。移除了重试机制和队列恢复功能，采用更简单的 fire-and-forget 模式。
 
 ### src/main/ipc/common.ts
 共享的 IPC 工具和验证模式。
@@ -610,7 +657,14 @@ AI 参数与消息格式构建工具。
 | registerModelConfigIPCHandlers | 函数 | 无 | 注册处理器，包含变更广播 |
 | unregisterModelConfigIPCHandlers | 函数 | 无 | 清理处理器 |
 
-### src/main/utils/cancellation.ts
+### src/main/ipc/project-file.ts
+项目文件 IPC 处理器。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| 无导出函数 | 无 | 无 | 直接注册 IPC 处理器，无导出函数 |
+
+说明：处理项目文件相关的所有 IPC 通信，包括上传、列表、获取、更新、删除和打开文件操作。使用 `handleIPCCall` 包装器确保一致的错误处理。
 长时间运行操作的取消令牌系统。
 
 | 导出项 | 类型 | 参数 | 描述 |
@@ -682,6 +736,9 @@ AI 参数与消息格式构建工具。
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | MainApp | 组件 | 无 | 主应用程序页面组件 |
+
+### src/renderer/index.html
+渲染进程的静态入口 HTML，加载打包后的脚本并注入根节点。
 
 ### src/renderer/stores/index.ts
 中央存储协调和初始化。
@@ -789,6 +846,13 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useConversationManagement | Hook | 无 | 对话管理钩子，基于 IntersectionObserver 的无限加载 |
 
+### src/renderer/hooks/useAttachmentUpload.ts
+文件附件上传管理钩子。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useAttachmentUpload | Hook | options | 处理文件上传、验证和附件管理的钩子 |
+
 ### src/renderer/hooks/useEditableMessage.ts
 支持文件附件的复杂消息编辑。
 
@@ -796,12 +860,13 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useEditableMessage | Hook | messageId | 消息编辑钩子，统一处理附件和内容验证 |
 
-### src/renderer/hooks/useFileUpload.ts
-综合文件上传管理。
+### src/renderer/hooks/useEditableTitle.ts
+标题内联编辑管理钩子。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
-| useFileUpload | Hook | options | 文件上传钩子，支持客户端验证和拖放 |
+| useEditableTitle | Hook | title, onSave | 标题编辑钩子，支持内联编辑和保存 |
+
 
 ### src/renderer/hooks/useMessageActions.ts
 提供用于消息操作的函数。
@@ -845,20 +910,6 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useI18n | Hook | 无 | 国际化钩子，动态翻译加载 |
 
-### src/renderer/hooks/useInlineEdit.ts
-内联编辑工作流管理。
-
-| 导出项 | 类型 | 参数 | 描述 |
-|--------|------|------|------|
-| useInlineEdit | Hook | value, onSave | 内联编辑钩子，开始/取消/确认工作流 |
-
-### src/renderer/hooks/useMessageContentDiff.ts
-高效的内容比较。
-
-| 导出项 | 类型 | 参数 | 描述 |
-|--------|------|------|------|
-| useMessageContentDiff | Hook | oldContent, newContent | 内容差异钩子，性能优化的记忆化 |
-<!-- `useMessageContentDiff` hook removed: content-diffing functions were deprecated and removed from the codebase. -->
 
 ### src/renderer/hooks/useNotifications.ts
 综合通知系统钩子。
@@ -888,6 +939,13 @@ AI 模型配置管理。
 |--------|------|------|------|
 | useReasoningEffort | Hook | capabilities | 管理推理级别，并检查模型是否支持推理。 |
 
+### src/renderer/hooks/useRequestTokenCount.ts
+请求 token 计数管理钩子。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useRequestTokenCount | Hook | messages, model | 计算和管理请求的 token 数量 |
+
 ### src/renderer/hooks/useStreamingPhase.ts
 管理 AI 响应的流式传输阶段。
 
@@ -911,57 +969,137 @@ AI 模型配置管理。
 ### src/renderer/components/features/chat/
 与聊天功能相关的组件，例如消息显示、输入区域和聊天历史。
 
-| 文件 | 描述 |
-|---|---|
-| `AssistantMessage.tsx` | 显示 AI 助手消息的组件，支持流式传输指示器、推理显示和消息重新生成。现在使用 `useMessageActions` 和 `useStreamingPhase`。 |
-| `ChatInputBox.tsx` | 统一的聊天输入框组件，支持文件上传、token 计算、分支上下文和推理设置。使用 `useMessageTokenEstimate`、`useReasoningEffort`，并复用 UI 组件 `FileAttachmentList`、`SendButton`、`TokenCounter`。 |
-| `ConversationPage.tsx` | 显示完整对话的页面，包括消息列表和聊天输入框。 |
-| `UserMessage.tsx` | 显示用户消息的组件，支持编辑和分支。使用 `useMessageActions`，并在编辑模式下复用 `FileAttachmentList` 与 `TokenCounter`。 |
+### src/renderer/components/features/chat/AssistantMessage.tsx
+显示 AI 助手消息的组件，处理流式文本与推理片段、loading 状态、重新生成入口，并集成 `useMessageActions`、`useStreamingPhase`。
+
+### src/renderer/components/features/chat/ChatInputBox.tsx
+统一的聊天输入框容器，管理文本、附件上传、token 计数、推理设置与发送操作。复用 `FileAttachmentList`、`SendButton`、`TokenCounter` 等 UI 组件。
+
+### src/renderer/components/features/chat/ConversationHeader.tsx
+对话顶部栏，展示标题、项目归属与常用操作（重命名、删除、切换项目）。
+
+### src/renderer/components/features/chat/ConversationPage.tsx
+完整的聊天页面布局，组合对话头、消息时间线、推理展示与输入框，并连接到对话 store。
+
+### src/renderer/components/features/chat/MainPage.tsx
+当未选择具体对话时显示的默认页面，提供新建对话入口和快速提示。
+
+### src/renderer/components/features/chat/ReasoningBox.tsx
+以折叠面板展示模型推理内容，支持实时流式更新与手动隐藏/显示。
+
+### src/renderer/components/features/chat/UserMessage.tsx
+用户消息气泡组件，支持内联编辑、附件展示、分支导航与操作菜单。
 
 ### src/renderer/components/features/models/
 与 AI 模型配置和管理相关的组件。
 
+### src/renderer/components/features/models/EditModelModal.tsx
+模型配置的创建/编辑模态框，封装表单、验证、模板应用以及 API Key 填写提示。
+
+### src/renderer/components/features/models/ModelCard.tsx
+以卡片形式展示单个模型配置，包含使用统计、能力标签和编辑/删除操作。
+
+### src/renderer/components/features/models/ModelSelector.tsx
+下拉选择器组件，允许用户从存储中选择活动模型并展示能力状态。
+
+### src/renderer/components/features/models/ModelSettingsPanel.tsx
+设置面板中的模型管理区域，组合模型列表、默认模型选择和文件处理参数。
+
+### src/renderer/components/features/models/ReasoningEffortSelector.tsx
+推理强度的单独选择控件，提供级别说明和能力兼容性提示。
+
 ### src/renderer/components/features/projects/
 与项目创建、管理和显示相关的组件。
 
-| 文件 | 描述 |
-|---|---|
-| `ProjectPage.tsx` | 显示项目详情、对话列表和用于创建新对话的聊天输入框的页面。 |
+### src/renderer/components/features/projects/ProjectPage.tsx
+项目视图页面，聚合项目详情、对话列表、文件概览及在项目上下文下创建对话的入口。
 
 ### src/renderer/components/features/settings/
 与应用程序设置和用户偏好相关的组件。
 
+### src/renderer/components/features/settings/GeneralSettingsSection.tsx
+设置模态中的通用部分，提供语言、主题和界面偏好的控制项。
+
+### src/renderer/components/features/settings/index.ts
+导出设置模块的主要组件，方便按需引入。
+
+### src/renderer/components/features/settings/ModelSettingsSection.tsx
+设置模态中的模型部分，允许选择默认模型、配置推理与文件处理选项。
+
+### src/renderer/components/features/settings/SettingsModal.tsx
+集中呈现所有设置区域的模态框，负责选项卡切换、保存和关闭逻辑。
+
 ### src/renderer/components/layout/
 包含应用程序的整体布局结构和导航组件。
 
-| 文件 | 描述 |
-|---|---|
-| `ConversationsSection.tsx` | 显示和管理对话列表的组件。 |
-| `MainLayout.tsx` | 应用程序的主布局容器，包含侧边栏和主内容区域。 |
-| `ProjectsSection.tsx` | 显示和管理项目列表的组件。 |
-| `Sidebar.tsx` | 应用程序的侧边导航栏。 |
-| `SidebarFooter.tsx` | 侧边栏底部的组件，通常包含设置或用户信息。 |
-| `SidebarHeader.tsx` | 侧边栏顶部的组件，通常包含应用程序标志或标题。 |
+### src/renderer/components/layout/ConversationsSection.tsx
+侧边栏的对话列表区域，支持搜索、分页和上下文菜单操作。
+
+### src/renderer/components/layout/MainLayout.tsx
+渲染层的根布局组件，将侧边栏与主内容区域组合，并处理响应式布局。
+
+### src/renderer/components/layout/ProjectsSection.tsx
+侧边栏的项目管理区域，展示项目列表及展开状态。
+
+### src/renderer/components/layout/Sidebar.tsx
+应用整体侧边栏结构，组织标题、项目、对话、底部操作区。
+
+### src/renderer/components/layout/SidebarFooter.tsx
+侧边栏底部的操作面板，包含设置、主题和其他快捷入口。
+
+### src/renderer/components/layout/SidebarHeader.tsx
+侧边栏顶部区域，展示应用 Logo、标题以及项目创建入口。
 
 ### src/renderer/components/ui/
 包含可重用的、原子级的 UI 组件，这些组件不依赖于特定的业务逻辑，可以在整个应用程序中复用。
 
-| 文件 | 描述 |
-|---|---|
-| `AutoResizeTextarea.tsx` | 自动调整高度的文本输入框。 |
-| `Button.tsx` | 通用按钮组件。 |
-| `ConversationMenu.tsx` | 对话相关的操作菜单组件。 |
-| `DeleteProjectModal.tsx` | 用于确认删除项目的模态框。 |
-| `index.ts` | UI 组件的聚合导出文件。 |
-| `Input.tsx` | 通用输入框组件。 |
-| `LanguageSelector.tsx` | 语言选择器组件。 |
-| `Modal.tsx` | 通用模态框组件。 |
-| `Notification.tsx` | 应用程序通知显示组件。 |
-| `AttachmentCard.tsx` | 显示附件信息和状态的卡片组件（包含 `AttachmentCardList` 和 `toMessageFileLikeFromMessagePart`）。 |
-| `FileAttachmentList.tsx` | 组合型列表组件，接收统一的 items/onRemove，将数据映射为 `AttachmentCard` 并包裹在 `AttachmentCardList`。支持可选布局属性。 |
-| `SendButton.tsx` | 发送/停止按钮，内置旋转动画与悬停切换逻辑。 |
-| `TokenCounter.tsx` | Token 计数组件，带 Tooltip，通用于输入框与编辑态显示。 |
-| `ThemeSelector.tsx` | 主题选择器组件，用于切换亮色/暗色模式。 |
+### src/renderer/components/ui/AttachmentCard.tsx
+附件卡片组件，展示文件名、大小、处理状态和错误信息，内置删除操作。
+
+### src/renderer/components/ui/AutoResizeTextarea.tsx
+自动根据内容调整高度的文本域，封装对 `textarea` 的尺寸计算和性能优化。
+
+### src/renderer/components/ui/Button.tsx
+通用按钮封装，应用统一的 Chakra 样式变体并支持加载/图标状态。
+
+### src/renderer/components/ui/ConversationMenu.tsx
+对话操作菜单，提供重命名、复制链接、删除等操作入口。
+
+### src/renderer/components/ui/DeleteProjectModal.tsx
+确认删除项目的模态组件，提示影响范围并要求用户确认。
+
+### src/renderer/components/ui/FileAttachmentList.tsx
+附件列表容器，将统一的附件数据映射为 `AttachmentCard` 并提供删除回调。
+
+### src/renderer/components/ui/index.ts
+集中导出 UI 目录中的所有基础组件。
+
+### src/renderer/components/ui/InlineEdit.tsx
+内联编辑器，封装只读/编辑态切换、提交、取消和验证逻辑。
+
+### src/renderer/components/ui/Input.tsx
+应用统一样式的输入框组件，支持前后缀和错误状态。
+
+### src/renderer/components/ui/LanguageSelector.tsx
+语言切换下拉框，调用 `useI18n` 更新应用语言。
+
+### src/renderer/components/ui/Modal.tsx
+基础模态框封装，抽象标题、内容、页脚布局与关闭行为。
+
+### src/renderer/components/ui/Notification.tsx
+通知展示组件，与通知 store 集成展示提示消息。
+
+### src/renderer/components/ui/SendButton.tsx
+发送按钮，带有发送/停止双态、动画和可访问性标签。
+
+### src/renderer/components/ui/ThemeSelector.tsx
+主题模式选择器，提供亮暗模式切换并同步到设置 store。
+
+### src/renderer/components/ui/TokenCounter.tsx
+Token 计数显示组件，带 Tooltip 展示详细用量信息。
+
+### src/renderer/styles/markdown.css
+自定义 Markdown 渲染样式，覆盖标题、代码块、列表等排版细节以匹配应用主题。
 
 ### src/renderer/hooks/useModelForm.ts
 模型表单逻辑 Hook。
@@ -972,12 +1110,34 @@ AI 模型配置管理。
 
 说明：`EditModelModal.tsx` 现在作为纯展示层，所有表单与提交逻辑都内聚在此 Hook 内，减少组件复杂度并遵循 DRY。
 
+### src/renderer/utils/countRequestTokens.ts
+请求 token 计数工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| countRequestTokens | 函数 | messages, model | 计算请求的 token 数量 |
+
 ### src/renderer/utils/markdownComponents.tsx
 自定义 React Markdown 组件。
 
 | 导出项 | 类型 | 参数 | 描述 |
 |--------|------|------|------|
 | markdownComponents | 对象 | 无 | 主题集成的 markdown 渲染组件 |
+
+### src/renderer/utils/store-helpers.ts
+Zustand 存储辅助工具。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| createStoreHelpers | 函数 | storeApi | 创建存储辅助函数集合 |
+
+### src/renderer/utils/validation.ts
+前端验证工具函数。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| validateInput | 函数 | value, rules | 输入验证函数 |
+| isValidEmail | 函数 | email | 邮箱格式验证 |
 
 ### src/renderer/utils/theme/
 Chakra UI 主题配置模块，将主题的不同方面（如断点、颜色模式、颜色和组件样式）分离到单独的文件中，以实现模块化和可维护性。
@@ -1001,8 +1161,12 @@ Chakra UI 主题的入口文件，负责聚合所有主题配置并导出完整�
 ### src/renderer/utils/theme/components.ts
 包含 Chakra UI 组件的自定义样式和变体配置。
 
-### src/renderer/styles/markdown.css
-包含用于渲染 Markdown 内容的自定义 CSS 样式。
+### src/renderer/utils/theme/fonts.ts
+定义应用程序使用的字体配置。
+
+### src/renderer/utils/theme/shadows.ts
+定义应用程序使用的阴影效果配置。
+
 
 ### src/renderer/types/global.d.ts
 TypeScript 全局类型声明。
@@ -1018,19 +1182,99 @@ Vitest 的测试配置。
 |--------|------|------|------|
 | 测试配置 | 配置 | 无 | Electron API 模拟和测试环境设置 |
 
-## 关键架构模式
+## 项目文件系统 (Project Files System)
 
-1. **三层架构**: 主进程、渲染进程和共享代码的严格分离
-2. **类型安全的 IPC**: 所有通信使用强类型接口和 `handleIPCCall` 包装器
-3. **简化数据库架构**: 移除早期 FTS/Search 和文件向量化功能，采用流线化方案
-4. **智能模型解析**: 3 层优先级系统（显式 → 对话 → 用户默认 → 系统默认）
-5. **批量流式传输**: 内部批量发射器减少 IPC 压力，合并文本和推理分片
-6. **幂等标题生成**: 一次性、自动的对话标题生成策略
-7. **统一 AI 适配器**: 支持官方和 OpenAI 兼容提供商，包含重试机制
-8. **取消令牌系统**: 基于 ID 的取消管理，支持长时间运行操作
-9. **通知预设系统**: 15 个预定义通知配置，覆盖常见使用场景
-10. **主题同步**: OS 主题自动同步，支持暗色/亮色模式切换
-11. **模块化状态管理**: 对话存储拆分为多个职责单一的文件
-12. **综合文件处理**: 多格式解析器工厂，包含编码检测和验证管道
+Knowlex 的项目文件功能允许用户上传和管理项目相关的文档文件，支持智能摘要生成和文件内容解析。
+
+### src/shared/constants/project-files.ts
+项目文件系统的常量定义。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| PROJECT_FILE_EVENTS | 常量对象 | 无 | 项目文件相关的事件类型定义 |
+| PROJECT_FILE_SMART_NOTES | 常量对象 | 无 | Smart Notes 处理的默认配置参数 |
+
+### src/shared/types/project-file.ts
+项目文件相关的数据类型定义。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| ProjectFileRow | 接口 | 文件属性 | 数据库中的项目文件记录结构 |
+| SmartNotesV1_1 | 接口 | 摘要属性 | Smart Notes 生成结果的数据结构 |
+| ProjectFileStatus | 联合类型 | 无 | 文件处理状态枚举 |
+
+### src/main/services/agent-runner.ts
+AI Agent 运行器，负责执行智能摘要生成任务。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| AgentRunInput<T> | 接口 | system, messages, schema, modelId? | Agent 运行输入接口 |
+| AgentRunResult<T> | 接口 | object | Agent 运行结果接口 |
+| resolveModel | 函数 | modelId? | 解析模型配置，支持多层优先级 |
+| runAgent | 函数 | input | 执行 AI Agent 任务，支持结构化输出 |
+| extractAndParseJson | 函数 | s | 从模型响应中提取和解析 JSON |
+
+说明：提供统一的 AI Agent 执行框架，支持模型解析、结构化输出验证和错误处理。使用 AI SDK 进行模型调用，支持 OpenAI 兼容接口。
+
+### src/main/services/agents/smart-notes-agent.ts
+Smart Notes AI Agent 实现，使用 AI SDK 生成文件摘要。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| generateSmartNotes | 函数 | content, prev? | 生成文件的结构化摘要信息 |
+
+### src/main/services/project-file-service.ts
+项目文件的核心业务逻辑服务。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| uploadProjectFiles | 函数 | input | 上传和处理项目文件，支持批量上传 |
+| regenerateSmartNotes | 函数 | id | 重新生成指定文件的 Smart Notes |
+| deleteProjectFileDeep | 函数 | id | 深度删除项目文件，包括物理文件和数据库记录 |
+
+### src/main/ipc/project-file.ts
+项目文件 IPC 处理器。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| registerProjectFileIPCHandlers | 函数 | 无 | 注册所有项目文件相关的 IPC 处理器 |
+
+### src/renderer/stores/project-file-store.ts
+项目文件状态管理 Zustand store。
+
+| 导出项 | 类型 | 参数 | 描述 |
+|--------|------|------|------|
+| useProjectFileStore | Hook | 无 | 项目文件状态管理的 Zustand Hook |
+
+说明：管理项目文件的客户端状态，包括文件列表、上传、更新和删除操作。通过事件监听器实现实时状态同步。
+
+### src/renderer/components/features/project-files/ProjectFileModal.tsx
+项目文件详情和编辑模态框组件。
+
+| 文件 | 描述 |
+|---|---|
+| ProjectFileModal | 显示项目文件内容、Smart Notes 和编辑功能的模态框组件 |
+
+### src/renderer/components/features/project-files/ProjectFilesGrid.tsx
+项目文件网格显示组件。
+
+| 文件 | 描述 |
+|---|---|
+| ProjectFilesGrid | 以网格形式显示项目文件的组件，支持状态指示和操作 |
+
+## 架构要点
+
+1. **三层架构**: 主进程、渲染进程和共享代码的严格分离。
+2. **类型安全的 IPC**: 所有通信使用强类型接口和 `handleIPCCall` 包装器。
+3. **简化数据库架构**: 移除早期 FTS/Search 和文件向量化功能，采用流线化方案。
+4. **智能模型解析**: 3 层优先级系统（显式 → 对话 → 用户默认 → 系统默认）。
+5. **批量流式传输**: 内部批量发射器减少 IPC 压力，合并文本和推理分片。
+6. **幂等标题生成**: 一次性、自动的对话标题生成策略。
+7. **统一 AI 适配器**: 支持官方和 OpenAI 兼容提供商，包含重试机制。
+8. **取消令牌系统**: 基于 ID 的取消管理，支持长时间运行操作。
+9. **通知预设系统**: 15 个预定义通知配置，覆盖常见使用场景。
+10. **主题同步**: OS 主题自动同步，支持暗色/亮色模式切换。
+11. **模块化状态管理**: 对话存储拆分为多个职责单一的文件。
+12. **综合文件处理**: 多格式解析器工厂，包含编码检测和验证管道。
 
 此文档涵盖了 Knowlex 应用程序的完整源代码架构，展示了现代 Electron + React 应用程序的流线化设计、智能模型集成和用户体验优化模式。
