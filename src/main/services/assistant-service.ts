@@ -19,16 +19,16 @@ import {
   estimateImageTokensByTiles,
   getEncodingForModel
 } from '@shared/utils/token-count'
-import { streamAIResponse } from '@main/services/openai-adapter'
+import { streamAIResponse } from '@main/infra/ai/openai-adapter'
 import { getMessage } from '@main/services/message'
-import { cancellationManager } from '@main/utils/cancellation'
+import { cancellationManager } from '@main/infra/utils/cancellation'
 // IPC event emission is handled by StreamingLifecycleManager
 import { StreamingLifecycleManager } from './streaming-lifecycle'
 
 /**
  * Configuration for assistant message generation
  */
-export interface AssistantGenConfig {
+interface AssistantGenConfig {
   /** ID of the message to update with the generated content */
   messageId: string
   /** ID of the conversation for context */
@@ -62,7 +62,7 @@ export interface AssistantGenConfig {
  * @param config Generation configuration
  * @returns Promise that resolves when generation starts (not when it completes)
  */
-export async function streamAssistantReply(config: AssistantGenConfig): Promise<void> {
+async function streamAssistantReply(config: AssistantGenConfig): Promise<void> {
   const {
     messageId,
     contextMessages,
@@ -86,7 +86,7 @@ export async function streamAssistantReply(config: AssistantGenConfig): Promise<
       // Get conversation model ID for resolution context
       let conversationModelId: string | undefined
       try {
-        const { getConversation } = await import('@main/services/conversation-service')
+        const { getConversation } = await import('@main/services/conversation')
         const conv = await getConversation(config.conversationId)
         conversationModelId = conv?.modelConfigId || undefined
       } catch (e) {

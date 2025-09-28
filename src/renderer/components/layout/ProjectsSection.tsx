@@ -264,8 +264,6 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   )
 }
 
-export default ProjectsSection
-
 // Small per-conversation item to keep hook usage rules safe
 const ConversationItem: React.FC<{
   conversation: any

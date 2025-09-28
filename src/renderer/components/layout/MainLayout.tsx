@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, HStack } from '@chakra-ui/react'
 import { Sidebar } from './Sidebar'
 
-export interface MainLayoutProps {
+interface MainLayoutProps {
   children: React.ReactNode
   sidebar?: React.ReactNode
   className?: string
@@ -33,5 +33,3 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, sidebar, class
     </HStack>
   )
 }
-
-export default MainLayout

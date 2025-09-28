@@ -1,8 +1,8 @@
 import type { Message, MessageContent } from '@shared/types/message'
 import { ensurePlaceholder } from '@shared/utils/text'
 import { updateMessage } from '@main/services/message'
-import { sendMessageEvent, MESSAGE_EVENTS } from '@main/utils/ipc-events'
-import { createBatchedEmitter, type BatchedEmitter } from '@main/utils/batched-emitter'
+import { sendMessageEvent, MESSAGE_EVENTS } from '@main/infra/utils/ipc-events'
+import { createBatchedEmitter, type BatchedEmitter } from '@main/infra/utils/batched-emitter'
 
 /**
  * Manages the lifecycle of streaming responses, centralizing:

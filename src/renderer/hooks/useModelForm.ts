@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 // zod validation handled via shared schema; direct import not needed here
 import { useModelConfigStore } from '@renderer/stores/model-config'
 import type { ModelConfig, ModelConfigPublic, CreateModelConfigInput } from '@shared/types/models'
+import type { IPCResult } from '@shared/types/ipc'
 import { CreateModelConfigInputSchema } from '@shared/schemas/model-config'
 
 type NumericOrEmpty = number | ''
 
-export interface ModelFormState {
+interface ModelFormState {
   name: string
   apiEndpoint: string
   apiKey: string
@@ -95,14 +96,14 @@ const QUICK_TEMPLATES = {
   }
 }
 
-export type QuickTemplateKey = keyof typeof QUICK_TEMPLATES
+type QuickTemplateKey = keyof typeof QUICK_TEMPLATES
 
-export interface UseModelFormOptions {
+interface UseModelFormOptions {
   isOpen?: boolean
   onSubmitSuccess?: () => void
 }
 
-export function useModelForm(model?: ModelConfigPublic | null, options: UseModelFormOptions = {}) {
+function useModelForm(model?: ModelConfigPublic | null, options: UseModelFormOptions = {}) {
   const { createModel, updateModel } = useModelConfigStore()
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -136,8 +137,9 @@ export function useModelForm(model?: ModelConfigPublic | null, options: UseModel
       window.knowlex.modelConfig
         .get(model.id, { includeApiKey: true })
         .then((res) => {
-          if (res?.success && res.data) {
-            const m = res.data as ModelConfig
+          const result = res as IPCResult<ModelConfig | ModelConfigPublic>
+          if (result?.success && result.data) {
+            const m = result.data as ModelConfig
             setFullModel(m)
             dispatch({
               type: 'merge',
@@ -159,28 +161,29 @@ export function useModelForm(model?: ModelConfigPublic | null, options: UseModel
             })
           } else {
             // Fallback to public data
+            const fallback = result?.data ?? model
             dispatch({
               type: 'merge',
               value: {
-                name: model.name,
-                apiEndpoint: model.apiEndpoint,
+                name: fallback.name,
+                apiEndpoint: fallback.apiEndpoint,
                 apiKey: '',
-                modelId: model.modelId,
-                temperature: model.temperature ?? '',
-                topP: model.topP ?? '',
-                frequencyPenalty: model.frequencyPenalty ?? '',
-                presencePenalty: model.presencePenalty ?? '',
-                maxInputTokens: model.maxInputTokens ?? 131072,
-                supportsReasoning: model.supportsReasoning,
-                supportsVision: model.supportsVision,
-                supportsToolUse: model.supportsToolUse,
-                supportsWebSearch: model.supportsWebSearch
+                modelId: fallback.modelId,
+                temperature: fallback.temperature ?? '',
+                topP: fallback.topP ?? '',
+                frequencyPenalty: fallback.frequencyPenalty ?? '',
+                presencePenalty: fallback.presencePenalty ?? '',
+                maxInputTokens: fallback.maxInputTokens ?? 131072,
+                supportsReasoning: fallback.supportsReasoning,
+                supportsVision: fallback.supportsVision,
+                supportsToolUse: fallback.supportsToolUse,
+                supportsWebSearch: fallback.supportsWebSearch
               }
             })
           }
         })
-        .catch((e) => {
-          console.error('[useModelForm] Failed to fetch full model config:', e)
+        .catch((error: unknown) => {
+          console.error('[useModelForm] Failed to fetch full model config:', error)
           // Fallback to public data
           dispatch({
             type: 'merge',

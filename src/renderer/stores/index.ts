@@ -8,38 +8,7 @@ import useAppStoreInternal from './app'
 import useSettingsStoreInternal from './settings'
 import useProjectStoreInternal from './project'
 
-// Store exports
-export {
-  default as useAppStore,
-  useTheme,
-  useLanguage,
-  useAppStatus,
-  initializeThemeSync,
-  cleanupThemeSync
-} from './app'
-export { default as useConversationStore } from './conversation/store'
-export {
-  useCurrentConversation,
-  useConversations,
-  useConversationsLoading,
-  useConversationsError,
-  useSendMessage,
-  useRegenerateMessage,
-  useEditMessage,
-  useDeleteMessage,
-  useIsSending,
-  useIsStreaming,
-  useStreamingMessageId,
-  useOnStreamingUpdate,
-  useSetStreamingState
-} from './conversation/index'
-export { default as useSettingsStore, useUserDefaultModelPreference } from './settings'
-
-// Type exports
-export type { Theme, AppState } from './app'
-export type { Language } from '@shared/i18n/types'
 import useConversationStoreInternal from './conversation/store'
-export type ConversationState = ReturnType<typeof useConversationStoreInternal.getState>
 // Settings types are trimmed; no public re-exports needed
 
 // Flag to prevent duplicate store initialization in React.StrictMode
@@ -102,10 +71,4 @@ export const initializeStores = async () => {
     // Don't re-throw the error to allow the app to continue
     console.warn('App initialized with store loading failures')
   }
-}
-
-export const resetAllStores = () => {
-  useAppStoreInternal.getState().reset()
-  useConversationStoreInternal.getState().reset()
-  // Note: Don't reset settings store as it contains user preferences
 }

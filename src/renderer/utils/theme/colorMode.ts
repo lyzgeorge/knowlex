@@ -5,42 +5,7 @@
 
 export type ColorMode = 'light' | 'dark' | 'system'
 
-export interface ColorModeManager {
-  get(): ColorMode
-  set(value: ColorMode): void
-  type: 'localStorage' | 'cookie'
-}
-
-/**
- * Creates a color mode manager that syncs with localStorage
- */
-export function createLocalStorageManager(key: string = 'knowlex-color-mode'): ColorModeManager {
-  return {
-    get() {
-      try {
-        const value = localStorage.getItem(key)
-        return (value as ColorMode) || 'system'
-      } catch {
-        return 'system'
-      }
-    },
-
-    set(value: ColorMode) {
-      try {
-        localStorage.setItem(key, value)
-      } catch {
-        // Ignore localStorage errors
-      }
-    },
-
-    type: 'localStorage'
-  }
-}
-
-/**
- * Detects the user's system theme preference
- */
-export function detectSystemTheme(): 'light' | 'dark' {
+function detectSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light'
 
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -49,7 +14,7 @@ export function detectSystemTheme(): 'light' | 'dark' {
 /**
  * Resolves the actual theme based on the color mode setting
  */
-export function resolveTheme(colorMode: ColorMode): 'light' | 'dark' {
+function resolveTheme(colorMode: ColorMode): 'light' | 'dark' {
   if (colorMode === 'system') {
     return detectSystemTheme()
   }
@@ -57,42 +22,10 @@ export function resolveTheme(colorMode: ColorMode): 'light' | 'dark' {
 }
 
 /**
- * Hook for listening to system theme changes
- */
-export function useSystemThemeListener(callback: (theme: 'light' | 'dark') => void) {
-  if (typeof window === 'undefined') return
-
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-  const listener = (e: MediaQueryListEvent) => {
-    callback(e.matches ? 'dark' : 'light')
-  }
-
-  // Modern browsers
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', listener)
-    return () => mediaQuery.removeEventListener('change', listener)
-  }
-
-  mediaQuery.addListener(listener)
-  return () => mediaQuery.removeListener(listener)
-}
-
-/**
- * Custom theme configuration with color mode support
- */
-export const colorModeConfig = {
-  initialColorMode: 'system' as const,
-  useSystemColorMode: true,
-  storageType: 'localStorage' as const,
-  storageKey: 'knowlex-color-mode'
-}
-
-/**
  * Theme manager for coordinating theme changes across windows
  * In a dual-window Electron app, we need to sync theme changes
  */
-export class ThemeManager {
+class ThemeManager {
   private callbacks: Set<(theme: 'light' | 'dark') => void> = new Set()
   private currentMode: ColorMode = 'system'
   private systemThemeListener: (() => void) | null = null
@@ -203,5 +136,3 @@ export class ThemeManager {
 
 // Global theme manager instance
 export const themeManager = new ThemeManager()
-
-export default themeManager

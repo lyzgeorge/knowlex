@@ -1,58 +1,26 @@
 import { ipcMain } from 'electron'
+import { ATTACHMENT_CHANNELS } from '@shared/constants/ipc-channels'
 import { processAttachments, processAttachmentContents } from '@main/services/attachment-processor'
-import type { IPCResult, AttachmentProcessRequest } from '@shared/types/ipc'
-import type { AttachmentResult } from '@shared/types/file'
-import { handleIPCCall, validateRequest, validateObject } from './common'
-import { getErrorMessage } from '@shared/utils/error-handling'
+import {
+  AttachmentContentProcessRequestSchema,
+  AttachmentProcessRequestSchema
+} from '@shared/schemas/file'
+import { handleIPCCall } from './common'
+import type { z } from 'zod'
+
+function parseRequest<T>(schema: z.ZodType<T>, data: unknown): T {
+  const parsed = schema.safeParse(data)
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((issue) => issue.message).join('; ')
+    throw new Error(message)
+  }
+  return parsed.data
+}
 
 /**
  * Simplified File IPC Handler
  * Only handles attachment processing (no project files)
  */
-
-/**
- * Validates attachment processing request data
- */
-function validateAttachmentProcessRequest(data: unknown): data is AttachmentProcessRequest {
-  if (!validateObject(data)) return false
-
-  const request = data as AttachmentProcessRequest
-  return (
-    Array.isArray(request.files) &&
-    request.files.every(
-      (file) =>
-        validateObject(file) &&
-        'name' in file &&
-        'path' in file &&
-        typeof file.name === 'string' &&
-        typeof file.path === 'string'
-    )
-  )
-}
-
-/**
- * Validates attachment content processing request data
- */
-function validateAttachmentContentRequest(data: unknown): data is {
-  files: Array<{ name: string; content: string; size: number }>
-} {
-  if (!validateObject(data)) return false
-
-  const request = data as { files: Array<{ name: string; content: string; size: number }> }
-  return (
-    Array.isArray(request.files) &&
-    request.files.every(
-      (file) =>
-        validateObject(file) &&
-        'name' in file &&
-        'content' in file &&
-        'size' in file &&
-        typeof file.name === 'string' &&
-        typeof file.content === 'string' &&
-        typeof file.size === 'number'
-    )
-  )
-}
 
 /**
  * Registers attachment processing IPC handlers
@@ -61,75 +29,20 @@ function validateAttachmentContentRequest(data: unknown): data is {
 export function registerFileIPCHandlers(): void {
   console.log('Registering attachment IPC handlers...')
 
-  // Process attachments from paths
-  ipcMain.handle(
-    'attachment:process',
-    async (_, data: unknown): Promise<IPCResult<AttachmentResult[]>> => {
-      return handleIPCCall(async () => {
-        const request = validateRequest(
-          data,
-          validateAttachmentProcessRequest,
-          'Invalid attachment processing request'
-        )
+  ipcMain.handle(ATTACHMENT_CHANNELS.process, async (_, data: unknown) => {
+    return handleIPCCall(async () => {
+      const request = parseRequest(AttachmentProcessRequestSchema, data)
+      const filePaths = request.files.map((file) => file.path)
+      return await processAttachments(filePaths)
+    })
+  })
 
-        // Extract file paths from the request
-        const filePaths = request.files.map((file) => file.path)
-
-        return await processAttachments(filePaths)
-      })
-    }
-  )
-
-  // Process attachments from content (for browser File API)
-  ipcMain.handle(
-    'attachment:process-content',
-    async (_, data: unknown): Promise<IPCResult<AttachmentResult[]>> => {
-      console.log(
-        '[IPC] file:process-temp-content called with data:',
-        data && typeof data === 'object' && 'files' in data && Array.isArray(data.files)
-          ? data.files.map((f: unknown) => ({
-              name: typeof f === 'object' && f && 'name' in f ? f.name : 'unknown',
-              size: typeof f === 'object' && f && 'size' in f ? f.size : 0,
-              contentLength:
-                typeof f === 'object' && f && 'content' in f && typeof f.content === 'string'
-                  ? f.content.length
-                  : 0
-            }))
-          : 'invalid data'
-      )
-
-      try {
-        if (!validateAttachmentContentRequest(data)) {
-          console.log('[IPC] Validation failed for attachment content request')
-          return {
-            success: false,
-            error: 'Invalid attachment content processing request'
-          }
-        }
-
-        console.log('[IPC] Validation passed, calling processAttachmentContents...')
-        const result = await processAttachmentContents(data.files)
-        console.log(
-          '[IPC] processAttachmentContents completed with result:',
-          result.map((r) => ({
-            filename: r.filename,
-            error: r.error,
-            contentLength: r.content?.length
-          }))
-        )
-        return {
-          success: true,
-          data: result
-        }
-      } catch (error) {
-        console.error('[IPC] Error in attachment:process-content handler:', error)
-        return {
-          success: false,
-          error: getErrorMessage(error, 'Unknown error occurred')
-        }
-      }
-    }
-  )
+  ipcMain.handle(ATTACHMENT_CHANNELS.processContent, async (_, data: unknown) => {
+    return handleIPCCall(async () => {
+      const request = parseRequest(AttachmentContentProcessRequestSchema, data)
+      return await processAttachmentContents(request.files)
+    })
+  })
 
   console.log('Attachment IPC handlers registered successfully')
 }
@@ -141,7 +54,7 @@ export function registerFileIPCHandlers(): void {
 export function unregisterFileIPCHandlers(): void {
   console.log('Unregistering attachment IPC handlers...')
 
-  const channels = ['attachment:process', 'attachment:process-content']
+  const channels = [ATTACHMENT_CHANNELS.process, ATTACHMENT_CHANNELS.processContent]
 
   channels.forEach((channel) => {
     ipcMain.removeAllListeners(channel)

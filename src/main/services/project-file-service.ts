@@ -4,28 +4,53 @@ import {
   getProjectFile,
   listProjectFiles,
   updateProjectFile
-} from '@main/database/queries'
+} from '@main/infra/database/queries'
+import {
+  ensureProjectFileDirectory,
+  resolveProjectFileDirectory
+} from '@main/infra/utils/project-files'
 import {
   PROJECT_FILE_LIMITS,
   PROJECT_FILE_STORAGE,
-  PROJECT_FILE_SMART_NOTES
+  PROJECT_FILE_SMART_NOTES,
+  PROJECT_FILE_EVENTS
 } from '@shared/constants/project-files'
 import type { ProjectFileRow, SmartNotesV1_1 } from '@shared/types/project-file'
 import { generateId } from '@shared/utils/id'
-import { processSmartNotes } from './SmartNotesWorker'
+import { processSmartNotes } from './smart-notes-worker'
 import { BrowserWindow } from 'electron'
-import { PROJECT_FILE_EVENTS } from '@shared/constants/project-files'
-import { parseFile, FileParserFactory } from './file-parser'
+import { extractFileContent, isSupportedFileType } from '@main/infra/file-extract'
 import { createHash } from 'node:crypto'
 import { getMimeTypeFromExtension } from '@shared/utils/validation'
 
+type FsModule = typeof import('node:fs/promises')
+type PathModule = typeof import('node:path')
+
+interface ProjectFileUploadInput {
+  name: string
+  path?: string
+  contentBase64?: string
+  size: number
+  mime?: string
+}
+
+interface ProjectFileEntryParams {
+  id: string
+  projectId: string
+  filename: string
+  fileSize: number
+  fileHash: string
+  originalPath: string
+  contentPath: string
+  mimeType: string
+}
+
 export async function uploadProjectFiles(input: {
   projectId: string
-  files: Array<{ name: string; path?: string; contentBase64?: string; size: number; mime?: string }>
+  files: ProjectFileUploadInput[]
 }): Promise<ProjectFileRow[]> {
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
-  const { app } = await import('electron')
   // Enforce per-project file count limit
   const existing = await listProjectFiles(input.projectId)
   if (existing.length + input.files.length > PROJECT_FILE_LIMITS.maxFilesPerProject) {
@@ -33,68 +58,119 @@ export async function uploadProjectFiles(input: {
   }
   const results: ProjectFileRow[] = []
   const seenHashes = new Set<string>()
-  for (const f of input.files) {
-    if (f.size > PROJECT_FILE_LIMITS.maxFileSizeBytes) {
-      throw new Error(`File too large: ${f.name}. Max 50MB`)
+  for (const file of input.files) {
+    if (file.size > PROJECT_FILE_LIMITS.maxFileSizeBytes) {
+      throw new Error(`File too large: ${file.name}. Max 50MB`)
     }
+
     const id = generateId()
-    const ext = (f.name.split('.').pop() || '').toLowerCase()
-    const base = app.getPath('userData')
-    const dir = path.join(base, 'project-files', input.projectId, id)
-    await fs.mkdir(dir, { recursive: true })
-    const originalPath = path.join(dir, PROJECT_FILE_STORAGE.originalFilename(ext))
-    let buffer: Buffer
-    if (f.path) {
-      buffer = await fs.readFile(f.path)
-      await fs.writeFile(originalPath, buffer)
-    } else if (f.contentBase64) {
-      buffer = Buffer.from(f.contentBase64, 'base64')
-      await fs.writeFile(originalPath, buffer)
-    } else {
-      throw new Error('Invalid file input')
-    }
-    const md5 = createHash('md5').update(buffer).digest('hex')
-    // Duplicate check in this project by file_hash
+    const dir = await ensureProjectFileDirectory(input.projectId, id)
+    const { buffer, md5 } = await readAndHashFile(fs, file)
+
     if (existing.some((e) => e.file_hash === md5) || seenHashes.has(md5)) {
-      throw new Error(`Duplicate file detected in this project: ${f.name}`)
+      throw new Error(`Duplicate file detected in this project: ${file.name}`)
     }
+
     seenHashes.add(md5)
-    const parser = FileParserFactory.createParser(originalPath, f.name)
-    if (!parser) {
-      throw new Error(`Unsupported file type for project files: ${f.name}`)
+
+    if (!isSupportedFileType(file.name)) {
+      throw new Error(`Unsupported file type for project files: ${file.name}`)
     }
-    const parsed = await parseFile(originalPath, f.name)
-    if (!parsed.content?.trim()) {
-      throw new Error(`No textual content extracted from: ${f.name}`)
-    }
-    const contentPath = path.join(dir, PROJECT_FILE_STORAGE.contentFilename)
-    await fs.writeFile(contentPath, parsed.content, 'utf8')
-    const row: ProjectFileRow = {
+
+    const { originalPath, contentPath } = await extractAndStoreContent(
+      fs,
+      path,
+      buffer,
+      file.name,
+      dir
+    )
+
+    const mimeType = file.mime || getMimeTypeFromExtension(file.name)
+
+    const row = await createProjectFileEntry({
       id,
-      project_id: input.projectId,
-      filename: f.name,
-      file_size: f.size,
-      file_hash: md5,
-      file_path: originalPath,
-      content_path: contentPath,
-      mime_type: f.mime || getMimeTypeFromExtension(f.name),
-      smart_notes: null,
-      // Persist 'pending' to indicate not yet completed; 'processing' is transient only.
-      smart_notes_status: 'pending',
-      smart_notes_generated_at: null,
-      smart_notes_schema_version: PROJECT_FILE_SMART_NOTES.schemaVersion,
-      error: null,
-      upload_time: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-    await createProjectFile(row)
-    broadcastEvent('created', row)
+      projectId: input.projectId,
+      filename: file.name,
+      fileSize: file.size,
+      fileHash: md5,
+      originalPath,
+      contentPath,
+      mimeType
+    })
+
     // Fire-and-forget concurrent processing
     void processSmartNotes(id)
     results.push(row)
   }
   return results
+}
+
+async function readAndHashFile(
+  fs: FsModule,
+  file: ProjectFileUploadInput
+): Promise<{ buffer: Buffer; md5: string }> {
+  let buffer: Buffer
+
+  if (file.path) {
+    buffer = await fs.readFile(file.path)
+  } else if (file.contentBase64) {
+    buffer = Buffer.from(file.contentBase64, 'base64')
+  } else {
+    throw new Error('Invalid file input')
+  }
+
+  const md5 = createHash('md5').update(buffer).digest('hex')
+  return { buffer, md5 }
+}
+
+async function extractAndStoreContent(
+  fs: FsModule,
+  pathModule: PathModule,
+  buffer: Buffer,
+  filename: string,
+  dir: string
+): Promise<{ originalPath: string; contentPath: string }> {
+  const ext = (filename.split('.').pop() || '').toLowerCase()
+  const originalPath = pathModule.join(dir, PROJECT_FILE_STORAGE.originalFilename(ext))
+
+  await fs.writeFile(originalPath, buffer)
+
+  const parsed = await extractFileContent(originalPath, filename)
+  if (!parsed.content?.trim()) {
+    throw new Error(`No textual content extracted from: ${filename}`)
+  }
+
+  const contentPath = pathModule.join(dir, PROJECT_FILE_STORAGE.contentFilename)
+  await fs.writeFile(contentPath, parsed.content, 'utf8')
+
+  return { originalPath, contentPath }
+}
+
+async function createProjectFileEntry(params: ProjectFileEntryParams): Promise<ProjectFileRow> {
+  const now = new Date().toISOString()
+  const row: ProjectFileRow = {
+    id: params.id,
+    project_id: params.projectId,
+    filename: params.filename,
+    file_size: params.fileSize,
+    file_hash: params.fileHash,
+    file_path: params.originalPath,
+    content_path: params.contentPath,
+    mime_type: params.mimeType,
+    smart_notes: null,
+    smart_notes_status: 'pending',
+    smart_notes_generated_at: null,
+    smart_notes_schema_version: PROJECT_FILE_SMART_NOTES.schemaVersion,
+    error: null,
+    upload_time: now,
+    created_at: now,
+    updated_at: now
+  }
+
+  await createProjectFile(row)
+  broadcastEvent('created', row)
+
+  return row
 }
 
 export async function getProjectFileWithContent(
@@ -145,13 +221,10 @@ export async function regenerateSmartNotes(id: string) {
 
 export async function deleteProjectFileDeep(id: string) {
   const fs = await import('node:fs/promises')
-  const path = await import('node:path')
   const row = await getProjectFile(id)
   if (row) {
-    const dir = path.dirname(row.file_path || '')
-    if (dir) {
-      await fs.rm(dir, { recursive: true, force: true })
-    }
+    const dir = await resolveProjectFileDirectory(row.project_id, row.id)
+    await fs.rm(dir, { recursive: true, force: true })
   }
   await deleteProjectFile(id)
   BrowserWindow.getAllWindows().forEach((w) =>

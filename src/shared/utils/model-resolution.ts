@@ -25,7 +25,7 @@ export interface ModelResolutionContext {
   availableModels: ModelConfig[]
 }
 
-export interface ModelResolutionResult {
+interface ModelResolutionResult {
   /** Resolved model configuration */
   modelConfig: ModelConfig | null
   /** Model capabilities */
@@ -199,30 +199,4 @@ export function getActiveModelId(
   if (context.conversationModelId) return context.conversationModelId
   if (context.userDefaultModelId) return context.userDefaultModelId
   return null
-}
-
-/**
- * Validates model resolution and returns detailed result
- */
-export function validateModelResolution(context: ModelResolutionContext): {
-  isValid: boolean
-  errors: string[]
-  result: ModelResolutionResult
-} {
-  const result = resolveModelContext(context)
-  const errors: string[] = []
-
-  if (!result.modelConfig) {
-    errors.push('No valid model could be resolved')
-  }
-
-  if (result.warnings.length > 0) {
-    errors.push(...result.warnings)
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    result
-  }
 }

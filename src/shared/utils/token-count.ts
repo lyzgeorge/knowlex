@@ -52,7 +52,7 @@ export function countTextTokens(text: string, encoding?: Encoding): number {
 }
 
 // Constants for token estimation
-export const TOKENS_PER_TILE = 85 // OpenAI's low-detail image estimation
+const TOKENS_PER_TILE = 85 // OpenAI's low-detail image estimation
 export const TILE_SIZE = 512 // 512x512 pixels per tile
 
 /**
@@ -120,21 +120,4 @@ export function countRequestTokensNormalized(items: TokenCountItem[]): TokenCoun
   }
 
   return { total, breakdown }
-}
-
-/**
- * Clean up cached encodings when no longer needed
- * Call this during application shutdown or when switching contexts
- */
-export function clearEncodingCache(): void {
-  for (const encoding of encodingCache.values()) {
-    try {
-      if (encoding.free) {
-        encoding.free()
-      }
-    } catch (error) {
-      console.warn('Failed to free encoding:', error)
-    }
-  }
-  encodingCache.clear()
 }

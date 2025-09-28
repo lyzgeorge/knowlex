@@ -1,6 +1,6 @@
 import type { Message } from '@shared/types/message'
 
-export interface BranchSendOptions {
+interface BranchSendOptions {
   conversationId: string
   parentMessageId?: string
 }
@@ -26,6 +26,3 @@ export function buildUserMessageBranchSendOptions(currentUserMessage: Message): 
 /**
  * Validates that a message can be used for branching
  */
-export function canCreateBranch(message: Message): boolean {
-  return message.role === 'user' && message.conversationId != null
-}

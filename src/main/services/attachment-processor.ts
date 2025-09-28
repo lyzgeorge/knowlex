@@ -3,16 +3,13 @@ import path from 'path'
 import os from 'os'
 import { AttachmentResult } from '@shared/types/file'
 import {
-  isValidFileType,
   getMimeTypeFromExtension,
-  formatBytes,
   isImageFile,
   validateFileConstraints
 } from '@shared/utils/validation'
-import { SUPPORTED_FILE_TYPES, FILE_CONSTRAINTS } from '@shared/constants/file'
-import { parseFile, FileParserFactory } from './file-parser'
+import { extractFileContent, isBinaryParsableFile } from '@main/infra/file-extract'
 import { formatOperationError } from '@shared/utils/error-handling'
-import { processingErrorMessage, criticalErrorMessage } from '@main/utils/error'
+import { processingErrorMessage, criticalErrorMessage } from '@main/infra/utils/error'
 
 /**
  * Attachment Processing Service
@@ -104,7 +101,7 @@ export async function processAttachments(filePaths: string[]): Promise<Attachmen
  */
 export async function extractFileTextContent(filePath: string, filename: string): Promise<string> {
   try {
-    const result = await parseFile(filePath, filename)
+    const result = await extractFileContent(filePath, filename)
     return result.content
   } catch (error) {
     throw new Error(`Failed to extract content from ${filename}: ${processingErrorMessage(error)}`)
@@ -136,8 +133,29 @@ export async function cleanupAttachments(filePaths: string[]): Promise<void> {
  */
 async function _processAttachmentsUnified(files: ProcessableFile[]): Promise<AttachmentResult[]> {
   try {
-    // Validate file constraints first
-    validateFileConstraints(files.map((f) => ({ name: f.filename, size: f.size })))
+    const validation = validateFileConstraints(
+      files.map((f) => ({ name: f.filename, size: f.size }))
+    )
+
+    if (!validation.valid) {
+      console.warn('[MAIN] Attachment validation failed:', validation.errors)
+      return files.map((file) => {
+        const fileSpecificErrors = validation.errors.filter((error) =>
+          error.includes(file.filename)
+        )
+        const errorMessage = fileSpecificErrors.length
+          ? fileSpecificErrors.join(' ')
+          : validation.errors.join(' ')
+
+        return {
+          filename: file.filename,
+          content: '',
+          size: file.size,
+          mimeType: '',
+          error: errorMessage
+        }
+      })
+    }
 
     const results: AttachmentResult[] = []
     for (const file of files) {
@@ -174,27 +192,6 @@ async function _processAttachmentsUnified(files: ProcessableFile[]): Promise<Att
  * Process a single file (unified for both path and content based)
  */
 async function _processSingleFile(file: ProcessableFile): Promise<AttachmentResult> {
-  // Shared validation
-  if (!isValidFileType(file.filename)) {
-    return {
-      filename: file.filename,
-      content: '',
-      size: file.size,
-      mimeType: '',
-      error: `Unsupported file type. Only ${SUPPORTED_FILE_TYPES.join(', ')} files are supported.`
-    }
-  }
-
-  if (file.size > FILE_CONSTRAINTS.maxFileSize) {
-    return {
-      filename: file.filename,
-      content: '',
-      size: file.size,
-      mimeType: '',
-      error: `File too large. Maximum size is ${formatBytes(FILE_CONSTRAINTS.maxFileSize)}.`
-    }
-  }
-
   const mimeType = getMimeTypeFromExtension(file.filename)
 
   try {
@@ -202,7 +199,7 @@ async function _processSingleFile(file: ProcessableFile): Promise<AttachmentResu
       return _processImage(file, mimeType)
     }
 
-    if (FileParserFactory.isBinary(file.filename)) {
+    if (isBinaryParsableFile(file.filename)) {
       return _processBinaryFile(file)
     }
 
@@ -256,7 +253,7 @@ async function _processBinaryFile(file: ProcessableFile): Promise<AttachmentResu
 
   if (file.filePath) {
     // Path-based: parse directly
-    parseResult = await parseFile(file.filePath, file.filename)
+    parseResult = await extractFileContent(file.filePath, file.filename)
   } else if (file.content) {
     // Content-based: create temp file and parse
     const tempDir = os.tmpdir()
@@ -265,7 +262,7 @@ async function _processBinaryFile(file: ProcessableFile): Promise<AttachmentResu
     try {
       const buffer = Buffer.from(file.content, 'base64')
       await fs.writeFile(tempFilePath, buffer)
-      parseResult = await parseFile(tempFilePath, file.filename)
+      parseResult = await extractFileContent(tempFilePath, file.filename)
 
       await fs
         .unlink(tempFilePath)
@@ -320,7 +317,7 @@ async function _processTextFile(
 
   if (file.filePath) {
     // Path-based: parse file
-    const parseResult = await parseFile(file.filePath, file.filename)
+    const parseResult = await extractFileContent(file.filePath, file.filename)
     content = parseResult.content
   } else if (file.content) {
     // Content-based: use directly

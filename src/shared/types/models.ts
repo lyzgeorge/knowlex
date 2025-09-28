@@ -26,13 +26,6 @@ export interface ModelConfig extends ModelConfigPublic {
   apiKey: string | null
 }
 
-// Type guard to check if config has API key
-export function isPrivateModelConfig(
-  config: ModelConfigPublic | ModelConfig
-): config is ModelConfig {
-  return 'apiKey' in config
-}
-
 // Utility to convert full config to public (removes API key)
 export function toPublicModelConfig(config: ModelConfig): ModelConfigPublic {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -66,16 +59,4 @@ export interface ModelConnectionTestResult {
   modelAvailable: boolean | null
   roundTripMs?: number
   errorMessage?: string
-}
-
-export interface OutgoingAIRequest {
-  model: string
-  endpoint: string
-  apiKey?: string
-  messages: unknown[]
-  reasoningEffort?: ReasoningEffort
-  temperature?: number
-  topP?: number
-  frequencyPenalty?: number
-  presencePenalty?: number
 }

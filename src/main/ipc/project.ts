@@ -1,80 +1,119 @@
 import { ipcMain } from 'electron'
 import type { IPCResult } from '@shared/types/ipc'
 import type { Project } from '@shared/types/project'
+import { PROJECT_CHANNELS } from '@shared/constants/ipc-channels'
 import {
   createProject,
   getProjectById,
-  getAllProjects,
-  updateProjectById,
-  deleteProjectById,
-  getProjectConversations
+  listProjects,
+  updateProject,
+  deleteProject
 } from '@main/services/project-service'
-import { handleIPCCall, requireValidId } from './common'
+import { conversationService } from '@main/services/conversation'
+import { handleIPCCall, requireValidId, parseWithSchema } from './common'
+import { ProjectCreateRequestSchema, ProjectUpdateRequestSchema } from '@shared/schemas/project'
+
+function normalizeProjectCreateInput(input: unknown) {
+  if (typeof input === 'string') {
+    return { name: input }
+  }
+  if (!input || typeof input !== 'object') {
+    return {}
+  }
+  return input
+}
+
+function normalizeProjectUpdateInput(idArg: unknown, updatesArg: unknown) {
+  if (idArg && typeof idArg === 'object' && (idArg as any).id) {
+    return idArg
+  }
+  return {
+    id: idArg,
+    updates: updatesArg
+  }
+}
 
 export function registerProjectIPCHandlers(): void {
   console.log('Registering project IPC handlers...')
 
-  ipcMain.handle('project:create', async (_, name: unknown): Promise<IPCResult<Project>> => {
-    return handleIPCCall(async () => {
-      if (!name || typeof name !== 'string') throw new Error('Invalid project name')
-      return await createProject({ name })
-    })
-  })
-
-  ipcMain.handle('project:list', async (): Promise<IPCResult<Project[]>> => {
-    return handleIPCCall(async () => {
-      return await getAllProjects()
-    })
-  })
-
-  ipcMain.handle('project:get', async (_, id: unknown): Promise<IPCResult<Project | null>> => {
-    return handleIPCCall(async () => {
-      const pid = requireValidId(id, 'Project ID')
-      return await getProjectById(pid)
-    })
-  })
-
   ipcMain.handle(
-    'project:update',
-    async (_, id: unknown, updates: unknown): Promise<IPCResult<Project>> => {
+    PROJECT_CHANNELS.create,
+    async (_, input: unknown): Promise<IPCResult<Project>> => {
       return handleIPCCall(async () => {
-        const pid = requireValidId(id, 'Project ID')
-        if (!updates || typeof updates !== 'object') throw new Error('Invalid update data')
-        const u = updates as { name?: string }
-        const updateData: { name?: string } = {}
-        if (u.name !== undefined) {
-          updateData.name = u.name
-        }
-        return await updateProjectById(pid, updateData)
+        const payload = normalizeProjectCreateInput(input)
+        const request = parseWithSchema(
+          ProjectCreateRequestSchema,
+          payload,
+          'Invalid project creation data'
+        )
+        return await createProject(request)
       })
     }
   )
 
-  ipcMain.handle('project:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
+  ipcMain.handle(PROJECT_CHANNELS.list, async (): Promise<IPCResult<Project[]>> => {
     return handleIPCCall(async () => {
-      const pid = requireValidId(id, 'Project ID')
-      await deleteProjectById(pid)
+      return await listProjects()
     })
   })
 
-  ipcMain.handle('project:conversations', async (_, id: unknown): Promise<IPCResult<any[]>> => {
+  ipcMain.handle(
+    PROJECT_CHANNELS.get,
+    async (_, id: unknown): Promise<IPCResult<Project | null>> => {
+      return handleIPCCall(async () => {
+        const pid = requireValidId(id, 'Project ID')
+        return await getProjectById(pid)
+      })
+    }
+  )
+
+  ipcMain.handle(
+    PROJECT_CHANNELS.update,
+    async (_, id: unknown, updates: unknown): Promise<IPCResult<Project>> => {
+      return handleIPCCall(async () => {
+        const payload = normalizeProjectUpdateInput(id, updates)
+        const request = parseWithSchema(
+          ProjectUpdateRequestSchema,
+          payload,
+          'Invalid project update data'
+        )
+        const updatePayload: { name?: string } = {}
+        if (request.updates.name !== undefined) {
+          updatePayload.name = request.updates.name
+        }
+        return await updateProject(request.id, updatePayload)
+      })
+    }
+  )
+
+  ipcMain.handle(PROJECT_CHANNELS.delete, async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const pid = requireValidId(id, 'Project ID')
-      return await getProjectConversations(pid)
+      await deleteProject(pid)
     })
   })
+
+  ipcMain.handle(
+    PROJECT_CHANNELS.conversations,
+    async (_, id: unknown): Promise<IPCResult<any[]>> => {
+      return handleIPCCall(async () => {
+        const pid = requireValidId(id, 'Project ID')
+        return await conversationService.listConversationsByProject(pid)
+      })
+    }
+  )
 
   console.log('Project IPC handlers registered successfully')
 }
 
 export function unregisterProjectIPCHandlers(): void {
   const channels = [
-    'project:create',
-    'project:list',
-    'project:get',
-    'project:update',
-    'project:delete',
-    'project:conversations'
+    PROJECT_CHANNELS.create,
+    PROJECT_CHANNELS.list,
+    PROJECT_CHANNELS.get,
+    PROJECT_CHANNELS.update,
+    PROJECT_CHANNELS.delete,
+    PROJECT_CHANNELS.conversations
   ]
   channels.forEach((c) => ipcMain.removeAllListeners(c))
 }

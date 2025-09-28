@@ -8,7 +8,7 @@ const spinAnimation = keyframes`
   to { transform: rotate(360deg); }
 `
 
-export interface SendButtonProps {
+interface SendButtonProps {
   isBusy: boolean
   canSend: boolean
   onSend: () => void
@@ -19,7 +19,7 @@ export interface SendButtonProps {
   overLimit?: boolean
 }
 
-export const SendButton: React.FC<SendButtonProps> = ({
+const SendButton: React.FC<SendButtonProps> = ({
   isBusy,
   canSend,
   onSend,

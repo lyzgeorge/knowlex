@@ -4,7 +4,7 @@
 import type { Message } from '@shared/types/message'
 import type { Conversation } from '@shared/types/conversation-types'
 import type { ReasoningEffort } from '@shared/types/models'
-import { createConversation } from './conversation-service'
+import { createConversation } from '@main/services/conversation'
 import { addMessage } from './message'
 import { generateReplyForNewMessage } from './assistant-service'
 import {
@@ -12,7 +12,7 @@ import {
   sendMessageEvent,
   CONVERSATION_EVENTS,
   MESSAGE_EVENTS
-} from '@main/utils/ipc-events'
+} from '@main/infra/utils/ipc-events'
 import { ensurePlaceholder } from '@shared/utils/text'
 
 export interface SendMessageInput {
@@ -38,7 +38,7 @@ async function ensureConversationExists(params: {
 }): Promise<{ conversation: Conversation; newlyCreated: boolean }> {
   if (params.conversationId) {
     // Lazy import to avoid circular deps (conversation.ts imports this service)
-    const { getConversation } = await import('./conversation-service')
+    const { getConversation } = await import('@main/services/conversation')
     const conv = await getConversation(params.conversationId)
     if (!conv) throw new Error('Conversation not found')
     return { conversation: conv, newlyCreated: false }

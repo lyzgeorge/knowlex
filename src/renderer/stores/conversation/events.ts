@@ -430,10 +430,3 @@ export function registerAllEvents(
     }
   }
 }
-
-export default {
-  registerAllEvents,
-  registerConversationEvents,
-  registerMessageEvents,
-  registerStreamingEvents
-}

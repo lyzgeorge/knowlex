@@ -1,4 +1,4 @@
-export type SmartNotesChunk = { id: number; lines: number[] }
+type SmartNotesChunk = { id: number; lines: number[] }
 
 export type SmartNotesV1_1 = {
   summary: string

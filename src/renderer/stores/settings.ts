@@ -16,7 +16,7 @@ type SettingsState = {
 
 const initialGeneralSettings: GeneralSettings = {}
 
-export const useSettingsStore = create<SettingsState>()(
+const useSettingsStore = create<SettingsState>()(
   persist(
     immer((set) => ({
       generalSettings: initialGeneralSettings,

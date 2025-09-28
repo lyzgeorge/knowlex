@@ -133,5 +133,3 @@ export const ConversationsSection: React.FC<ConversationsSectionProps> = ({
     </Box>
   )
 }
-
-export default ConversationsSection

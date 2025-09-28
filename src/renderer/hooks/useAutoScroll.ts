@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 
-export interface UseAutoScrollOptions {
+interface UseAutoScrollOptions {
   /** Distance from bottom to consider "at bottom" */
   threshold?: number
   /** Enable/disable behavior */
@@ -11,7 +11,7 @@ export interface UseAutoScrollOptions {
   follow?: boolean
 }
 
-export interface UseAutoScrollReturn<T extends HTMLElement> {
+interface UseAutoScrollReturn<T extends HTMLElement> {
   scrollRef: React.RefObject<T>
   anchorRef: React.RefObject<HTMLDivElement>
   forceScrollToBottom: () => void
@@ -115,5 +115,3 @@ export function useAutoScroll<T extends HTMLElement>(
     isAtBottom
   }
 }
-
-export default useAutoScroll

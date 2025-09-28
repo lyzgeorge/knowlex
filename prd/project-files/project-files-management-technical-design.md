@@ -347,7 +347,7 @@ The `ProjectFileService` remains responsible for the primary file lifecycle even
 2) Add schema entity in `@main/database/schemas.ts` and CRUD in `@main/database/queries.ts`.
 3) Register IPC handlers in `@main/ipc/project-file.ts` and wire in app bootstrap using `handleIPCCall`.
 4) Expose `window.knowlex.projectFile` APIs in `@main/preload.ts` under a single namespace; add type-safe wrappers.
-5) Implement `ProjectFileService` and `SmartNotesWorker` in `@main/services/`.
+5) Implement `ProjectFileService` and `smart-notes-worker.ts` in `@main/services/`.
 6) Add renderer store `@renderer/stores/project-file.ts` and components (`ProjectFileGrid`, `ProjectFileModal`).
 7) Integrate on `ProjectPage` beneath `ChatInputBox`.
 8) Settings panel fields and persistence hook-up via `settingsService`.
@@ -410,7 +410,7 @@ The `ProjectFileService` remains responsible for the primary file lifecycle even
 - **New Files (Illustrative)**:
   - `@main/services/agent-runner.ts`
   - `@main/services/agents/smart-notes-agent.ts`
-  - `@main/services/SmartNotesWorker.ts`
+  - `@main/services/smart-notes-worker.ts`
   - `@shared/ai/agents/smart-notes.definition.ts`
   - `@shared/types/smart-notes.d.ts` (or similar for shared UI types)
   - Other files for this feature remain as previously planned (IPC, renderer components, etc.).

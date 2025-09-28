@@ -9,5 +9,3 @@ export function stripPlaceholder(text?: string | null): string {
   if (!text) return ''
   return text.replace(new RegExp(TEXT_CONSTANTS.ZERO_WIDTH_SPACE, 'g'), '')
 }
-
-export default { ensurePlaceholder, stripPlaceholder }

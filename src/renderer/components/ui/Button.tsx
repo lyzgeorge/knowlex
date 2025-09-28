@@ -6,7 +6,7 @@ import {
   Spinner
 } from '@chakra-ui/react'
 
-export interface ButtonProps extends Omit<ChakraButtonProps, 'leftIcon' | 'rightIcon'> {
+interface ButtonProps extends Omit<ChakraButtonProps, 'leftIcon' | 'rightIcon'> {
   /** Button variant */
   variant?: 'solid' | 'outline' | 'ghost' | 'link' | 'danger'
   /** Button size */
@@ -82,5 +82,3 @@ export const Button = forwardRef<ButtonProps, 'button'>((props, ref) => {
 })
 
 Button.displayName = 'Button'
-
-export default Button

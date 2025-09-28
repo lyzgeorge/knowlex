@@ -7,7 +7,7 @@ import { useEditableMessage } from './useEditableMessage'
 import { useNotifications } from '@renderer/components/ui'
 import { useI18n } from './useI18n'
 
-export interface UseMessageActionsResult {
+interface UseMessageActionsResult {
   /** Copy message text to clipboard */
   copy: (message: Message) => Promise<void>
   /** Regenerate assistant message (only for latest assistant messages) */
@@ -28,7 +28,7 @@ export interface UseMessageActionsResult {
   editableMessage: ReturnType<typeof useEditableMessage>
 }
 
-export interface UseMessageActionsOptions {
+interface UseMessageActionsOptions {
   /** Called when edit mode is started */
   onEditStart?: () => void
   /** Called when edit mode is cancelled */

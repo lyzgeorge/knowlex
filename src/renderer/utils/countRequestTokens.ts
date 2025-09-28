@@ -21,7 +21,7 @@ interface TokenCountFile {
  * Extract image dimensions from a data URL
  * Returns default 1x1 tile if parsing fails to avoid blocking the UI
  */
-export async function getImageSizeFromDataUrl(
+async function getImageSizeFromDataUrl(
   dataUrl: string
 ): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
@@ -63,7 +63,7 @@ export async function getImageSizeFromDataUrl(
  * Count tokens for a file
  * Handles both image files (by calculating tiles) and text files (by content)
  */
-export async function countFileTokens(file: TokenCountFile, encoding: Encoding): Promise<number> {
+async function countFileTokens(file: TokenCountFile, encoding: Encoding): Promise<number> {
   // Image files: calculate based on dimensions
   if (file.type === 'image' && file.dataUrl) {
     try {
@@ -89,7 +89,7 @@ export async function countFileTokens(file: TokenCountFile, encoding: Encoding):
  * Main function to count tokens for a complete request
  * Handles text input and all attached files
  */
-export async function countRequestTokens(input: {
+async function countRequestTokens(input: {
   text: string
   files: TokenCountFile[]
   encoding: Encoding

@@ -13,7 +13,7 @@ export interface TokenCountFile {
   dataUrl?: string // for images
 }
 
-export interface UseRequestTokenCountInput {
+interface UseRequestTokenCountInput {
   text: string
   processedFiles: TokenCountFile[]
   model: ModelConfigPublic | null
@@ -190,9 +190,4 @@ export function useRequestTokenCount({
     loading,
     error
   }
-}
-
-// Clear token count cache when needed (e.g., on model change or app cleanup)
-export function clearTokenCountCache(): void {
-  tokenCountCache.clear()
 }

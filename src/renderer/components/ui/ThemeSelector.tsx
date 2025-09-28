@@ -5,7 +5,7 @@ import { useI18n } from '@renderer/hooks/useI18n'
 import { useCurrentTheme, useSetTheme } from '@renderer/stores/app'
 import { type ColorMode } from '@renderer/utils/theme/colorMode'
 
-export interface ThemeSelectorProps {
+interface ThemeSelectorProps {
   variant?: 'button' | 'compact'
   size?: 'xs' | 'sm' | 'md'
 }

@@ -26,7 +26,3 @@ export function formatOperationError(operation: string, error: unknown): string 
 /**
  * Factory that returns helpers bound to an operation name.
  */
-export const createErrorHandler = (operation: string) => ({
-  wrap: (error: unknown) => getErrorMessage(error, `Unknown error in ${operation}`),
-  format: (details: string) => `Failed to ${operation}: ${details}`
-})

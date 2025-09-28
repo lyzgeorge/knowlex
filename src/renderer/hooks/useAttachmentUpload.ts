@@ -9,7 +9,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useNotifications } from '@renderer/components/ui'
 import type { AttachmentResult } from '@shared/types/file'
-import { FILE_CONSTRAINTS, SUPPORTED_FILE_TYPES } from '@shared/constants/file'
 import { validateFileConstraints } from '@shared/utils/validation'
 
 export interface ProcessedAttachment extends AttachmentResult {
@@ -17,12 +16,12 @@ export interface ProcessedAttachment extends AttachmentResult {
 }
 
 // Wrapper interface to add a unique ID to each File object for React keys
-export interface FileUploadItem {
+interface FileUploadItem {
   id: string
   file: File
 }
 
-export interface AttachmentUploadState {
+interface AttachmentUploadState {
   files: FileUploadItem[]
   processedFiles: ProcessedAttachment[]
   isProcessing: boolean
@@ -30,7 +29,7 @@ export interface AttachmentUploadState {
   successfulFilesCount: number
 }
 
-export interface AttachmentUploadHook {
+interface AttachmentUploadHook {
   state: AttachmentUploadState
   addFiles: (files: FileList | File[]) => void
   removeFile: (file: File) => void
@@ -46,18 +45,6 @@ export interface AttachmentUploadHook {
 }
 
 // File constraints sourced from shared constants
-const MAX_FILE_SIZE = FILE_CONSTRAINTS.maxFileSize
-const ALLOWED_TYPES = SUPPORTED_FILE_TYPES as readonly string[]
-
-// Export for use in file input accept attribute
-export const getFileAcceptString = (): string => (ALLOWED_TYPES as string[]).join(',')
-
-// Export file constraints for use in components
-export const getFileConstraints = () => ({
-  MAX_FILE_SIZE,
-  ALLOWED_TYPES
-})
-
 // Helpers: atomic utilities
 const buildFileKey = (f: File): string => `${f.name}-${f.size}-${f.lastModified}`
 const getExtension = (name: string): string => `.${name.split('.').pop()?.toLowerCase()}`
@@ -203,6 +190,21 @@ export const useAttachmentUpload = (): AttachmentUploadHook => {
 
       if (errors.length) errors.forEach((m) => notifications.fileValidationError(m))
       if (!validItems.length) return
+
+      const existingDescriptors = state.files.map((it) => ({
+        name: it.file.name,
+        size: it.file.size
+      }))
+
+      const aggregateValidation = validateFileConstraints(
+        validItems.map((it) => ({ name: it.file.name, size: it.file.size })),
+        { existingFiles: existingDescriptors }
+      )
+
+      if (!aggregateValidation.valid) {
+        aggregateValidation.errors.forEach((m) => notifications.fileValidationError(m))
+        return
+      }
 
       setState((s) => ({ ...s, files: [...s.files, ...validItems], error: null }))
       // fire and forget processing

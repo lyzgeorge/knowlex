@@ -323,5 +323,3 @@ if (typeof window !== 'undefined' && window.knowlex) {
     }
   )
 }
-
-export default useModelConfigStore

@@ -8,6 +8,7 @@ import type {
   ModelConnectionTestResult
 } from '@shared/types/models'
 import { toPublicModelConfig } from '@shared/types/models'
+import { MODEL_CONFIG_CHANNELS } from '@shared/constants/ipc-channels'
 import { modelConfigService } from '@main/services/model-config-service'
 import { handleIPCCall, requireValidId } from './common'
 
@@ -50,7 +51,7 @@ export function registerModelConfigIPCHandlers(): void {
   }
 
   ipcMain.handle(
-    'model-config:list',
+    MODEL_CONFIG_CHANNELS.list,
     async (
       _,
       options?: { includeApiKeys?: boolean }
@@ -68,7 +69,7 @@ export function registerModelConfigIPCHandlers(): void {
   )
 
   ipcMain.handle(
-    'model-config:get',
+    MODEL_CONFIG_CHANNELS.get,
     async (
       _,
       id: unknown,
@@ -90,7 +91,7 @@ export function registerModelConfigIPCHandlers(): void {
   )
 
   ipcMain.handle(
-    'model-config:create',
+    MODEL_CONFIG_CHANNELS.create,
     async (_, input: unknown): Promise<IPCResult<ModelConfigPublic>> => {
       return handleIPCCall(async () => {
         if (!input || typeof input !== 'object') {
@@ -108,7 +109,7 @@ export function registerModelConfigIPCHandlers(): void {
   )
 
   ipcMain.handle(
-    'model-config:update',
+    MODEL_CONFIG_CHANNELS.update,
     async (_, id: unknown, updates: unknown): Promise<IPCResult<ModelConfigPublic>> => {
       return handleIPCCall(async () => {
         const configId = requireValidId(id, 'Model config ID')
@@ -129,7 +130,7 @@ export function registerModelConfigIPCHandlers(): void {
     }
   )
 
-  ipcMain.handle('model-config:delete', async (_, id: unknown): Promise<IPCResult<void>> => {
+  ipcMain.handle(MODEL_CONFIG_CHANNELS.delete, async (_, id: unknown): Promise<IPCResult<void>> => {
     return handleIPCCall(async () => {
       const configId = requireValidId(id, 'Model config ID')
       await modelConfigService.delete(configId)
@@ -140,7 +141,7 @@ export function registerModelConfigIPCHandlers(): void {
   })
 
   ipcMain.handle(
-    'model-config:test',
+    MODEL_CONFIG_CHANNELS.test,
     async (_, id: unknown): Promise<IPCResult<ModelConnectionTestResult>> => {
       return handleIPCCall(async () => {
         const configId = requireValidId(id, 'Model config ID')
@@ -149,35 +150,41 @@ export function registerModelConfigIPCHandlers(): void {
     }
   )
 
-  ipcMain.handle('model-config:get-default', async (): Promise<IPCResult<ModelConfig | null>> => {
-    return handleIPCCall(async () => {
-      return await modelConfigService.resolveDefaultModel()
-    })
-  })
+  ipcMain.handle(
+    MODEL_CONFIG_CHANNELS.getDefault,
+    async (): Promise<IPCResult<ModelConfig | null>> => {
+      return handleIPCCall(async () => {
+        return await modelConfigService.resolveDefaultModel()
+      })
+    }
+  )
 
   // Set default model (persists in main settings)
-  ipcMain.handle('model-config:set-default', async (_, id: unknown): Promise<IPCResult<void>> => {
-    return handleIPCCall(async () => {
-      const configId = requireValidId(id, 'Model config ID')
-      await modelConfigService.setDefaultModel(configId)
-      // Unified changed event only
-      enqueueChange({ type: 'default-changed', id: configId })
-    })
-  })
+  ipcMain.handle(
+    MODEL_CONFIG_CHANNELS.setDefault,
+    async (_, id: unknown): Promise<IPCResult<void>> => {
+      return handleIPCCall(async () => {
+        const configId = requireValidId(id, 'Model config ID')
+        await modelConfigService.setDefaultModel(configId)
+        // Unified changed event only
+        enqueueChange({ type: 'default-changed', id: configId })
+      })
+    }
+  )
 
   console.log('Model config IPC handlers registered successfully')
 }
 
 export function unregisterModelConfigIPCHandlers(): void {
   const channels = [
-    'model-config:list',
-    'model-config:get',
-    'model-config:create',
-    'model-config:update',
-    'model-config:delete',
-    'model-config:test',
-    'model-config:get-default',
-    'model-config:set-default'
+    MODEL_CONFIG_CHANNELS.list,
+    MODEL_CONFIG_CHANNELS.get,
+    MODEL_CONFIG_CHANNELS.create,
+    MODEL_CONFIG_CHANNELS.update,
+    MODEL_CONFIG_CHANNELS.delete,
+    MODEL_CONFIG_CHANNELS.test,
+    MODEL_CONFIG_CHANNELS.getDefault,
+    MODEL_CONFIG_CHANNELS.setDefault
   ]
   channels.forEach((channel) => ipcMain.removeAllListeners(channel))
 }

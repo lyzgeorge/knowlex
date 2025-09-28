@@ -22,7 +22,7 @@ import { useNavigationActions } from '@renderer/stores/navigation'
 import { useSidebarCollapsed, useToggleSidebarCollapse } from '@renderer/stores/app'
 import { useI18n } from '@renderer/hooks/useI18n'
 
-export interface SidebarProps {
+interface SidebarProps {
   className?: string
 }
 
@@ -214,5 +214,3 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     </Box>
   )
 }
-
-export default Sidebar

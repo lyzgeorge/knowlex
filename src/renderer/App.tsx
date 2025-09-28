@@ -9,7 +9,7 @@ import {
   AlertTitle,
   AlertDescription
 } from '@chakra-ui/react'
-import MainApp from './pages/MainApp'
+import MainApp from '@renderer/features/app/MainApp'
 import { initializeStores } from './stores'
 
 /**

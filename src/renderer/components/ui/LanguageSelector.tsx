@@ -4,7 +4,7 @@ import { HiChevronDown } from 'react-icons/hi2'
 import { useI18n } from '@renderer/hooks/useI18n'
 import { SUPPORTED_LANGUAGES, type Language } from '@shared/i18n/types'
 
-export interface LanguageSelectorProps {
+interface LanguageSelectorProps {
   variant?: 'button' | 'compact'
   size?: 'xs' | 'sm' | 'md'
 }

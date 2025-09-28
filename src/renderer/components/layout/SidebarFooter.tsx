@@ -33,5 +33,3 @@ export const SidebarFooter: React.FC = () => {
     </Box>
   )
 }
-
-export default SidebarFooter

@@ -13,7 +13,7 @@ import { stripPlaceholder } from './text'
 /**
  * Normalized user message view model
  */
-export interface UserMessageViewModel {
+interface UserMessageViewModel {
   id: string
   textContent: string
   fileParts: MessageContentPart[]
@@ -28,7 +28,7 @@ export interface UserMessageViewModel {
 /**
  * Normalized assistant message view model
  */
-export interface AssistantMessageViewModel {
+interface AssistantMessageViewModel {
   id: string
   textContent: string
   visibleText: string

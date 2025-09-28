@@ -1,6 +1,6 @@
 export type NotificationType = 'success' | 'error' | 'warning' | 'info'
 
-export type NotificationPosition =
+type NotificationPosition =
   | 'top'
   | 'top-left'
   | 'top-right'
@@ -29,97 +29,3 @@ export interface NotificationOptions {
 export interface NotificationPreset extends NotificationOptions {
   type: NotificationType
 }
-
-// Common notification presets for the application
-export const NOTIFICATION_PRESETS = {
-  // Message operations
-  messageCopied: {
-    type: 'success' as const,
-    title: 'Message copied',
-    description: 'Message content copied to clipboard',
-    duration: 2000
-  },
-  messageRegenerated: {
-    type: 'info' as const,
-    title: 'Regenerating',
-    description: 'Generating new response...',
-    duration: 2000
-  },
-  messageError: {
-    type: 'error' as const,
-    title: 'Message error',
-    description: 'Failed to process message',
-    duration: 4000
-  },
-
-  // General operations
-  networkError: {
-    type: 'error' as const,
-    title: 'Connection error',
-    description: 'Please check your internet connection',
-    duration: 5000
-  },
-
-  // AI operations
-  aiGenerating: {
-    type: 'info' as const,
-    title: 'Thinking',
-    description: 'AI is generating response...',
-    duration: 0,
-    isClosable: false
-  },
-  aiError: {
-    type: 'error' as const,
-    title: 'AI Error',
-    description: 'Failed to get AI response',
-    duration: 5000
-  },
-
-  // File operations
-  fileValidationError: {
-    type: 'error' as const,
-    title: 'File validation error',
-    description: 'File does not meet requirements',
-    duration: 4000
-  },
-  filesProcessed: {
-    type: 'success' as const,
-    title: 'Files processed',
-    description: 'Files processed successfully',
-    duration: 3000
-  },
-  fileProcessingFailed: {
-    type: 'error' as const,
-    title: 'File processing failed',
-    description: 'Failed to process file',
-    duration: 5000
-  },
-
-  // Conversation operations
-  conversationRenamed: {
-    type: 'success' as const,
-    title: 'Conversation renamed',
-    description: 'Conversation title updated successfully',
-    duration: 2000
-  },
-  conversationRenameFailed: {
-    type: 'error' as const,
-    title: 'Failed to rename conversation',
-    description: 'Could not update conversation title',
-    duration: 3000
-  },
-  conversationDeleted: {
-    type: 'success' as const,
-    title: 'Conversation deleted',
-    description: 'Conversation removed successfully',
-    duration: 2000
-  },
-  conversationDeleteFailed: {
-    type: 'error' as const,
-    title: 'Failed to delete conversation',
-    description: 'Could not remove conversation',
-    duration: 3000
-  }
-} as const
-
-export type NotificationPresetKey = keyof typeof NOTIFICATION_PRESETS

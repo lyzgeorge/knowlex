@@ -3,8 +3,10 @@
  * Consolidates error handling, validation, and response formatting across all IPC handlers
  */
 
+import type { ZodError, ZodTypeAny } from 'zod'
 import type { IPCResult } from '@shared/types/ipc'
 import { getErrorMessage } from '@shared/utils/error-handling'
+import { ensureNonEmptyString } from '@shared/utils/validation'
 
 /**
  * Wraps service calls with consistent error handling and response format
@@ -27,141 +29,38 @@ export async function handleIPCCall<T>(operation: () => Promise<T>): Promise<IPC
 }
 
 /**
- * Validates that an ID parameter is a non-empty string
- */
-export function validateId(id: unknown): id is string {
-  return typeof id === 'string' && id.trim().length > 0
-}
-
-/**
  * Validates that an ID parameter is valid, throws if not
  */
 export function requireValidId(id: unknown, type: string = 'ID'): string {
-  if (!validateId(id)) {
-    throw new Error(`${type} is required and must be a non-empty string`)
+  return ensureNonEmptyString(id, type)
+}
+
+type SchemaOutput<S extends ZodTypeAny> = S['_output']
+
+function formatZodError(error: ZodError, fallback?: string): string {
+  if (error.issues.length === 0) {
+    return fallback ?? 'Invalid request payload'
   }
-  return id
+  return error.issues
+    .map((issue) => {
+      const path = issue.path.length ? ` (${issue.path.join('.')})` : ''
+      return `${issue.message}${path}`
+    })
+    .join('; ')
 }
 
 /**
- * Generic request validator that applies a type guard and throws on failure
+ * Parses incoming data with the provided Zod schema and normalizes errors.
  */
-export function validateRequest<T>(
+export function parseWithSchema<S extends ZodTypeAny>(
+  schema: S,
   data: unknown,
-  validator: (data: unknown) => data is T,
-  errorMessage: string = 'Invalid request data'
-): T {
-  if (!validator(data)) {
-    throw new Error(errorMessage)
+  label?: string
+): SchemaOutput<S> {
+  const parsed = schema.safeParse(data)
+  if (!parsed.success) {
+    const message = formatZodError(parsed.error, label)
+    throw new Error(label ? `${label}: ${message}` : message)
   }
-  return data
+  return parsed.data
 }
-
-/**
- * Validates that data is a non-null object
- */
-export function validateObject(data: unknown): data is Record<string, any> {
-  return data !== null && typeof data === 'object'
-}
-
-/**
- * Ensures the provided value is a non-null object and returns it typed.
- * Throws an Error with the provided message when validation fails.
- */
-export function expectObject<T extends Record<string, any>>(
-  data: unknown,
-  errorMessage: string = 'Invalid request data'
-): T {
-  if (!validateObject(data)) {
-    throw new Error(errorMessage)
-  }
-  return data as T
-}
-
-/**
- * Ensures the provided value is a non-empty string and returns the trimmed string.
- * Throws an Error when validation fails.
- */
-export function expectString(value: unknown, name: string = 'Value'): string {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`${name} is required and must be a non-empty string`)
-  }
-  return value.trim()
-}
-
-/**
- * Validates that a string property exists and is non-empty
- */
-export function validateStringProperty(
-  obj: Record<string, any>,
-  property: string,
-  required: boolean = true
-): boolean {
-  const value = obj[property]
-  if (required) {
-    return typeof value === 'string' && value.trim().length > 0
-  }
-  return value === undefined || (typeof value === 'string' && value.trim().length > 0)
-}
-
-/**
- * Validates that an array property exists and is non-empty
- */
-export function validateArrayProperty(
-  obj: Record<string, any>,
-  property: string,
-  required: boolean = true
-): boolean {
-  const value = obj[property]
-  if (required) {
-    return Array.isArray(value) && value.length > 0
-  }
-  return value === undefined || Array.isArray(value)
-}
-
-/**
- * Common validation patterns for different entity types
- */
-export const ValidationPatterns = {
-  /**
-   * Validates conversation ID parameter
-   */
-  conversationId: (id: unknown): id is string => validateId(id),
-
-  /**
-   * Validates message ID parameter
-   */
-  messageId: (id: unknown): id is string => validateId(id),
-
-  /**
-   * Validates message role
-   */
-  messageRole: (role: unknown): role is 'user' | 'assistant' => {
-    return typeof role === 'string' && ['user', 'assistant'].includes(role)
-  },
-
-  /**
-   * Validates message content array
-   */
-  messageContent: (content: unknown): content is Array<any> => {
-    return Array.isArray(content) && content.length > 0
-  },
-
-  /**
-   * Validates model config ID parameter
-   */
-  modelConfigId: (id: unknown): id is string => validateId(id)
-}
-
-/**
- * Common error messages
- */
-export const ErrorMessages = {
-  INVALID_CONVERSATION_ID: 'Invalid conversation ID',
-  INVALID_MESSAGE_ID: 'Invalid message ID',
-  INVALID_REQUEST_DATA: 'Invalid request data',
-  CONVERSATION_NOT_FOUND: 'Conversation not found',
-  MESSAGE_NOT_FOUND: 'Message not found',
-  INVALID_MESSAGE_CONTENT: 'Invalid message content',
-  INVALID_MESSAGE_ROLE: 'Invalid message role'
-} as const

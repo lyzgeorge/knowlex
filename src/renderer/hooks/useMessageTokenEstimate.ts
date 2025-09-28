@@ -16,7 +16,7 @@ import type { ModelConfigPublic } from '@shared/types/models'
 /**
  * Processed file from file upload hook
  */
-export interface ProcessedFile {
+interface ProcessedFile {
   filename: string
   content?: string
   size: number
@@ -28,7 +28,7 @@ export interface ProcessedFile {
 /**
  * Attachment from editable message hook
  */
-export interface MessageAttachment {
+interface MessageAttachment {
   id: string
   filename: string
   content?: string
@@ -41,7 +41,7 @@ export interface MessageAttachment {
 /**
  * Input options for token counting
  */
-export interface UseMessageTokenEstimateOptions {
+interface UseMessageTokenEstimateOptions {
   text: string
   attachments?: ProcessedFile[] | MessageAttachment[]
   model: ModelConfigPublic | null
@@ -113,6 +113,3 @@ export const useMessageTokenEstimate = ({
     model
   })
 }
-
-// Re-export types for convenience
-export type { UseRequestTokenCountResult, TokenCountFile }

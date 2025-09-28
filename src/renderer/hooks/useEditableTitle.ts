@@ -5,7 +5,7 @@ import { ensureNonEmptyString } from '@renderer/utils/validation'
  * Lightweight wrapper around inline-edit behaviour for a single titled item.
  * Provides: editing, value, onStart, onCancel, onConfirm, validate, setValue
  */
-export function useEditableTitle(
+function useEditableTitle(
   id: string,
   currentValue: string,
   onSave: (id: string, value: string) => Promise<void> | void

@@ -15,7 +15,7 @@ import {
   useTextStreamingMessageId
 } from '@renderer/stores/conversation/index'
 
-export interface StreamingPhase {
+interface StreamingPhase {
   isReasoningStreaming: boolean
   isStartStreaming: boolean
   isTextStreaming: boolean

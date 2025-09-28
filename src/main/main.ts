@@ -4,7 +4,7 @@ import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
 import { setupApplicationMenu } from './menu'
-import { runMigrations } from './database/migrations'
+import { runMigrations } from './infra/database/migrations'
 import {
   registerConversationIPCHandlers,
   unregisterConversationIPCHandlers
@@ -12,13 +12,16 @@ import {
 import { registerProjectIPCHandlers, unregisterProjectIPCHandlers } from './ipc/project'
 import { registerFileIPCHandlers, unregisterFileIPCHandlers } from './ipc/file'
 import { registerSettingsIPCHandlers, unregisterSettingsIPCHandlers } from './ipc/settings'
-import './ipc/project-file'
+import {
+  registerProjectFileIPCHandlers,
+  unregisterProjectFileIPCHandlers
+} from './ipc/project-file'
 // No recovery of project-file smart notes on startup
 import {
   registerModelConfigIPCHandlers,
   unregisterModelConfigIPCHandlers
 } from './ipc/model-config'
-import { cancellationManager } from '@main/utils/cancellation'
+import { cancellationManager } from '@main/infra/utils/cancellation'
 
 // Application lifecycle management
 class Application {
@@ -49,7 +52,7 @@ class Application {
       registerFileIPCHandlers()
       registerSettingsIPCHandlers()
       registerModelConfigIPCHandlers()
-      // project-file handlers are side-effect imported above to register
+      registerProjectFileIPCHandlers()
       console.log('IPC handlers registered successfully')
     } catch (error) {
       console.error('Failed to register IPC handlers:', error)
@@ -69,10 +72,8 @@ class Application {
 
     // On startup, mark any unfinished smart-notes as failed, so users can retry.
     try {
-      const { executeQuery } = await import('./database/index')
-      await executeQuery(
-        "UPDATE project_files SET smart_notes_status='failed', error=COALESCE(error, 'Interrupted before completion'), updated_at=datetime('now') WHERE smart_notes_status='pending' AND smart_notes IS NULL"
-      )
+      const { markPendingSmartNotesAsFailed } = await import('./infra/database/queries')
+      await markPendingSmartNotesAsFailed('Interrupted before completion')
     } catch (e) {
       console.warn('Failed to mark unfinished smart notes as failed:', e)
     }
@@ -137,9 +138,10 @@ app.on('before-quit', async () => {
     unregisterFileIPCHandlers()
     unregisterSettingsIPCHandlers()
     unregisterModelConfigIPCHandlers()
+    unregisterProjectFileIPCHandlers()
 
     // Close database connections
-    const { closeDB } = await import('./database/index')
+    const { closeDB } = await import('./infra/database/index')
     await closeDB()
 
     console.log('Application cleanup completed')
@@ -154,5 +156,3 @@ app.on('web-contents-created', (_, contents) => {
     return { action: 'deny' }
   })
 })
-
-export { application }

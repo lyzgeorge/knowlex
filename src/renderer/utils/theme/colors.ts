@@ -168,5 +168,3 @@ export const colors = {
     indigo: '#6b6b9c' // Muted indigo
   }
 }
-
-export default colors

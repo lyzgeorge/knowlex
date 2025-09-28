@@ -10,7 +10,7 @@ import { useModelConfigStore } from '@renderer/stores/model-config'
 import { useUserDefaultModelPreference } from '@renderer/stores/settings'
 import { getModelCapabilities, type ModelCapabilities } from '@shared/utils/model-resolution'
 
-export interface ModelCapabilitiesResult {
+interface ModelCapabilitiesResult {
   /** Model capabilities for the given ID */
   capabilities: ModelCapabilities
   /** Whether the model was found */
@@ -22,7 +22,7 @@ export interface ModelCapabilitiesResult {
 /**
  * Hook to get capabilities for a specific model ID
  */
-export function useModelCapabilities(modelId: string | null | undefined): ModelCapabilitiesResult {
+function useModelCapabilities(modelId: string | null | undefined): ModelCapabilitiesResult {
   const modelsById = useModelConfigStore((s) => s.modelsById)
 
   return useMemo(() => {
@@ -65,112 +65,4 @@ export function useActiveModelCapabilities(
     explicitModelId || conversationModelId || userDefaultModelId || defaultModel?.id
 
   return useModelCapabilities(activeModelId)
-}
-
-/**
- * Hook to get capabilities for multiple models at once
- * Useful for comparison or bulk operations
- */
-export function useMultipleModelCapabilities(
-  modelIds: Array<string | null | undefined>
-): ModelCapabilitiesResult[] {
-  const modelsById = useModelConfigStore((s) => s.modelsById)
-
-  return useMemo(() => {
-    return modelIds.map((modelId) => {
-      if (!modelId) {
-        return {
-          capabilities: getModelCapabilities(null),
-          modelFound: false,
-          modelConfig: null
-        }
-      }
-
-      const modelConfig = modelsById.get(modelId) || null
-      return {
-        capabilities: getModelCapabilities(modelConfig),
-        modelFound: !!modelConfig,
-        modelConfig
-      }
-    })
-  }, [modelIds, modelsById])
-}
-
-/**
- * Hook to filter models by specific capabilities
- */
-export function useModelsByCapability(
-  requiredCapabilities: Partial<ModelCapabilities>,
-  matchAll = true
-): Array<{ modelConfig: any; capabilities: ModelCapabilities }> {
-  const models = useModelConfigStore((s) => s.models)
-
-  return useMemo(() => {
-    return models
-      .map((model) => ({
-        modelConfig: model,
-        capabilities: getModelCapabilities(model)
-      }))
-      .filter(({ capabilities }) => {
-        const entries = Object.entries(requiredCapabilities)
-
-        if (matchAll) {
-          // All required capabilities must match
-          return entries.every(
-            ([key, value]) => capabilities[key as keyof ModelCapabilities] === value
-          )
-        } else {
-          // At least one required capability must match
-          return entries.some(
-            ([key, value]) => capabilities[key as keyof ModelCapabilities] === value
-          )
-        }
-      })
-  }, [models, requiredCapabilities, matchAll])
-}
-
-/**
- * Hook to get models that support reasoning
- */
-export function useReasoningCapableModels() {
-  return useModelsByCapability({ supportsReasoning: true })
-}
-
-/**
- * Hook to get models that support vision
- */
-export function useVisionCapableModels() {
-  return useModelsByCapability({ supportsVision: true })
-}
-
-/**
- * Hook to check if any models support a specific capability
- */
-export function useHasCapabilitySupport(capability: keyof ModelCapabilities): boolean {
-  const models = useModelConfigStore((s) => s.models)
-
-  return useMemo(() => {
-    return models.some((model) => {
-      const capabilities = getModelCapabilities(model)
-      return capabilities[capability]
-    })
-  }, [models, capability])
-}
-
-/**
- * Convenience hook to get common capability checks
- */
-export function useCapabilityStatus() {
-  const hasReasoning = useHasCapabilitySupport('supportsReasoning')
-  const hasVision = useHasCapabilitySupport('supportsVision')
-  const hasTools = useHasCapabilitySupport('supportsToolUse')
-  const hasWebSearch = useHasCapabilitySupport('supportsWebSearch')
-
-  return {
-    hasReasoning,
-    hasVision,
-    hasTools,
-    hasWebSearch,
-    hasAnyAdvanced: hasReasoning || hasVision || hasTools || hasWebSearch
-  }
 }

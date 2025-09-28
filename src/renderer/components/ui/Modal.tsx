@@ -11,7 +11,7 @@ import {
   UseDisclosureReturn
 } from '@chakra-ui/react'
 
-export interface ModalProps extends Omit<ChakraModalProps, 'children'> {
+interface ModalProps extends Omit<ChakraModalProps, 'children'> {
   /** Modal disclosure state and handlers */
   disclosure?: UseDisclosureReturn
   /** Whether the modal is open */
@@ -56,7 +56,7 @@ export interface ModalProps extends Omit<ChakraModalProps, 'children'> {
  * - Full accessibility support
  * - Scroll management
  */
-export const Modal: React.FC<ModalProps> = ({
+const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,

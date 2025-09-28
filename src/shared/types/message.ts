@@ -1,3 +1,5 @@
+import type { CitationEvidence } from './citation'
+
 export interface Message {
   id: string
   conversationId: string
@@ -16,37 +18,29 @@ export type MessageContent = MessageContentPart[]
 export interface MessageContentPart {
   type: ContentType
   text?: string
-  citation?: CitationContent
+  citation?: CitationEvidence
   toolCall?: ToolCallContent
   attachment?: AttachmentContent
   image?: ImageContent
 }
 
-export type ContentType = 'text' | 'citation' | 'tool-call' | 'attachment' | 'image'
+type ContentType = 'text' | 'citation' | 'tool-call' | 'attachment' | 'image'
 
-export interface CitationContent {
-  filename: string
-  fileId: string
-  content: string
-  similarity: number
-  pageNumber?: number
-}
-
-export interface ToolCallContent {
+interface ToolCallContent {
   id: string
   name: string
   arguments: Record<string, unknown>
   result?: unknown
 }
 
-export interface AttachmentContent {
+interface AttachmentContent {
   filename: string
   content: string
   size: number
   mimeType: string
 }
 
-export interface ImageContent {
+interface ImageContent {
   /**
    * Image data as string (base64 data URL, URL, or base64 content)
    * Compatible with AI SDK ImagePart.image format

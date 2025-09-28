@@ -1,7 +1,7 @@
 import React from 'react'
 import { Tooltip, Text } from '@chakra-ui/react'
 
-export interface TokenCounterProps {
+interface TokenCounterProps {
   visible: boolean
   total: number
   limit: number
@@ -10,7 +10,7 @@ export interface TokenCounterProps {
   color?: string
 }
 
-export const TokenCounter: React.FC<TokenCounterProps> = ({
+const TokenCounter: React.FC<TokenCounterProps> = ({
   visible,
   total,
   limit,

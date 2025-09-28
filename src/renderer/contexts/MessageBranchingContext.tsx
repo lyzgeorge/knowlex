@@ -12,7 +12,7 @@ import type { Message } from '@shared/types/message'
 /**
  * Branch information for a message
  */
-export interface BranchInfo {
+interface BranchInfo {
   branches: Message[]
   currentIndex: number
   totalCount: number
@@ -82,7 +82,7 @@ export const MessageBranchingProvider: React.FC<MessageBranchingProviderProps> =
  * Use `useMessageBranchingContext` to consume the context. `useBranching`
  * remains exported as a backward-compatible alias for one release.
  */
-export const useMessageBranchingContext = (): MessageBranchingContextValue => {
+const useMessageBranchingContext = (): MessageBranchingContextValue => {
   const context = useContext(MessageBranchingContext)
   if (!context) {
     throw new Error('useMessageBranchingContext must be used within a MessageBranchingProvider')

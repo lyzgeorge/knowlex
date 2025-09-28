@@ -45,5 +45,3 @@ export const useStartStreamingMessageId = () =>
   useConversationStore((s) => s.startStreamingMessageId)
 export const useIsTextStreaming = () => useConversationStore((s) => s.isTextStreaming)
 export const useTextStreamingMessageId = () => useConversationStore((s) => s.textStreamingMessageId)
-
-export default useConversationStore

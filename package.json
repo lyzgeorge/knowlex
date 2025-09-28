@@ -55,6 +55,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
+    "gen:feature": "node ./scripts/gen-feature.mjs",
     "prepare": "husky install",
     "postinstall": "electron-builder install-app-deps",
     "rebuild": "npx @electron/rebuild"
@@ -89,7 +90,9 @@
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.44.0",
     "vite": "^5.0.10",
-    "vitest": "^1.1.0"
+    "vitest": "^1.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-import-resolver-typescript": "^3.6.1"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.4",

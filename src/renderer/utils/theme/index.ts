@@ -111,5 +111,5 @@ const themeOverrides: ThemeOverride = {
   }
 }
 
-export const theme = extendTheme(themeOverrides)
+const theme = extendTheme(themeOverrides)
 export default theme

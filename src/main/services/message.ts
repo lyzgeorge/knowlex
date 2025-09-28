@@ -4,16 +4,12 @@ import {
   listMessages as dbListMessages,
   updateMessage as dbUpdateMessage,
   deleteMessage as dbDeleteMessage
-} from '@main/database/queries'
+} from '@main/infra/database/queries'
 import { generateId } from '@shared/utils/id'
 import { formatOperationError } from '@shared/utils/error-handling'
-import type {
-  Message,
-  MessageContent,
-  MessageContentPart,
-  ContentType
-} from '@shared/types/message'
+import type { Message, MessageContent, MessageContentPart } from '@shared/types/message'
 import type { AttachmentResult } from '@shared/types/file'
+import { MessageContentSchema } from '@shared/schemas/message'
 
 /**
  * Message Management Service
@@ -33,98 +29,18 @@ export interface UpdateMessageData {
   reasoning?: string
 }
 
-/**
- * Validates message content parts according to business rules
- */
-function validateMessageContent(content: MessageContent): void {
-  if (!Array.isArray(content) || content.length === 0) {
-    throw new Error('Message content must be a non-empty array of content parts')
+function assertValidMessageContent(content: MessageContent): MessageContent {
+  const parsed = MessageContentSchema.safeParse(content)
+  if (!parsed.success) {
+    const message = parsed.error.issues
+      .map((issue) => {
+        const path = issue.path.length ? ` (${issue.path.join('.')})` : ''
+        return `${issue.message}${path}`
+      })
+      .join('; ')
+    throw new Error(`Invalid message content: ${message}`)
   }
-
-  let hasMeaningfulContent = false
-
-  content.forEach((part, index) => {
-    if (!part || typeof part !== 'object') {
-      throw new Error(`Invalid content part at index ${index}`)
-    }
-
-    if (!part.type || !isValidContentType(part.type)) {
-      throw new Error(`Invalid content type "${part.type}" at index ${index}`)
-    }
-
-    // Image parts are supported; validated in validateContentPart
-
-    // Validate and check if part has meaningful content
-    const isValid = validateContentPart(part, index)
-    if (isValid) {
-      hasMeaningfulContent = true
-    }
-  })
-
-  if (!hasMeaningfulContent) {
-    throw new Error('Message must contain at least one meaningful content part')
-  }
-}
-
-/**
- * Validates a single content part and returns if it has meaningful content
- */
-function validateContentPart(part: MessageContentPart, index: number): boolean {
-  switch (part.type) {
-    case 'text':
-      if (!part.text || typeof part.text !== 'string') {
-        throw new Error(`Text content part at index ${index} must have valid text`)
-      }
-      return part.text.trim().length > 0
-
-    case 'citation':
-      if (!part.citation?.filename || !part.citation?.content) {
-        throw new Error(`Citation content part at index ${index} must have valid citation data`)
-      }
-      return true
-
-    case 'tool-call':
-      if (!part.toolCall?.id || !part.toolCall?.name) {
-        throw new Error(`Tool call content part at index ${index} must have valid tool call data`)
-      }
-      return true
-
-    case 'attachment': {
-      const file = part.attachment
-      if (
-        !file?.filename ||
-        !file?.content ||
-        !file?.mimeType ||
-        typeof file.size !== 'number' ||
-        file.size < 0
-      ) {
-        throw new Error(`Attachment content part at index ${index} must have valid file data`)
-      }
-      return true
-    }
-
-    case 'image': {
-      const img = part.image
-      if (!img || typeof img.image !== 'string' || img.image.trim().length === 0) {
-        throw new Error(`Image content part at index ${index} must have base64 data`)
-      }
-      // mediaType is optional; when provided, it should be a string
-      if (img.mediaType !== undefined && typeof img.mediaType !== 'string') {
-        throw new Error(`Image content part at index ${index} has invalid mediaType`)
-      }
-      return true
-    }
-
-    default:
-      return false
-  }
-}
-
-/**
- * Checks if a content type is valid
- */
-function isValidContentType(type: string): type is ContentType {
-  return ['text', 'citation', 'tool-call', 'attachment', 'image'].includes(type)
+  return parsed.data as MessageContent
 }
 
 /**
@@ -145,8 +61,7 @@ export async function addMessage(data: CreateMessageData): Promise<Message> {
     throw new Error('Message content is required')
   }
 
-  // Validate content structure
-  validateMessageContent(data.content)
+  const validatedContent = assertValidMessageContent(data.content)
 
   const messageId = generateId()
   const now = new Date().toISOString()
@@ -155,7 +70,7 @@ export async function addMessage(data: CreateMessageData): Promise<Message> {
     id: messageId,
     conversationId: data.conversationId.trim(),
     role: data.role,
-    content: data.content,
+    content: validatedContent,
     createdAt: now,
     updatedAt: now
   }
@@ -225,8 +140,7 @@ export async function updateMessage(id: string, data: UpdateMessageData): Promis
     throw new Error('Message content is required')
   }
 
-  // Validate content structure
-  validateMessageContent(data.content)
+  const validatedContent = assertValidMessageContent(data.content)
 
   // Check if message exists
   const existingMessage = await dbGetMessage(id.trim())
@@ -235,7 +149,7 @@ export async function updateMessage(id: string, data: UpdateMessageData): Promis
   }
 
   try {
-    await dbUpdateMessage(id, data.content, data.reasoning)
+    await dbUpdateMessage(id, validatedContent, data.reasoning)
 
     // Fetch and return updated message
     const updatedMessage = await dbGetMessage(id)
@@ -274,14 +188,6 @@ export async function deleteMessage(id: string): Promise<void> {
     throw new Error(formatOperationError('delete message', error))
   }
 }
-
-/**
- * Creates a simple text message
- * Convenience method for creating text-only messages
- */
-// Convenience creators `addTextMessage` and `addMultiPartMessage` have been
-// removed. Callers should construct a `CreateMessageData` object and call
-// `addMessage` directly.
 
 /**
  * Gets the text content from a message by combining all text parts
@@ -330,44 +236,35 @@ export function convertAttachmentsToMessageParts(
 }
 
 /**
- * Creates a message with attachments properly converted to content parts
- * Convenience method that handles attachment conversion automatically
+ * Builds message content array from text and attachments
+ * Ensures the message contains at least one meaningful content part
  */
-export async function addMessageWithAttachments(
-  conversationId: string,
-  role: 'user' | 'assistant',
-  textContent: string,
-  attachmentResults: AttachmentResult[] = [],
-  parentMessageId?: string
-): Promise<Message> {
+export function buildMessageContent(
+  text: string,
+  attachments?: AttachmentResult[]
+): MessageContent {
   const content: MessageContent = []
 
-  // Add text content if provided
-  if (textContent && textContent.trim().length > 0) {
-    content.push({
-      type: 'text',
-      text: textContent.trim()
-    })
+  if (text && text.trim().length > 0) {
+    content.push({ type: 'text', text: text.trim() })
   }
 
-  // Convert and add attachment parts
-  const fileParts = convertAttachmentsToMessageParts(attachmentResults)
-  content.push(...fileParts)
+  if (attachments && attachments.length > 0) {
+    content.push(...convertAttachmentsToMessageParts(attachments))
+  }
 
-  // Ensure we have at least some content
   if (content.length === 0) {
-    throw new Error('Message must have at least some content')
+    throw new Error('Message must contain at least one content part')
   }
 
-  const messageData: CreateMessageData = {
-    conversationId,
-    role,
-    content
-  }
+  return assertValidMessageContent(content)
+}
 
-  if (parentMessageId !== undefined) {
-    messageData.parentMessageId = parentMessageId
-  }
-
-  return await addMessage(messageData)
+/**
+ * Appends a message content part to an existing message
+ * Useful for building messages incrementally
+ */
+export function appendMessageContent(message: Message, part: MessageContentPart): MessageContent {
+  const updatedContent = [...message.content, part]
+  return assertValidMessageContent(updatedContent)
 }

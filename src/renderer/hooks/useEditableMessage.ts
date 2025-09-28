@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message, MessageContentPart, MessageContent } from '@shared/types/message'
-import { normalizeParts } from '@shared/message/content-builder'
+import { normalizeParts } from '@shared/utils/message/content-builder'
 import { useAttachmentUpload, ProcessedAttachment } from '@renderer/hooks/useAttachmentUpload'
 
-export interface UnifiedAttachment {
+interface UnifiedAttachment {
   id: string
   kind: 'existing' | 'new'
   partType: 'attachment' | 'image'
@@ -14,7 +14,7 @@ export interface UnifiedAttachment {
   originalPart?: MessageContentPart
 }
 
-export interface UseEditableMessageResult {
+interface UseEditableMessageResult {
   draftText: string
   setDraftText: (text: string) => void
   attachments: UnifiedAttachment[]

@@ -32,7 +32,7 @@ interface InlineEditProps {
  * Based on the pattern from ConversationsSection.tsx, this component provides
  * a consistent UI and behavior for inline editing of titles, names, etc.
  */
-export const InlineEdit: React.FC<InlineEditProps> = ({
+const InlineEdit: React.FC<InlineEditProps> = ({
   value,
   isEditing,
   onCancelEdit,

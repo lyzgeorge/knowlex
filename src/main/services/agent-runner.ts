@@ -5,18 +5,18 @@ import { resolveModelContext, type ModelResolutionContext } from '@shared/utils/
 import { getSettings } from './settings'
 import type { z } from 'zod'
 
-export type AgentRunInput<T> = {
+type AgentRunInput<T> = {
   system: string
   messages: CoreMessage[]
   schema: z.ZodType<T>
   modelId?: string | null
 }
 
-export type AgentRunResult<T> = {
+type AgentRunResult<T> = {
   object: T
 }
 
-export async function resolveModel(modelId?: string | null) {
+async function resolveModel(modelId?: string | null) {
   console.log('[AgentRunner] resolveModel: start', { modelId })
   const availableModels = await modelConfigService.list()
   const settings = getSettings()

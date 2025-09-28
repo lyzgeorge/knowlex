@@ -1,11 +1,7 @@
 import { useToast, UseToastOptions, useTheme } from '@chakra-ui/react'
 import { useCallback } from 'react'
-import {
-  NotificationType,
-  NotificationOptions,
-  NotificationPresetKey,
-  NOTIFICATION_PRESETS
-} from '@shared/types/notification'
+import type { NotificationType, NotificationOptions } from '@shared/types/notification'
+import { NOTIFICATION_PRESETS, NotificationPresetKey } from '@shared/constants/notifications'
 
 /**
  * Unified notification hook that wraps Chakra UI's useToast
@@ -101,42 +97,6 @@ export const useNotifications = () => {
     [notify]
   )
 
-  // Convenience functions for common operations
-
-  const messageCopied = useCallback(() => {
-    return preset('messageCopied')
-  }, [preset])
-
-  const messageRegenerated = useCallback(() => {
-    return preset('messageRegenerated')
-  }, [preset])
-
-  const messageError = useCallback(
-    (error?: string) => {
-      return preset('messageError', {
-        description: error || NOTIFICATION_PRESETS.messageError.description
-      })
-    },
-    [preset]
-  )
-
-  const aiGenerating = useCallback(() => {
-    return preset('aiGenerating')
-  }, [preset])
-
-  const aiError = useCallback(
-    (error?: string) => {
-      return preset('aiError', {
-        description: error || NOTIFICATION_PRESETS.aiError.description
-      })
-    },
-    [preset]
-  )
-
-  const networkError = useCallback(() => {
-    return preset('networkError')
-  }, [preset])
-
   // File upload and validation convenience functions
   const fileValidationError = useCallback(
     (error?: string) => {
@@ -174,25 +134,6 @@ export const useNotifications = () => {
     [preset]
   )
 
-  // Conversation operations convenience functions
-  const conversationRenamed = useCallback(() => {
-    return preset('conversationRenamed')
-  }, [preset])
-
-  const conversationRenameFailed = useCallback(
-    (error?: string) => {
-      return preset(
-        'conversationRenameFailed',
-        error
-          ? {
-              description: error
-            }
-          : {}
-      )
-    },
-    [preset]
-  )
-
   const conversationDeleted = useCallback(() => {
     return preset('conversationDeleted')
   }, [preset])
@@ -211,13 +152,6 @@ export const useNotifications = () => {
     [preset]
   )
 
-  // Message edit operations convenience functions
-
-  // Close all toasts
-  const closeAll = useCallback(() => {
-    toast.closeAll()
-  }, [toast])
-
   return {
     // Generic functions
     notify,
@@ -228,21 +162,10 @@ export const useNotifications = () => {
     preset,
 
     // Convenience functions
-    messageCopied,
-    messageRegenerated,
-    messageError,
-    aiGenerating,
-    aiError,
-    networkError,
     fileValidationError,
     filesProcessed,
     fileProcessingFailed,
-    conversationRenamed,
-    conversationRenameFailed,
     conversationDeleted,
-    conversationDeleteFailed,
-
-    // Utility functions
-    closeAll
+    conversationDeleteFailed
   }
 }

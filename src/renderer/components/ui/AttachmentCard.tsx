@@ -3,15 +3,16 @@ import { Box, HStack, Text, IconButton, useColorModeValue, Icon } from '@chakra-
 import type { BoxProps } from '@chakra-ui/react'
 import { HiXMark, HiPaperClip, HiDocument, HiDocumentText, HiPhoto } from 'react-icons/hi2'
 import type { MessageContentPart } from '@shared/types/message'
+import { formatFileSize } from '@shared/utils/validation'
 
-export interface MessageFileLike {
+interface MessageFileLike {
   filename: string
   size: number
   mimeType: string
   url?: string
 }
 
-export interface AttachmentCardProps {
+interface AttachmentCardProps {
   /** File to preview (when uploading) */
   file?: File
   /** Message-based file data (when rendering from a saved message) */
@@ -22,15 +23,6 @@ export interface AttachmentCardProps {
   variant?: 'default' | 'compact'
   /** Additional CSS classes */
   className?: string
-}
-
-// Utility functions
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i]
 }
 
 const getFileIcon = (mimeType: string, filename: string) => {
@@ -58,7 +50,7 @@ const useFileCardTheme = () => ({
  * - Unified design for all file types (text, PDF, office, images)
  * - Compact and default variants
  */
-export const AttachmentCard: React.FC<AttachmentCardProps> = ({
+const AttachmentCard: React.FC<AttachmentCardProps> = ({
   file,
   messageFile,
   onRemove,
@@ -190,7 +182,7 @@ export const toMessageFileLikeFromMessagePart = (
  * Unified horizontally scrollable list wrapper for AttachmentCard items
  * Ensures consistent spacing and scrollbar styling across the app.
  */
-export interface AttachmentCardListProps
+interface AttachmentCardListProps
   extends Pick<BoxProps, 'alignSelf' | 'maxW' | 'mb' | 'className'> {
   children: React.ReactNode
   spacing?: number

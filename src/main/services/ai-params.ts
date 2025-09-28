@@ -1,6 +1,6 @@
 import { smoothStream } from 'ai'
 
-export function buildProviderOptions(config: any, includeReasoningOptions: boolean) {
+function buildProviderOptions(config: any, includeReasoningOptions: boolean) {
   const providerOptions: Record<string, any> = {}
   if (includeReasoningOptions && config.reasoningEffort !== undefined) {
     providerOptions.openai = { reasoningEffort: config.reasoningEffort }

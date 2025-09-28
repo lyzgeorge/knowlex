@@ -1,5 +1,10 @@
 export const FILE_CONSTRAINTS = {
-  maxFileSize: 10 * 1024 * 1024 // 10MB
+  /** Maximum size for a single attachment (10MB) */
+  maxFileSize: 10 * 1024 * 1024,
+  /** Maximum combined size for a batch of attachments (100MB) */
+  maxTotalSize: 100 * 1024 * 1024,
+  /** Maximum number of files processed in a single batch */
+  maxFilesPerBatch: 10
 } as const
 
 export const SUPPORTED_FILE_TYPES = [
@@ -46,3 +51,6 @@ export const SUPPORTED_FILE_TYPES = [
   '.swift',
   '.kt'
 ] as const
+
+export const getFileAcceptString = (): string =>
+  (SUPPORTED_FILE_TYPES as readonly string[]).join(',')

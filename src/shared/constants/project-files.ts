@@ -24,14 +24,3 @@ export const PROJECT_FILE_EVENTS = {
   updated: 'projectFile:updated',
   deleted: 'projectFile:deleted'
 } as const
-
-export const PROJECT_FILE_CHANNELS = {
-  upload: 'projectFile:upload',
-  list: 'projectFile:list',
-  get: 'projectFile:get',
-  updateContent: 'projectFile:updateContent',
-  updateSmartNotes: 'projectFile:updateSmartNotes',
-  regenerateSmartNotes: 'projectFile:regenerateSmartNotes',
-  delete: 'projectFile:delete',
-  open: 'projectFile:open'
-} as const

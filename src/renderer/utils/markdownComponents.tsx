@@ -145,7 +145,7 @@ export const markdownComponents: Components = {
   )
 }
 
-export interface MarkdownContentProps {
+interface MarkdownContentProps {
   /** Text content to render */
   text: string
 }
@@ -166,5 +166,3 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({ text }) => (
 )
 
 MarkdownContent.displayName = 'MarkdownContent'
-
-export default markdownComponents

@@ -45,6 +45,7 @@ pnpm run build
 pnpm run lint   # ESLint with auto-fix
 pnpm run format # Prettier formatting
 pnpm run typecheck # TypeScript type checking
+pnpm gen:feature feature-name # Scaffold renderer feature/store/hook skeleton
 ```
 
 ### 2.2. Path Aliases
@@ -88,21 +89,34 @@ The codebase is organized into three primary directories within `src/`:
 
 ```
 src/
-├── main/       # Main Process (Node.js + Electron)
-│   ├── database/ # SQLite layer (schemas, queries, migrations)
-│   ├── ipc/      # IPC handlers for renderer communication
-│   └── services/ # Core business logic (AI, files, projects)
+├── main/          # Electron main process
+│   ├── domain/    # Pure business contracts (ports / use-case interfaces)
+│   ├── services/  # Application services (adapters) orchestrating domain + infra
+│   ├── infra/     # Database, AI, file adapters + low-level utilities
+│   │   ├── ai/
+│   │   ├── database/   # entity.ts, queries.ts, migrations.ts
+│   │   ├── parsers/
+│   │   └── utils/
+│   ├── ipc/       # IPC handlers (validation + service delegation only)
+│   ├── main.ts
+│   └── menu.ts / window.ts
 │
-├── renderer/   # Renderer Process (React UI)
-│   ├── components/ # React components
-│   ├── hooks/      # Custom React hooks (including message editing, branching)
-│   ├── pages/      # Top-level page components
-│   └── stores/     # Zustand state management stores
+├── renderer/      # React renderer process
+│   ├── features/  # Domain-oriented UI modules (chat, projects, models, settings…)
+│   ├── stores/    # Zustand stores by domain slice
+│   ├── hooks/     # Reusable UI/business hooks
+│   ├── components/
+│   │   ├── layout/ # Structural components (shell, sidebar…)
+│   │   └── ui/     # Atomics (button, modal, notification…)
+│   ├── lib/
+│   └── utils/
 │
-└── shared/     # Shared Code (Types, Constants, Utils)
-    ├── types/      # Shared type definitions (IPC, data models)
-    ├── i18n/       # Internationalization config and locales
-    └── utils/      # Shared utilities including message branching
+└── shared/        # Cross-layer single source of truth
+    ├── constants/ # e.g. notifications.ts, file constraints, IPC channel names
+    ├── schemas/   # Zod schemas mirrored across processes
+    ├── types/     # Shared TypeScript types (IPC DTOs, entities)
+    ├── utils/     # Cross-cutting helpers (validation, ids, model resolution)
+    └── i18n/      # Locale bundles and initialization
 ```
 
 ### 3.2. Technology Stack
@@ -121,6 +135,18 @@ src/
 | **Build Tool**       | Vite (via `electron-vite`)           | Fast development and build process          |
 | **Testing**          | Vitest, React Testing Library        | Unit, integration, and component testing    |
 
+### 3.3. Ports & Adapters in Practice
+
+Knowlex follows a slim hexagonal structure inside the `main/` process:
+
+1. `@main/domain/conversation` declares the use-case contract (`ConversationUseCases`).
+2. `@main/services/conversation` implements that contract, orchestrating repositories and secondary ports.
+3. `@main/infra/database/queries` and `@main/infra/ai/*` provide the concrete adapters consumed by services.
+4. IPC handlers (e.g. `@main/ipc/conversation-ipc`) validate DTOs and invoke the service interface.
+5. Renderer stores/hooks consume the IPC layer, keeping UI modules isolated from infrastructure concerns.
+
+This layering keeps business logic testable without Electron, while still allowing adapters (AI provider, DB, file parsers) to be swapped behind shared contracts.
+
 ## 4. Key Architectural Patterns
 
 ### 4.1. IPC Communication
@@ -138,10 +164,10 @@ All inter-process communication follows a standardized, type-safe pattern to ens
 
 The database architecture is designed for maintainability and directness, avoiding complex ORMs.
 
-- **Generic Entity Class**: A `DatabaseEntity` class in `@main/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`) with automatic timestamp management.
+- **Generic Entity Class**: A `DatabaseEntity` class in `@main/infra/database/entity.ts` provides generic CRUD operations (`create`, `get`, `list`, `update`, `delete`) with automatic timestamp management.
 - **Field Mapping System**: Uses `createFieldMapping` for property-to-column translation with automatic JSON serialization and camelCase to snake_case conversion.
-- **Schemas**: Entity schemas in `@main/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields like message content.
-- **Queries**: Optimized, raw SQL queries are centralized in `@main/database/queries.ts`. Services use these query functions rather than accessing the `DatabaseEntity` directly.
+- **Schemas**: Entity schemas in `@main/infra/database/schemas.ts` define the mapping between application models and database tables, including JSON serialization for complex fields like message content.
+- **Queries**: Optimized SQL helpers live in `@main/infra/database/queries.ts`. Services use these query functions rather than accessing the `DatabaseEntity` directly.
 - **Migrations**: Simplified "consolidated" unidirectional upgrades with versioned SQL migration files tracked in `schema_version` table. Early FTS/Search and file chunking/vector tables removed for streamlined approach.
 - **Transactions**: Atomic multi-query operations via `executeTransaction` with automatic rollback on failure.
 - **Connection Management**: Uses `@libsql/client` with connection pooling, timeout handling, and graceful shutdown via `closeDB()`.
@@ -226,7 +252,7 @@ The codebase is organized into three primary layers:
 
 Key directories:
 - `@main/services/`: Core business logic (AI, files, projects, conversations)
-- `@main/database/`: SQLite layer with migrations and ORM-like entity system
+- `@main/infra/database/`: SQLite layer with migrations and ORM-like entity system
 - `@main/ipc/`: Type-safe IPC handlers for renderer communication
 - `@renderer/stores/`: Zustand state management with persistence
 - `@renderer/hooks/`: Custom React hooks for complex UI logic

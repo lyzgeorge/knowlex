@@ -63,7 +63,7 @@ export async function generateTitleForConversation(conversationId: string): Prom
     }
 
     // Resolve model context: prefer conversation's model, else user default
-    const { getConversation } = await import('@main/services/conversation-service')
+    const { getConversation } = await import('@main/services/conversation')
     const conversation = await getConversation(conversationId)
     const conversationModelId = conversation?.modelConfigId || undefined
 
@@ -71,7 +71,7 @@ export async function generateTitleForConversation(conversationId: string): Prom
     const userDefaultModelId = (await modelConfigService.getDefaultModelId()) || undefined
 
     // Create title generation prompt
-    const { streamAIResponse } = await import('@main/services/openai-adapter')
+    const { streamAIResponse } = await import('@main/infra/ai/openai-adapter')
     const titleMessages: Message[] = [
       {
         id: `title-gen-${Date.now()}-0`,
@@ -135,9 +135,7 @@ export async function generateTitleForConversation(conversationId: string): Prom
  */
 export async function attemptInitialTitleGeneration(conversationId: string): Promise<void> {
   try {
-    const { getConversation, updateConversation } = await import(
-      '@main/services/conversation-service'
-    )
+    const { getConversation, updateConversation } = await import('@main/services/conversation')
     const conversation = await getConversation(conversationId)
     if (!conversation) return
     if (!isPlaceholderTitle(conversation.title)) return // Already set by user or previous auto gen
@@ -154,7 +152,9 @@ export async function attemptInitialTitleGeneration(conversationId: string): Pro
     if (!title || isPlaceholderTitle(title) || title === 'New Chat') return
 
     await updateConversation(conversationId, { title })
-    const { sendConversationEvent, CONVERSATION_EVENTS } = await import('@main/utils/ipc-events')
+    const { sendConversationEvent, CONVERSATION_EVENTS } = await import(
+      '@main/infra/utils/ipc-events'
+    )
     sendConversationEvent(CONVERSATION_EVENTS.TITLE_GENERATED, { conversationId, title })
     console.log(`[TITLE] Auto-generated initial title for ${conversationId}: "${title}"`)
   } catch (err) {

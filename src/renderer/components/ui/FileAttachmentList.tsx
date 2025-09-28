@@ -1,7 +1,7 @@
 import React from 'react'
 import { AttachmentCard, AttachmentCardList } from '@renderer/components/ui'
 
-export interface AttachmentListItem {
+interface AttachmentListItem {
   id: string
   // When present, rendered as uploading file
   file?: File
@@ -11,7 +11,7 @@ export interface AttachmentListItem {
   mimeType: string
 }
 
-export interface FileAttachmentListProps {
+interface FileAttachmentListProps {
   items: AttachmentListItem[]
   onRemove: (id: string) => void
   // Optional layout props passed to AttachmentCardList
@@ -23,7 +23,7 @@ export interface FileAttachmentListProps {
   spacing?: number
 }
 
-export const FileAttachmentList: React.FC<FileAttachmentListProps> = ({
+const FileAttachmentList: React.FC<FileAttachmentListProps> = ({
   items,
   onRemove,
   alignSelf,

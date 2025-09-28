@@ -132,5 +132,3 @@ export const useMessageBranching = (messages: Message[]): MessageBranchingResult
 
   return { filteredMessages, branchStates, setBranchIndex, getBranchInfo }
 }
-
-export default useMessageBranching

@@ -1,7 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef } from 'react'
 import { Textarea, type TextareaProps } from '@chakra-ui/react'
 
-export interface AutoResizeTextareaProps extends Omit<TextareaProps, 'rows'> {
+interface AutoResizeTextareaProps extends Omit<TextareaProps, 'rows'> {
   /** Maximum visible rows before scrolling */
   maxRows?: number
 }

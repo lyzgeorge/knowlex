@@ -30,7 +30,9 @@
       "@shared/*": ["src/shared/*"],
       "@shared": ["src/shared"],
       "@main/*": ["src/main/*"],
-      "@preload/*": ["src/preload/*"]
+      "@main": ["src/main"],
+      "@preload/*": ["src/preload/*"],
+      "@preload": ["src/preload"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

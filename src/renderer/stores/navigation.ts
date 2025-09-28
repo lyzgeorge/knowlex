@@ -7,9 +7,9 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { useConversationStore } from './conversation'
 
-export type MainView = 'home' | 'project' | 'conversation'
+type MainView = 'home' | 'project' | 'conversation'
 
-export interface NavigationState {
+interface NavigationState {
   // Current view state
   currentView: MainView
 
@@ -54,7 +54,7 @@ const initialState = {
   navigationHistory: []
 }
 
-export const useNavigationStore = create<NavigationState>()(
+const useNavigationStore = create<NavigationState>()(
   immer((set, get) => {
     // Internal helper to push a history entry and enforce limits
     const _pushHistory = (state: any, shouldPush: boolean) => {
@@ -209,5 +209,3 @@ export const useNavigationActions = () => {
     openModelsSettings: () => openSettings(1) // Models tab is second tab
   }
 }
-
-export default useNavigationStore

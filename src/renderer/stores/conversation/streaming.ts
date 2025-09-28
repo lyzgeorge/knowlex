@@ -109,11 +109,3 @@ export function applyTextChunkToDraft(message: any, combinedChunk: string) {
 export function applyReasoningChunkToDraft(message: any, combinedChunk: string) {
   message.reasoning = (message.reasoning || '') + combinedChunk
 }
-
-export default {
-  createChunkBuffer,
-  textChunkCombiner,
-  replaceChunkCombiner,
-  applyTextChunkToDraft,
-  applyReasoningChunkToDraft
-}

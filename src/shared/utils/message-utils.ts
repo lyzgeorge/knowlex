@@ -6,7 +6,7 @@
  */
 
 import type { Message, MessageContent, MessageContentPart } from '@shared/types/message'
-import { fromUserInput as buildFromUserInput } from '@shared/message/content-builder'
+import { fromUserInput as buildFromUserInput } from '@shared/utils/message/content-builder'
 
 /**
  * Gets the last assistant message from a list of messages
@@ -24,7 +24,7 @@ export const getLastAssistantMessage = (messages: Message[]): Message | undefine
 /**
  * File-like object for building message content
  */
-export interface MessageFileInput {
+interface MessageFileInput {
   filename: string
   content: string
   size: number
@@ -107,7 +107,7 @@ export const copyMessageText = async (
 /**
  * Partitioned content parts for efficient access
  */
-export interface PartitionedContent {
+interface PartitionedContent {
   textParts: MessageContentPart[]
   fileParts: MessageContentPart[]
   textContent: string
@@ -131,18 +131,4 @@ export const partitionContent = (content: MessageContent): PartitionedContent =>
   const textContent = textParts.map((part) => part.text || '').join('\n')
 
   return { textParts, fileParts, textContent }
-}
-
-/**
- * Gets file and image parts from message content
- */
-export const getFileParts = (content: MessageContent): MessageContentPart[] => {
-  return content.filter((part) => part.type === 'attachment' || part.type === 'image')
-}
-
-/**
- * Gets text parts from message content
- */
-export const getTextParts = (content: MessageContent): MessageContentPart[] => {
-  return content.filter((part) => part.type === 'text')
 }

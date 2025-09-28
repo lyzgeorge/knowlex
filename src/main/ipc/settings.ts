@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { settingsService } from '@main/services/settings'
 import { getErrorMessage } from '@shared/utils/error-handling'
+import { SETTINGS_CHANNELS } from '@shared/constants/ipc-channels'
 
 /**
  * Settings IPC handlers
@@ -12,7 +13,7 @@ export function registerSettingsIPCHandlers() {
   console.log('Registering settings IPC handlers...')
 
   // Get settings
-  ipcMain.handle('settings:get', async () => {
+  ipcMain.handle(SETTINGS_CHANNELS.get, async () => {
     try {
       const settings = settingsService.getSettings()
       return {
@@ -30,7 +31,7 @@ export function registerSettingsIPCHandlers() {
 
   // Update settings
   ipcMain.handle(
-    'settings:update',
+    SETTINGS_CHANNELS.update,
     async (_, updates: Partial<import('@main/services/settings').AppSettings>) => {
       try {
         settingsService.updateSettings(updates)
@@ -53,7 +54,7 @@ export function registerSettingsIPCHandlers() {
 
 export function unregisterSettingsIPCHandlers() {
   console.log('Unregistering settings IPC handlers...')
-  ipcMain.removeHandler('settings:get')
-  ipcMain.removeHandler('settings:update')
+  ipcMain.removeHandler(SETTINGS_CHANNELS.get)
+  ipcMain.removeHandler(SETTINGS_CHANNELS.update)
   console.log('Settings IPC handlers unregistered successfully')
 }

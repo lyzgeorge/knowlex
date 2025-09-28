@@ -28,13 +28,13 @@ export interface IModelConfigService {
 
 class ModelConfigService implements IModelConfigService {
   async list(): Promise<ModelConfig[]> {
-    const { listModelConfigs } = await import('@main/database/queries')
+    const { listModelConfigs } = await import('@main/infra/database/queries')
     return await listModelConfigs()
   }
 
   async get(id: string): Promise<ModelConfig | null> {
     if (!id?.trim()) throw new Error('Model config ID is required')
-    const { getModelConfig } = await import('@main/database/queries')
+    const { getModelConfig } = await import('@main/infra/database/queries')
     return await getModelConfig(id.trim())
   }
 
@@ -73,7 +73,7 @@ class ModelConfigService implements IModelConfigService {
       updatedAt: now
     }
 
-    const { createModelConfig } = await import('@main/database/queries')
+    const { createModelConfig } = await import('@main/infra/database/queries')
     await createModelConfig(modelConfig)
     return modelConfig
   }
@@ -107,30 +107,18 @@ class ModelConfigService implements IModelConfigService {
 
     const updateData: Partial<ModelConfig> = {}
 
-    if (validatedUpdates.name !== undefined) updateData.name = validatedUpdates.name
-    if (validatedUpdates.apiEndpoint !== undefined)
-      updateData.apiEndpoint = validatedUpdates.apiEndpoint
-    if (validatedUpdates.apiKey !== undefined) updateData.apiKey = validatedUpdates.apiKey || null
-    if (validatedUpdates.modelId !== undefined) updateData.modelId = validatedUpdates.modelId
-    if (validatedUpdates.temperature !== undefined)
-      updateData.temperature = validatedUpdates.temperature
-    if (validatedUpdates.topP !== undefined) updateData.topP = validatedUpdates.topP
-    if (validatedUpdates.frequencyPenalty !== undefined)
-      updateData.frequencyPenalty = validatedUpdates.frequencyPenalty
-    if (validatedUpdates.presencePenalty !== undefined)
-      updateData.presencePenalty = validatedUpdates.presencePenalty
-    if (validatedUpdates.supportsReasoning !== undefined)
-      updateData.supportsReasoning = validatedUpdates.supportsReasoning
-    if (validatedUpdates.supportsVision !== undefined)
-      updateData.supportsVision = validatedUpdates.supportsVision
-    if (validatedUpdates.supportsToolUse !== undefined)
-      updateData.supportsToolUse = validatedUpdates.supportsToolUse
-    if (validatedUpdates.supportsWebSearch !== undefined)
-      updateData.supportsWebSearch = validatedUpdates.supportsWebSearch
-    if (validatedUpdates.maxInputTokens !== undefined)
-      updateData.maxInputTokens = validatedUpdates.maxInputTokens
+    Object.entries(validatedUpdates).forEach(([key, value]) => {
+      if (value === undefined) return
 
-    const { updateModelConfig } = await import('@main/database/queries')
+      if (key === 'apiKey') {
+        updateData.apiKey = (value as string) || null
+        return
+      }
+
+      ;(updateData as Record<string, unknown>)[key] = value
+    })
+
+    const { updateModelConfig } = await import('@main/infra/database/queries')
     await updateModelConfig(id, updateData)
 
     const updated = await this.get(id)
@@ -152,7 +140,7 @@ class ModelConfigService implements IModelConfigService {
       affectedConversations
     })
 
-    const { deleteModelConfig } = await import('@main/database/queries')
+    const { deleteModelConfig } = await import('@main/infra/database/queries')
     await deleteModelConfig(id)
   }
 
@@ -255,14 +243,8 @@ class ModelConfigService implements IModelConfigService {
       }
 
       // Count conversations using this model (they will be reset by foreign key ON DELETE SET NULL)
-      const { executeQuery } = await import('@main/database')
-      const conversationsResult = await executeQuery(
-        'SELECT COUNT(*) as count FROM conversations WHERE model_config_id = ?',
-        [deletedModelId]
-      )
-
-      const countRow = conversationsResult.rows[0] as { count: number } | undefined
-      affectedConversations = countRow?.count || 0
+      const { countConversationsByModelConfig } = await import('@main/infra/database/queries')
+      affectedConversations = await countConversationsByModelConfig(deletedModelId)
 
       if (affectedConversations > 0) {
         console.log(`${affectedConversations} conversations will have model reset due to deletion`)
