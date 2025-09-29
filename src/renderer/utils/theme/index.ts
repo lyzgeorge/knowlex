@@ -38,7 +38,22 @@ const themeOverrides: ThemeOverride = {
         fontFamily: 'body'
       },
       '*': {
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        // Global scrollbar styles
+        '&::-webkit-scrollbar': {
+          width: '6px',
+          height: '4px'
+        },
+        '&::-webkit-scrollbar-track': {
+          bg: 'transparent'
+        },
+        '&::-webkit-scrollbar-thumb': {
+          bg: 'gray.300',
+          borderRadius: '4px'
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+          bg: 'gray.400'
+        }
       },
       '#root': {
         height: '100vh',

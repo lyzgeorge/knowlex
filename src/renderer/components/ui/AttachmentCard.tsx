@@ -180,7 +180,7 @@ export const toMessageFileLikeFromMessagePart = (
 
 /**
  * Unified horizontally scrollable list wrapper for AttachmentCard items
- * Ensures consistent spacing and scrollbar styling across the app.
+ * Ensures consistent spacing across the app.
  */
 interface AttachmentCardListProps
   extends Pick<BoxProps, 'alignSelf' | 'maxW' | 'mb' | 'className'> {
@@ -205,24 +205,7 @@ export const AttachmentCardList: React.FC<AttachmentCardListProps> = ({
 
   return (
     <Box {...boxProps}>
-      <HStack
-        spacing={spacing}
-        overflowX="auto"
-        maxW="100%"
-        pb={1}
-        sx={{
-          '&::-webkit-scrollbar': {
-            height: '4px'
-          },
-          '&::-webkit-scrollbar-track': {
-            bg: 'transparent'
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bg: 'gray.300',
-            borderRadius: '2px'
-          }
-        }}
-      >
+      <HStack spacing={spacing} overflowX="auto" maxW="100%" pb={1}>
         {children}
       </HStack>
     </Box>
